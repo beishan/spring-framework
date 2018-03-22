@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,6 @@
  */
 
 package org.springframework.web.socket.sockjs.transport.handler;
-
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,11 +40,15 @@ import org.springframework.web.socket.sockjs.transport.TransportType;
 import org.springframework.web.socket.sockjs.transport.session.StubSockJsServiceConfig;
 import org.springframework.web.socket.sockjs.transport.session.TestSockJsSession;
 
+import static org.junit.Assert.*;
+import static org.mockito.BDDMockito.*;
+
 /**
- * Test fixture for {@link org.springframework.web.socket.sockjs.transport.handler.DefaultSockJsService}.
+ * Test fixture for {@link DefaultSockJsService}.
  *
  * @author Rossen Stoyanchev
  * @author Sebastien Deleuze
+ * @author Ben Kiefer
  */
 public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 
@@ -79,7 +80,7 @@ public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 
 	@Before
 	public void setup() {
-		super.setUp();
+		super.setup();
 		MockitoAnnotations.initMocks(this);
 
 		Map<String, Object> attributes = Collections.emptyMap();
@@ -95,6 +96,7 @@ public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 
 		this.service = new TransportHandlingSockJsService(this.taskScheduler, this.xhrHandler, this.xhrSendHandler);
 	}
+
 
 	@Test
 	public void defaultTransportHandlers() {
@@ -174,6 +176,30 @@ public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 		assertEquals(403, this.servletResponse.getStatus());
 	}
 
+	@Test  // SPR-13464
+	public void handleTransportRequestXhrSameOrigin() throws Exception {
+		String sockJsPath = sessionUrlPrefix + "xhr";
+		setRequest("POST", sockJsPrefix + sockJsPath);
+		this.service.setAllowedOrigins(Arrays.asList("http://mydomain1.com"));
+		this.servletRequest.addHeader(HttpHeaders.ORIGIN, "http://mydomain2.com");
+		this.servletRequest.setServerName("mydomain2.com");
+		this.service.handleRequest(this.request, this.response, sockJsPath, this.wsHandler);
+
+		assertEquals(200, this.servletResponse.getStatus());
+	}
+
+	@Test  // SPR-13545
+	public void handleInvalidTransportType() throws Exception {
+		String sockJsPath = sessionUrlPrefix + "invalid";
+		setRequest("POST", sockJsPrefix + sockJsPath);
+		this.service.setAllowedOrigins(Arrays.asList("http://mydomain1.com"));
+		this.servletRequest.addHeader(HttpHeaders.ORIGIN, "http://mydomain2.com");
+		this.servletRequest.setServerName("mydomain2.com");
+		this.service.handleRequest(this.request, this.response, sockJsPath, this.wsHandler);
+
+		assertEquals(404, this.servletResponse.getStatus());
+	}
+
 	@Test
 	public void handleTransportRequestXhrOptions() throws Exception {
 		String sockJsPath = sessionUrlPrefix + "xhr";
@@ -214,6 +240,7 @@ public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 		resetResponse();
 		sockJsPath = sessionUrlPrefix + "xhr_send";
 		setRequest("POST", sockJsPrefix + sockJsPath);
+		given(this.xhrSendHandler.checkSessionType(this.session)).willReturn(true);
 		this.service.handleRequest(this.request, this.response, sockJsPath, this.wsHandler);
 
 		assertEquals(200, this.servletResponse.getStatus()); // session exists
@@ -244,7 +271,8 @@ public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 
 	@Test
 	 public void handleTransportRequestJsonp() throws Exception {
-		TransportHandlingSockJsService jsonpService = new TransportHandlingSockJsService(this.taskScheduler, this.jsonpHandler, this.jsonpSendHandler);
+		TransportHandlingSockJsService jsonpService = new TransportHandlingSockJsService(
+				this.taskScheduler, this.jsonpHandler, this.jsonpSendHandler);
 		String sockJsPath = sessionUrlPrefix+ "jsonp";
 		setRequest("GET", sockJsPrefix + sockJsPath);
 		jsonpService.handleRequest(this.request, this.response, sockJsPath, this.wsHandler);
@@ -265,7 +293,8 @@ public class DefaultSockJsServiceTests extends AbstractHttpRequestTests {
 
 	@Test
 	public void handleTransportRequestWebsocket() throws Exception {
-		TransportHandlingSockJsService wsService = new TransportHandlingSockJsService(this.taskScheduler, this.wsTransportHandler);
+		TransportHandlingSockJsService wsService = new TransportHandlingSockJsService(
+				this.taskScheduler, this.wsTransportHandler);
 		String sockJsPath = "/websocket";
 		setRequest("GET", sockJsPrefix + sockJsPath);
 		wsService.handleRequest(this.request, this.response, sockJsPath, this.wsHandler);

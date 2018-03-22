@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import org.hamcrest.Matchers;
-import org.junit.Before;
 import org.junit.Test;
 
 import org.springframework.beans.DirectFieldAccessor;
@@ -33,6 +33,7 @@ import org.springframework.beans.factory.config.CustomScopeConfigurer;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.converter.ByteArrayMessageConverter;
@@ -61,6 +62,8 @@ import org.springframework.mock.web.test.MockServletContext;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.validation.Errors;
+import org.springframework.validation.Validator;
 import org.springframework.web.HttpRequestHandler;
 import org.springframework.web.context.support.GenericWebApplicationContext;
 import org.springframework.web.servlet.HandlerMapping;
@@ -86,16 +89,8 @@ import org.springframework.web.socket.sockjs.transport.TransportType;
 import org.springframework.web.socket.sockjs.transport.handler.DefaultSockJsService;
 import org.springframework.web.socket.sockjs.transport.handler.WebSocketTransportHandler;
 
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 /**
  * Test fixture for MessageBrokerBeanDefinitionParser.
@@ -107,13 +102,7 @@ import static org.junit.Assert.fail;
  */
 public class MessageBrokerBeanDefinitionParserTests {
 
-	private GenericWebApplicationContext appContext;
-
-
-	@Before
-	public void setup() {
-		this.appContext = new GenericWebApplicationContext();
-	}
+	private final GenericWebApplicationContext appContext = new GenericWebApplicationContext();
 
 
 	@Test
@@ -186,13 +175,15 @@ public class MessageBrokerBeanDefinitionParserTests {
 		assertFalse(defaultSockJsService.shouldSuppressCors());
 
 		ThreadPoolTaskScheduler scheduler = (ThreadPoolTaskScheduler) defaultSockJsService.getTaskScheduler();
-		assertEquals(Runtime.getRuntime().availableProcessors(), scheduler.getScheduledThreadPoolExecutor().getCorePoolSize());
-		assertTrue(scheduler.getScheduledThreadPoolExecutor().getRemoveOnCancelPolicy());
+		ScheduledThreadPoolExecutor executor = scheduler.getScheduledThreadPoolExecutor();
+		assertEquals(Runtime.getRuntime().availableProcessors(), executor.getCorePoolSize());
+		assertTrue(executor.getRemoveOnCancelPolicy());
 
 		interceptors = defaultSockJsService.getHandshakeInterceptors();
 		assertThat(interceptors, contains(instanceOf(FooTestInterceptor.class),
 				instanceOf(BarTestInterceptor.class), instanceOf(OriginHandshakeInterceptor.class)));
-		assertEquals(Arrays.asList("http://mydomain3.com", "http://mydomain4.com"), defaultSockJsService.getAllowedOrigins());
+		assertTrue(defaultSockJsService.getAllowedOrigins().contains("http://mydomain3.com"));
+		assertTrue(defaultSockJsService.getAllowedOrigins().contains("http://mydomain4.com"));
 
 		SimpUserRegistry userRegistry = this.appContext.getBean(SimpUserRegistry.class);
 		assertNotNull(userRegistry);
@@ -210,7 +201,7 @@ public class MessageBrokerBeanDefinitionParserTests {
 		SimpleBrokerMessageHandler brokerMessageHandler = this.appContext.getBean(SimpleBrokerMessageHandler.class);
 		assertNotNull(brokerMessageHandler);
 		Collection<String> prefixes = brokerMessageHandler.getDestinationPrefixes();
-		assertEquals(Arrays.asList("/topic", "/queue"), new ArrayList<String>(prefixes));
+		assertEquals(Arrays.asList("/topic", "/queue"), new ArrayList<>(prefixes));
 		assertNotNull(brokerMessageHandler.getTaskScheduler());
 		assertArrayEquals(new long[] {15000, 15000}, brokerMessageHandler.getHeartbeatValue());
 
@@ -237,8 +228,9 @@ public class MessageBrokerBeanDefinitionParserTests {
 
 		assertNotNull(this.appContext.getBean("webSocketScopeConfigurer", CustomScopeConfigurer.class));
 
-		DirectFieldAccessor subscriptionRegistryAccessor = new DirectFieldAccessor(brokerMessageHandler.getSubscriptionRegistry());
-		String pathSeparator = (String)new DirectFieldAccessor(subscriptionRegistryAccessor.getPropertyValue("pathMatcher")).getPropertyValue("pathSeparator");
+		DirectFieldAccessor accessor = new DirectFieldAccessor(brokerMessageHandler.getSubscriptionRegistry());
+		Object pathMatcher = accessor.getPropertyValue("pathMatcher");
+		String pathSeparator = (String) new DirectFieldAccessor(pathMatcher).getPropertyValue("pathSeparator");
 		assertEquals(".", pathSeparator);
 	}
 
@@ -325,10 +317,14 @@ public class MessageBrokerBeanDefinitionParserTests {
 		String expected = "WebSocketSession\\[0 current WS\\(0\\)-HttpStream\\(0\\)-HttpPoll\\(0\\), " +
 				"0 total, 0 closed abnormally \\(0 connect failure, 0 send limit, 0 transport error\\)\\], " +
 				"stompSubProtocol\\[processed CONNECT\\(0\\)-CONNECTED\\(0\\)-DISCONNECT\\(0\\)\\], " +
-				"stompBrokerRelay\\[0 sessions, relayhost:1234 \\(not available\\), processed CONNECT\\(0\\)-CONNECTED\\(0\\)-DISCONNECT\\(0\\)\\], " +
-				"inboundChannel\\[pool size = \\d, active threads = \\d, queued tasks = \\d, completed tasks = \\d\\], " +
-				"outboundChannelpool size = \\d, active threads = \\d, queued tasks = \\d, completed tasks = \\d\\], " +
-				"sockJsScheduler\\[pool size = \\d, active threads = \\d, queued tasks = \\d, completed tasks = \\d\\]";
+				"stompBrokerRelay\\[0 sessions, relayhost:1234 \\(not available\\), " +
+				"processed CONNECT\\(0\\)-CONNECTED\\(0\\)-DISCONNECT\\(0\\)\\], " +
+				"inboundChannel\\[pool size = \\d, active threads = \\d, queued tasks = \\d, " +
+				"completed tasks = \\d\\], " +
+				"outboundChannelpool size = \\d, active threads = \\d, queued tasks = \\d, " +
+				"completed tasks = \\d\\], " +
+				"sockJsScheduler\\[pool size = \\d, active threads = \\d, queued tasks = \\d, " +
+				"completed tasks = \\d\\]";
 
 		assertTrue("\nExpected: " + expected.replace("\\", "") + "\n  Actual: " + actual, actual.matches(expected));
 	}
@@ -345,10 +341,12 @@ public class MessageBrokerBeanDefinitionParserTests {
 		assertNotNull(messageConverter);
 		assertTrue(messageConverter instanceof CompositeMessageConverter);
 
-		CompositeMessageConverter compositeMessageConverter = this.appContext.getBean(CompositeMessageConverter.class);
+		String name = MessageBrokerBeanDefinitionParser.MESSAGE_CONVERTER_BEAN_NAME;
+		CompositeMessageConverter compositeMessageConverter = this.appContext.getBean(name, CompositeMessageConverter.class);
 		assertNotNull(compositeMessageConverter);
 
-		SimpMessagingTemplate simpMessagingTemplate = this.appContext.getBean(SimpMessagingTemplate.class);
+		name = MessageBrokerBeanDefinitionParser.MESSAGING_TEMPLATE_BEAN_NAME;
+		SimpMessagingTemplate simpMessagingTemplate = this.appContext.getBean(name, SimpMessagingTemplate.class);
 		assertNotNull(simpMessagingTemplate);
 		assertEquals("/personal/", simpMessagingTemplate.getUserDestinationPrefix());
 
@@ -362,13 +360,22 @@ public class MessageBrokerBeanDefinitionParserTests {
 		assertEquals(MimeTypeUtils.APPLICATION_JSON, ((DefaultContentTypeResolver) resolver).getDefaultMimeType());
 
 		DirectFieldAccessor handlerAccessor = new DirectFieldAccessor(annotationMethodMessageHandler);
-		String pathSeparator = (String)new DirectFieldAccessor(handlerAccessor.getPropertyValue("pathMatcher")).getPropertyValue("pathSeparator");
+		Object pathMatcher = handlerAccessor.getPropertyValue("pathMatcher");
+		String pathSeparator = (String) new DirectFieldAccessor(pathMatcher).getPropertyValue("pathSeparator");
 		assertEquals(".", pathSeparator);
 	}
 
 	@Test
 	public void customChannels() {
 		loadBeanDefinitions("websocket-config-broker-customchannels.xml");
+
+		SimpAnnotationMethodMessageHandler annotationMethodMessageHandler =
+				this.appContext.getBean(SimpAnnotationMethodMessageHandler.class);
+
+		Validator validator = annotationMethodMessageHandler.getValidator();
+		assertNotNull(validator);
+		assertSame(this.appContext.getBean("myValidator"), validator);
+		assertThat(validator, Matchers.instanceOf(TestValidator.class));
 
 		List<Class<? extends MessageHandler>> subscriberTypes =
 				Arrays.<Class<? extends MessageHandler>>asList(SimpAnnotationMethodMessageHandler.class,
@@ -478,8 +485,8 @@ public class MessageBrokerBeanDefinitionParserTests {
 		return (handler instanceof WebSocketHandlerDecorator) ?
 				((WebSocketHandlerDecorator) handler).getLastHandler() : handler;
 	}
-
 }
+
 
 class CustomArgumentResolver implements HandlerMethodArgumentResolver {
 
@@ -494,6 +501,7 @@ class CustomArgumentResolver implements HandlerMethodArgumentResolver {
 	}
 }
 
+
 class CustomReturnValueHandler implements HandlerMethodReturnValueHandler {
 
 	@Override
@@ -507,6 +515,7 @@ class CustomReturnValueHandler implements HandlerMethodReturnValueHandler {
 	}
 }
 
+
 class TestWebSocketHandlerDecoratorFactory implements WebSocketHandlerDecoratorFactory {
 
 	@Override
@@ -514,6 +523,7 @@ class TestWebSocketHandlerDecoratorFactory implements WebSocketHandlerDecoratorF
 		return new TestWebSocketHandlerDecorator(handler);
 	}
 }
+
 
 class TestWebSocketHandlerDecorator extends WebSocketHandlerDecorator {
 
@@ -528,6 +538,16 @@ class TestWebSocketHandlerDecorator extends WebSocketHandlerDecorator {
 	}
 }
 
-class TestStompErrorHandler extends StompSubProtocolErrorHandler {
 
+class TestStompErrorHandler extends StompSubProtocolErrorHandler {
+}
+
+class TestValidator implements Validator {
+	@Override
+	public boolean supports(Class<?> clazz) {
+		return false;
+	}
+
+	@Override
+	public void validate(@Nullable Object target, Errors errors) { }
 }

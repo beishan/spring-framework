@@ -44,6 +44,7 @@ public class NashornScriptTemplateTests {
 
 	private ServletContext servletContext;
 
+
 	@Before
 	public void setup() {
 		this.webAppContext = mock(WebApplicationContext.class);
@@ -56,22 +57,33 @@ public class NashornScriptTemplateTests {
 		Map<String, Object> model = new HashMap<>();
 		model.put("title", "Layout example");
 		model.put("body", "This is the body");
-		MockHttpServletResponse response = renderViewWithModel("org/springframework/web/servlet/view/script/nashorn/template.html", model);
+		String url = "org/springframework/web/servlet/view/script/nashorn/template.html";
+		MockHttpServletResponse response = render(url, model, ScriptTemplatingConfiguration.class);
 		assertEquals("<html><head><title>Layout example</title></head><body><p>This is the body</p></body></html>",
 				response.getContentAsString());
 	}
 
-	private MockHttpServletResponse renderViewWithModel(String viewUrl, Map<String, Object> model) throws Exception {
-		ScriptTemplateView view = createViewWithUrl(viewUrl);
+	@Test  // SPR-13453
+	public void renderTemplateWithUrl() throws Exception {
+		String url = "org/springframework/web/servlet/view/script/nashorn/template.html";
+		MockHttpServletResponse response = render(url, null, ScriptTemplatingWithUrlConfiguration.class);
+		assertEquals("<html><head><title>Check url parameter</title></head><body><p>" + url + "</p></body></html>",
+				response.getContentAsString());
+	}
+
+	private MockHttpServletResponse render(String viewUrl, Map<String, Object> model,
+			Class<?> configuration) throws Exception {
+
+		ScriptTemplateView view = createViewWithUrl(viewUrl, configuration);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		view.renderMergedOutputModel(model, request, response);
 		return response;
 	}
 
-	private ScriptTemplateView createViewWithUrl(String viewUrl) throws Exception {
+	private ScriptTemplateView createViewWithUrl(String viewUrl, Class<?> configuration) throws Exception {
 		AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
-		ctx.register(ScriptTemplatingConfiguration.class);
+		ctx.register(configuration);
 		ctx.refresh();
 
 		ScriptTemplateView view = new ScriptTemplateView();
@@ -80,6 +92,7 @@ public class NashornScriptTemplateTests {
 		view.afterPropertiesSet();
 		return view;
 	}
+
 
 	@Configuration
 	static class ScriptTemplatingConfiguration {
@@ -90,6 +103,20 @@ public class NashornScriptTemplateTests {
 			configurer.setEngineName("nashorn");
 			configurer.setScripts("org/springframework/web/servlet/view/script/nashorn/render.js");
 			configurer.setRenderFunction("render");
+			return configurer;
+		}
+	}
+
+
+	@Configuration
+	static class ScriptTemplatingWithUrlConfiguration {
+
+		@Bean
+		public ScriptTemplateConfigurer nashornConfigurer() {
+			ScriptTemplateConfigurer configurer = new ScriptTemplateConfigurer();
+			configurer.setEngineName("nashorn");
+			configurer.setScripts("org/springframework/web/servlet/view/script/nashorn/render.js");
+			configurer.setRenderFunction("renderWithUrl");
 			return configurer;
 		}
 	}

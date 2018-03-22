@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.ser.FilterProvider;
 
 import org.springframework.http.converter.json.MappingJacksonValue;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.servlet.view.AbstractView;
 
@@ -38,7 +39,7 @@ import org.springframework.web.servlet.view.AbstractView;
  * Abstract base class for Jackson based and content type independent
  * {@link AbstractView} implementations.
  *
- * <p>Compatible with Jackson 2.1 and higher.
+ * <p>Compatible with Jackson 2.6 and higher, as of Spring 4.3.
  *
  * @author Jeremy Grelle
  * @author Arjen Poutsma
@@ -53,6 +54,7 @@ public abstract class AbstractJackson2View extends AbstractView {
 
 	private JsonEncoding encoding = JsonEncoding.UTF8;
 
+	@Nullable
 	private Boolean prettyPrint;
 
 	private boolean disableCaching = true;
@@ -61,7 +63,8 @@ public abstract class AbstractJackson2View extends AbstractView {
 
 
 	protected AbstractJackson2View(ObjectMapper objectMapper, String contentType) {
-		setObjectMapper(objectMapper);
+		this.objectMapper = objectMapper;
+		configurePrettyPrint();
 		setContentType(contentType);
 		setExposePathVariables(false);
 	}
@@ -74,7 +77,6 @@ public abstract class AbstractJackson2View extends AbstractView {
 	 * on the types to be serialized, in which case a custom-configured ObjectMapper is unnecessary.
 	 */
 	public void setObjectMapper(ObjectMapper objectMapper) {
-		Assert.notNull(objectMapper, "'objectMapper' must not be null");
 		this.objectMapper = objectMapper;
 		configurePrettyPrint();
 	}
@@ -123,12 +125,6 @@ public abstract class AbstractJackson2View extends AbstractView {
 	}
 
 	/**
-	 * Set the attribute in the model that should be rendered by this view.
-	 * When set, all other model attributes will be ignored.
-	 */
-	public abstract void setModelKey(String modelKey);
-
-	/**
 	 * Disables caching of the generated JSON.
 	 * <p>Default is {@code true}, which will prevent the client from caching the generated JSON.
 	 */
@@ -159,12 +155,22 @@ public abstract class AbstractJackson2View extends AbstractView {
 	protected void renderMergedOutputModel(Map<String, Object> model, HttpServletRequest request,
 			HttpServletResponse response) throws Exception {
 
-		OutputStream stream = (this.updateContentLength ? createTemporaryOutputStream() : response.getOutputStream());
-		Object value = filterAndWrapModel(model, request);
+		ByteArrayOutputStream temporaryStream = null;
+		OutputStream stream;
 
-		writeContent(stream, value);
 		if (this.updateContentLength) {
-			writeToResponse(response, (ByteArrayOutputStream) stream);
+			temporaryStream = createTemporaryOutputStream();
+			stream = temporaryStream;
+		}
+		else {
+			stream = response.getOutputStream();
+		}
+
+		Object value = filterAndWrapModel(model, request);
+		writeContent(stream, value);
+
+		if (temporaryStream != null) {
+			writeToResponse(response, temporaryStream);
 		}
 	}
 
@@ -180,20 +186,16 @@ public abstract class AbstractJackson2View extends AbstractView {
 		FilterProvider filters = (FilterProvider) model.get(FilterProvider.class.getName());
 		if (serializationView != null || filters != null) {
 			MappingJacksonValue container = new MappingJacksonValue(value);
-			container.setSerializationView(serializationView);
-			container.setFilters(filters);
+			if (serializationView != null) {
+				container.setSerializationView(serializationView);
+			}
+			if (filters != null) {
+				container.setFilters(filters);
+			}
 			value = container;
 		}
 		return value;
 	}
-
-	/**
-	 * Filter out undesired attributes from the given model.
-	 * The return value can be either another {@link Map} or a single value object.
-	 * @param model the model, as passed on to {@link #renderMergedOutputModel}
-	 * @return the value to be rendered
-	 */
-	protected abstract Object filterModel(Map<String, Object> model);
 
 	/**
 	 * Write the actual JSON content to the stream.
@@ -201,9 +203,7 @@ public abstract class AbstractJackson2View extends AbstractView {
 	 * @param object the value to be rendered, as returned from {@link #filterModel}
 	 * @throws IOException if writing failed
 	 */
-	protected void writeContent(OutputStream stream, Object object)
-			throws IOException {
-
+	protected void writeContent(OutputStream stream, Object object) throws IOException {
 		JsonGenerator generator = this.objectMapper.getFactory().createGenerator(stream, this.encoding);
 
 		writePrefix(generator, object);
@@ -230,13 +230,27 @@ public abstract class AbstractJackson2View extends AbstractView {
 		generator.flush();
 	}
 
+
+	/**
+	 * Set the attribute in the model that should be rendered by this view.
+	 * When set, all other model attributes will be ignored.
+	 */
+	public abstract void setModelKey(String modelKey);
+
+	/**
+	 * Filter out undesired attributes from the given model.
+	 * The return value can be either another {@link Map} or a single value object.
+	 * @param model the model, as passed on to {@link #renderMergedOutputModel}
+	 * @return the value to be rendered
+	 */
+	protected abstract Object filterModel(Map<String, Object> model);
+
 	/**
 	 * Write a prefix before the main content.
 	 * @param generator the generator to use for writing content.
 	 * @param object the object to write to the output message.
 	 */
 	protected void writePrefix(JsonGenerator generator, Object object) throws IOException {
-
 	}
 
 	/**
@@ -245,7 +259,6 @@ public abstract class AbstractJackson2View extends AbstractView {
 	 * @param object the object to write to the output message.
 	 */
 	protected void writeSuffix(JsonGenerator generator, Object object) throws IOException {
-
 	}
 
 }

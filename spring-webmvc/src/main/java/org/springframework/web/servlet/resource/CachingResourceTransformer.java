@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,12 +42,17 @@ public class CachingResourceTransformer implements ResourceTransformer {
 
 	private final Cache cache;
 
-	public CachingResourceTransformer(CacheManager cacheManager, String cacheName) {
-		this(cacheManager.getCache(cacheName));
-	}
 
 	public CachingResourceTransformer(Cache cache) {
-		Assert.notNull(cache, "'cache' is required");
+		Assert.notNull(cache, "Cache is required");
+		this.cache = cache;
+	}
+
+	public CachingResourceTransformer(CacheManager cacheManager, String cacheName) {
+		Cache cache = cacheManager.getCache(cacheName);
+		if (cache == null) {
+			throw new IllegalArgumentException("Cache '" + cacheName + "' not found");
+		}
 		this.cache = cache;
 	}
 
@@ -59,6 +64,7 @@ public class CachingResourceTransformer implements ResourceTransformer {
 		return this.cache;
 	}
 
+
 	@Override
 	public Resource transform(HttpServletRequest request, Resource resource, ResourceTransformerChain transformerChain)
 			throws IOException {
@@ -66,7 +72,7 @@ public class CachingResourceTransformer implements ResourceTransformer {
 		Resource transformed = this.cache.get(resource, Resource.class);
 		if (transformed != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Found match");
+				logger.trace("Found match: " + transformed);
 			}
 			return transformed;
 		}
@@ -74,7 +80,7 @@ public class CachingResourceTransformer implements ResourceTransformer {
 		transformed = transformerChain.transform(request, resource);
 
 		if (logger.isTraceEnabled()) {
-			logger.trace("Putting transformed resource in cache");
+			logger.trace("Putting transformed resource in cache: " + transformed);
 		}
 		this.cache.put(resource, transformed);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ public class JsonPathAssertionTests {
 
 	private MockMvc mockMvc;
 
+
 	@Before
 	public void setup() {
 		this.mockMvc = standaloneSetup(new MusicController())
@@ -54,9 +55,9 @@ public class JsonPathAssertionTests {
 				.build();
 	}
 
-	@Test
-	public void testExists() throws Exception {
 
+	@Test
+	public void exists() throws Exception {
 		String composerByName = "$.composers[?(@.name == '%s')]";
 		String performerByName = "$.performers[?(@.name == '%s')]";
 
@@ -74,16 +75,15 @@ public class JsonPathAssertionTests {
 	}
 
 	@Test
-	public void testDoesNotExist() throws Exception {
+	public void doesNotExist() throws Exception {
 		this.mockMvc.perform(get("/music/people"))
 			.andExpect(jsonPath("$.composers[?(@.name == 'Edvard Grieeeeeeg')]").doesNotExist())
 			.andExpect(jsonPath("$.composers[?(@.name == 'Robert Schuuuuuuman')]").doesNotExist())
-			.andExpect(jsonPath("$.composers[-1]").doesNotExist())
 			.andExpect(jsonPath("$.composers[4]").doesNotExist());
 	}
 
 	@Test
-	public void testEqualTo() throws Exception {
+	public void equality() throws Exception {
 		this.mockMvc.perform(get("/music/people"))
 			.andExpect(jsonPath("$.composers[0].name").value("Johann Sebastian Bach"))
 			.andExpect(jsonPath("$.performers[1].name").value("Yehudi Menuhin"));
@@ -95,7 +95,7 @@ public class JsonPathAssertionTests {
 	}
 
 	@Test
-	public void testHamcrestMatcher() throws Exception {
+	public void hamcrestMatcher() throws Exception {
 		this.mockMvc.perform(get("/music/people"))
 			.andExpect(jsonPath("$.composers[0].name", startsWith("Johann")))
 			.andExpect(jsonPath("$.performers[0].name", endsWith("Ashkenazy")))
@@ -104,8 +104,7 @@ public class JsonPathAssertionTests {
 	}
 
 	@Test
-	public void testHamcrestMatcherWithParameterizedJsonPath() throws Exception {
-
+	public void hamcrestMatcherWithParameterizedJsonPath() throws Exception {
 		String composerName = "$.composers[%s].name";
 		String performerName = "$.performers[%s].name";
 
@@ -122,7 +121,7 @@ public class JsonPathAssertionTests {
 
 		@RequestMapping("/music/people")
 		public MultiValueMap<String, Person> get() {
-			MultiValueMap<String, Person> map = new LinkedMultiValueMap<String, Person>();
+			MultiValueMap<String, Person> map = new LinkedMultiValueMap<>();
 
 			map.add("composers", new Person("Johann Sebastian Bach"));
 			map.add("composers", new Person("Johannes Brahms"));
@@ -135,4 +134,5 @@ public class JsonPathAssertionTests {
 			return map;
 		}
 	}
+
 }

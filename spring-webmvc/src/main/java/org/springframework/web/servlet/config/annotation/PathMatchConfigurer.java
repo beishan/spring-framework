@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 
 package org.springframework.web.servlet.config.annotation;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.PathMatcher;
 import org.springframework.web.util.UrlPathHelper;
 
 /**
- * Helps with configuring HandlerMappings path matching options such as trailing slash match,
- * suffix registration, path matcher and path helper.
+ * Helps with configuring HandlerMappings path matching options such as trailing
+ * slash match, suffix registration, path matcher and path helper.
  *
  * <p>Configured path matcher and path helper instances are shared for:
  * <ul>
@@ -37,24 +38,30 @@ import org.springframework.web.util.UrlPathHelper;
  */
 public class PathMatchConfigurer {
 
-	private Boolean useSuffixPatternMatch;
+	@Nullable
+	private Boolean suffixPatternMatch;
 
-	private Boolean useTrailingSlashMatch;
+	@Nullable
+	private Boolean trailingSlashMatch;
 
-	private Boolean useRegisteredSuffixPatternMatch;
+	@Nullable
+	private Boolean registeredSuffixPatternMatch;
 
+	@Nullable
 	private UrlPathHelper urlPathHelper;
 
+	@Nullable
 	private PathMatcher pathMatcher;
 
 
 	/**
 	 * Whether to use suffix pattern match (".*") when matching patterns to
 	 * requests. If enabled a method mapped to "/users" also matches to "/users.*".
-	 * <p>The default value is {@code true}.
+	 * <p>By default this is set to {@code true}.
+	 * @see #registeredSuffixPatternMatch
 	 */
-	public PathMatchConfigurer setUseSuffixPatternMatch(Boolean useSuffixPatternMatch) {
-		this.useSuffixPatternMatch = useSuffixPatternMatch;
+	public PathMatchConfigurer setUseSuffixPatternMatch(Boolean suffixPatternMatch) {
+		this.suffixPatternMatch = suffixPatternMatch;
 		return this;
 	}
 
@@ -63,28 +70,22 @@ public class PathMatchConfigurer {
 	 * If enabled a method mapped to "/users" also matches to "/users/".
 	 * <p>The default value is {@code true}.
 	 */
-	public PathMatchConfigurer setUseTrailingSlashMatch(Boolean useTrailingSlashMatch) {
-		this.useTrailingSlashMatch = useTrailingSlashMatch;
+	public PathMatchConfigurer setUseTrailingSlashMatch(Boolean trailingSlashMatch) {
+		this.trailingSlashMatch = trailingSlashMatch;
 		return this;
 	}
 
 	/**
-	 * Whether to use suffix pattern match for registered file extensions only
-	 * when matching patterns to requests.
-	 * <p>If enabled, a controller method mapped to "/users" also matches to
-	 * "/users.json" assuming ".json" is a file extension registered with the
-	 * provided {@link org.springframework.web.accept.ContentNegotiationManager}.</p>
-	 * <p>The {@link org.springframework.web.accept.ContentNegotiationManager} can be customized
-	 * using a {@link ContentNegotiationConfigurer}.</p>
-	 * <p>If enabled, this flag also enables
-	 * {@link #setUseSuffixPatternMatch(Boolean) useSuffixPatternMatch}. The
-	 * default value is {@code false}.</p>
-	 * @see org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
-	 * @see ContentNegotiationConfigurer
-	 *
+	 * Whether suffix pattern matching should work only against path extensions
+	 * explicitly registered when you
+	 * {@link WebMvcConfigurer#configureContentNegotiation configure content
+	 * negotiation}. This is generally recommended to reduce ambiguity and to
+	 * avoid issues such as when a "." appears in the path for other reasons.
+	 * <p>By default this is set to "false".
+	 * @see WebMvcConfigurer#configureContentNegotiation
 	 */
-	public PathMatchConfigurer setUseRegisteredSuffixPatternMatch(Boolean useRegisteredSuffixPatternMatch) {
-		this.useRegisteredSuffixPatternMatch = useRegisteredSuffixPatternMatch;
+	public PathMatchConfigurer setUseRegisteredSuffixPatternMatch(Boolean registeredSuffixPatternMatch) {
+		this.registeredSuffixPatternMatch = registeredSuffixPatternMatch;
 		return this;
 	}
 
@@ -109,22 +110,28 @@ public class PathMatchConfigurer {
 		return this;
 	}
 
+
+	@Nullable
 	public Boolean isUseSuffixPatternMatch() {
-		return this.useSuffixPatternMatch;
+		return this.suffixPatternMatch;
 	}
 
+	@Nullable
 	public Boolean isUseTrailingSlashMatch() {
-		return this.useTrailingSlashMatch;
+		return this.trailingSlashMatch;
 	}
 
+	@Nullable
 	public Boolean isUseRegisteredSuffixPatternMatch() {
-		return this.useRegisteredSuffixPatternMatch;
+		return this.registeredSuffixPatternMatch;
 	}
 
+	@Nullable
 	public UrlPathHelper getUrlPathHelper() {
 		return this.urlPathHelper;
 	}
 
+	@Nullable
 	public PathMatcher getPathMatcher() {
 		return this.pathMatcher;
 	}

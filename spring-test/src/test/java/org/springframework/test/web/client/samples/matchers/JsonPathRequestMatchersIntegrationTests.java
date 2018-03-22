@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.springframework.test.web.client.samples.matchers;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Collections;
 
-import org.junit.After;
 import org.junit.Test;
 
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -45,7 +45,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
  */
 public class JsonPathRequestMatchersIntegrationTests {
 
-	private static final MultiValueMap<String, Person> people = new LinkedMultiValueMap<String, Person>();
+	private static final MultiValueMap<String, Person> people = new LinkedMultiValueMap<>();
 
 	static {
 		people.add("composers", new Person("Johann Sebastian Bach"));
@@ -56,7 +56,9 @@ public class JsonPathRequestMatchersIntegrationTests {
 		people.add("performers", new Person("Yehudi Menuhin"));
 	}
 
-	private final RestTemplate restTemplate = new RestTemplate(Arrays.asList(new MappingJackson2HttpMessageConverter()));
+
+	private final RestTemplate restTemplate =
+			new RestTemplate(Collections.singletonList(new MappingJackson2HttpMessageConverter()));
 
 	private final MockRestServiceServer mockServer = MockRestServiceServer.createServer(this.restTemplate);
 
@@ -70,6 +72,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(jsonPath("$.composers[2]").exists())
 			.andExpect(jsonPath("$.composers[3]").exists())
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -78,9 +82,10 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(content().contentType("application/json;charset=UTF-8"))
 			.andExpect(jsonPath("$.composers[?(@.name == 'Edvard Grieeeeeeg')]").doesNotExist())
 			.andExpect(jsonPath("$.composers[?(@.name == 'Robert Schuuuuuuman')]").doesNotExist())
-			.andExpect(jsonPath("$.composers[-1]").doesNotExist())
 			.andExpect(jsonPath("$.composers[4]").doesNotExist())
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -90,6 +95,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(jsonPath("$.composers[0].name").value("Johann Sebastian Bach"))
 			.andExpect(jsonPath("$.performers[1].name").value("Yehudi Menuhin"))
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -104,6 +111,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(jsonPath("$.composers[1].name", isIn(Arrays.asList("Johann Sebastian Bach", "Johannes Brahms"))))
 			.andExpect(jsonPath("$.composers[:3].name", hasItem("Johannes Brahms")))
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -118,6 +127,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(jsonPath(performerName, 1).value(containsString("di Me")))
 			.andExpect(jsonPath(composerName, 1).value(isIn(Arrays.asList("Johann Sebastian Bach", "Johannes Brahms"))))
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -126,6 +137,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(content().contentType("application/json;charset=UTF-8"))
 			.andExpect(jsonPath("$.composers").isArray())
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -134,6 +147,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(content().contentType("application/json;charset=UTF-8"))
 			.andExpect(jsonPath("$.composers[0].name").isString())
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -142,6 +157,8 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(content().contentType("application/json;charset=UTF-8"))
 			.andExpect(jsonPath("$.composers[0].someDouble").isNumber())
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
 	@Test
@@ -150,10 +167,11 @@ public class JsonPathRequestMatchersIntegrationTests {
 			.andExpect(content().contentType("application/json;charset=UTF-8"))
 			.andExpect(jsonPath("$.composers[0].someBoolean").isBoolean())
 			.andRespond(withSuccess());
+
+		executeAndVerify();
 	}
 
-	@After
-	public void performRequestAndVerify() throws URISyntaxException {
+	private void executeAndVerify() throws URISyntaxException {
 		this.restTemplate.put(new URI("/composers"), people);
 		this.mockServer.verify();
 	}

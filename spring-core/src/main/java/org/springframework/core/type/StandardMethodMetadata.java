@@ -21,6 +21,7 @@ import java.lang.reflect.Modifier;
 import java.util.Map;
 
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.MultiValueMap;
 
@@ -65,6 +66,7 @@ public class StandardMethodMetadata implements MethodMetadata {
 		this.introspectedMethod = introspectedMethod;
 		this.nestedAnnotationsAsMap = nestedAnnotationsAsMap;
 	}
+
 
 	/**
 	 * Return the underlying Method.
@@ -114,25 +116,29 @@ public class StandardMethodMetadata implements MethodMetadata {
 	}
 
 	@Override
+	@Nullable
 	public Map<String, Object> getAnnotationAttributes(String annotationName) {
 		return getAnnotationAttributes(annotationName, false);
 	}
 
 	@Override
+	@Nullable
 	public Map<String, Object> getAnnotationAttributes(String annotationName, boolean classValuesAsString) {
 		return AnnotatedElementUtils.getMergedAnnotationAttributes(this.introspectedMethod,
-			annotationName, classValuesAsString, this.nestedAnnotationsAsMap);
+				annotationName, classValuesAsString, this.nestedAnnotationsAsMap);
 	}
 
 	@Override
+	@Nullable
 	public MultiValueMap<String, Object> getAllAnnotationAttributes(String annotationName) {
 		return getAllAnnotationAttributes(annotationName, false);
 	}
 
 	@Override
+	@Nullable
 	public MultiValueMap<String, Object> getAllAnnotationAttributes(String annotationName, boolean classValuesAsString) {
 		return AnnotatedElementUtils.getAllAnnotationAttributes(this.introspectedMethod,
-			annotationName, classValuesAsString, this.nestedAnnotationsAsMap);
+				annotationName, classValuesAsString, this.nestedAnnotationsAsMap);
 	}
 
 }

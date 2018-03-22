@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import javax.websocket.server.ServerEndpointConfig;
 
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.web.socket.server.HandshakeFailureException;
 
 /**
@@ -46,7 +47,7 @@ import org.springframework.web.socket.server.HandshakeFailureException;
  */
 public class WebSphereRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
 
-	private final static Method upgradeMethod;
+	private static final Method upgradeMethod;
 
 	static {
 		ClassLoader loader = WebSphereRequestUpgradeStrategy.class.getClassLoader();
@@ -68,14 +69,14 @@ public class WebSphereRequestUpgradeStrategy extends AbstractStandardUpgradeStra
 
 	@Override
 	public void upgradeInternal(ServerHttpRequest httpRequest, ServerHttpResponse httpResponse,
-			String selectedProtocol, List<Extension> selectedExtensions, Endpoint endpoint)
+			@Nullable String selectedProtocol, List<Extension> selectedExtensions, Endpoint endpoint)
 			throws HandshakeFailureException {
 
 		HttpServletRequest request = getHttpServletRequest(httpRequest);
 		HttpServletResponse response = getHttpServletResponse(httpResponse);
 
 		StringBuffer requestUrl = request.getRequestURL();
-		String path = request.getRequestURI(); // shouldn't matter
+		String path = request.getRequestURI();  // shouldn't matter
 		Map<String, String> pathParams = Collections.<String, String> emptyMap();
 
 		ServerEndpointRegistration endpointConfig = new ServerEndpointRegistration(path, endpoint);
@@ -88,7 +89,7 @@ public class WebSphereRequestUpgradeStrategy extends AbstractStandardUpgradeStra
 		}
 		catch (Exception ex) {
 			throw new HandshakeFailureException(
-					"Servlet request failed to upgrade to WebSocket, uri=" + requestUrl, ex);
+					"Servlet request failed to upgrade to WebSocket for " + requestUrl, ex);
 		}
 	}
 

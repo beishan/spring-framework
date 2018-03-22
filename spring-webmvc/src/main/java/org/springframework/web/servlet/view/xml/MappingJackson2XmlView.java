@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.view.json.AbstractJackson2View;
@@ -36,7 +38,7 @@ import org.springframework.web.servlet.view.json.AbstractJackson2View;
  *
  * <p>The default constructor uses the default configuration provided by {@link Jackson2ObjectMapperBuilder}.
  *
- * <p>Compatible with Jackson 2.1 and higher.
+ * <p>Compatible with Jackson 2.6 and higher, as of Spring 4.3.
  *
  * @author Sebastien Deleuze
  * @since 4.1
@@ -46,6 +48,7 @@ public class MappingJackson2XmlView extends AbstractJackson2View {
 	public static final String DEFAULT_CONTENT_TYPE = "application/xml";
 
 
+	@Nullable
 	private String modelKey;
 
 
@@ -101,6 +104,7 @@ public class MappingJackson2XmlView extends AbstractJackson2View {
 				}
 			}
 		}
+		Assert.state(value != null, "Model contains no object to render");
 		return value;
 	}
 

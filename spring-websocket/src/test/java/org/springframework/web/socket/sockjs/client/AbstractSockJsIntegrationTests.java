@@ -27,7 +27,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -102,7 +102,7 @@ public abstract class AbstractSockJsIntegrationTests {
 
 	@BeforeClass
 	public static void performanceTestGroupAssumption() throws Exception {
-//		Assume.group(TestGroup.PERFORMANCE);
+		Assume.group(TestGroup.PERFORMANCE);
 	}
 
 
@@ -110,16 +110,18 @@ public abstract class AbstractSockJsIntegrationTests {
 	public void setup() throws Exception {
 		logger.debug("Setting up '" + this.testName.getMethodName() + "'");
 		this.testFilter = new TestFilter();
+
 		this.wac = new AnnotationConfigWebApplicationContext();
 		this.wac.register(TestConfig.class, upgradeStrategyConfigClass());
+
 		this.server = createWebSocketTestServer();
 		this.server.setup();
 		this.server.deployConfig(this.wac, this.testFilter);
-		// Set ServletContext in WebApplicationContext after deployment but before
-		// starting the server.
+		this.server.start();
+
 		this.wac.setServletContext(this.server.getServletContext());
 		this.wac.refresh();
-		this.server.start();
+
 		this.baseUrl = "http://localhost:" + this.server.getPort();
 	}
 
@@ -301,10 +303,10 @@ public abstract class AbstractSockJsIntegrationTests {
 		clientHandler.awaitMessage(message, 5000);
 	}
 
-	private static void awaitEvent(Supplier<Boolean> condition, long timeToWait, String description) {
+	private static void awaitEvent(BooleanSupplier condition, long timeToWait, String description) {
 		long timeToSleep = 200;
 		for (int i = 0 ; i < Math.floor(timeToWait / timeToSleep); i++) {
-			if (condition.get()) {
+			if (condition.getAsBoolean()) {
 				return;
 			}
 			try {

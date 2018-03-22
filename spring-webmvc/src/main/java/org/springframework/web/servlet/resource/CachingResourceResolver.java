@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.core.io.Resource;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -42,14 +43,20 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 
 	private final Cache cache;
 
-	public CachingResourceResolver(CacheManager cacheManager, String cacheName) {
-		this(cacheManager.getCache(cacheName));
-	}
 
 	public CachingResourceResolver(Cache cache) {
-		Assert.notNull(cache, "'cache' is required");
+		Assert.notNull(cache, "Cache is required");
 		this.cache = cache;
 	}
+
+	public CachingResourceResolver(CacheManager cacheManager, String cacheName) {
+		Cache cache = cacheManager.getCache(cacheName);
+		if (cache == null) {
+			throw new IllegalArgumentException("Cache '" + cacheName + "' not found");
+		}
+		this.cache = cache;
+	}
+
 
 	/**
 	 * Return the configured {@code Cache}.
@@ -58,8 +65,9 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 		return this.cache;
 	}
 
+
 	@Override
-	protected Resource resolveResourceInternal(HttpServletRequest request, String requestPath,
+	protected Resource resolveResourceInternal(@Nullable HttpServletRequest request, String requestPath,
 			List<? extends Resource> locations, ResourceResolverChain chain) {
 
 		String key = computeKey(request, requestPath);
@@ -67,7 +75,7 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 
 		if (resource != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Found match");
+				logger.trace("Found match: " + resource);
 			}
 			return resource;
 		}
@@ -75,7 +83,7 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 		resource = chain.resolveResource(request, requestPath, locations);
 		if (resource != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Putting resolved resource in cache");
+				logger.trace("Putting resolved resource in cache: " + resource);
 			}
 			this.cache.put(key, resource);
 		}
@@ -83,12 +91,12 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 		return resource;
 	}
 
-	protected String computeKey(HttpServletRequest request, String requestPath) {
+	protected String computeKey(@Nullable HttpServletRequest request, String requestPath) {
 		StringBuilder key = new StringBuilder(RESOLVED_RESOURCE_CACHE_KEY_PREFIX);
 		key.append(requestPath);
-		if(request != null) {
+		if (request != null) {
 			String encoding = request.getHeader("Accept-Encoding");
-			if(encoding != null && encoding.contains("gzip")) {
+			if (encoding != null && encoding.contains("gzip")) {
 				key.append("+encoding=gzip");
 			}
 		}
@@ -104,7 +112,7 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 
 		if (resolvedUrlPath != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Found match");
+				logger.trace("Found match: \"" + resolvedUrlPath + "\"");
 			}
 			return resolvedUrlPath;
 		}
@@ -112,7 +120,7 @@ public class CachingResourceResolver extends AbstractResourceResolver {
 		resolvedUrlPath = chain.resolveUrlPath(resourceUrlPath, locations);
 		if (resolvedUrlPath != null) {
 			if (logger.isTraceEnabled()) {
-				logger.trace("Putting resolved resource URL path in cache");
+				logger.trace("Putting resolved resource URL path in cache: \"" + resolvedUrlPath + "\"");
 			}
 			this.cache.put(key, resolvedUrlPath);
 		}

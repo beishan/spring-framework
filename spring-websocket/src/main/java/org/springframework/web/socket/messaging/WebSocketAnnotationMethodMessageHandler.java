@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ package org.springframework.web.socket.messaging;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.SubscribableChannel;
 import org.springframework.messaging.handler.MessagingAdviceBean;
@@ -38,8 +40,8 @@ import org.springframework.web.method.ControllerAdviceBean;
  */
 public class WebSocketAnnotationMethodMessageHandler extends SimpAnnotationMethodMessageHandler {
 
-	public WebSocketAnnotationMethodMessageHandler(SubscribableChannel clientInChannel, MessageChannel clientOutChannel,
-			SimpMessageSendingOperations brokerTemplate) {
+	public WebSocketAnnotationMethodMessageHandler(SubscribableChannel clientInChannel,
+			MessageChannel clientOutChannel, SimpMessageSendingOperations brokerTemplate) {
 
 		super(clientInChannel, clientOutChannel, brokerTemplate);
 	}
@@ -52,27 +54,30 @@ public class WebSocketAnnotationMethodMessageHandler extends SimpAnnotationMetho
 	}
 
 	private void initControllerAdviceCache() {
-		if (getApplicationContext() == null) {
+		ApplicationContext context = getApplicationContext();
+		if (context == null) {
 			return;
 		}
 		if (logger.isDebugEnabled()) {
-			logger.debug("Looking for @MessageExceptionHandler mappings: " + getApplicationContext());
+			logger.debug("Looking for @MessageExceptionHandler mappings: " + context);
 		}
-		List<ControllerAdviceBean> controllerAdvice = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
-		AnnotationAwareOrderComparator.sort(controllerAdvice);
-		initMessagingAdviceCache(MessagingControllerAdviceBean.createFromList(controllerAdvice));
+		List<ControllerAdviceBean> beans = ControllerAdviceBean.findAnnotatedBeans(context);
+		AnnotationAwareOrderComparator.sort(beans);
+		initMessagingAdviceCache(MessagingControllerAdviceBean.createFromList(beans));
 	}
 
-	private void initMessagingAdviceCache(List<MessagingAdviceBean> beans) {
+	private void initMessagingAdviceCache(@Nullable List<MessagingAdviceBean> beans) {
 		if (beans == null) {
 			return;
 		}
 		for (MessagingAdviceBean bean : beans) {
-			Class<?> beanType = bean.getBeanType();
-			AnnotationExceptionHandlerMethodResolver resolver = new AnnotationExceptionHandlerMethodResolver(beanType);
-			if (resolver.hasExceptionMappings()) {
-				registerExceptionHandlerAdvice(bean, resolver);
-				logger.info("Detected @MessageExceptionHandler methods in " + bean);
+			Class<?> type = bean.getBeanType();
+			if (type != null) {
+				AnnotationExceptionHandlerMethodResolver resolver = new AnnotationExceptionHandlerMethodResolver(type);
+				if (resolver.hasExceptionMappings()) {
+					registerExceptionHandlerAdvice(bean, resolver);
+					logger.info("Detected @MessageExceptionHandler methods in " + bean);
+				}
 			}
 		}
 	}
@@ -89,15 +94,16 @@ public class WebSocketAnnotationMethodMessageHandler extends SimpAnnotationMetho
 			this.adviceBean = adviceBean;
 		}
 
-		public static List<MessagingAdviceBean> createFromList(List<ControllerAdviceBean> controllerAdvice) {
-			List<MessagingAdviceBean> messagingAdvice = new ArrayList<MessagingAdviceBean>(controllerAdvice.size());
-			for (ControllerAdviceBean bean : controllerAdvice) {
-				messagingAdvice.add(new MessagingControllerAdviceBean(bean));
+		public static List<MessagingAdviceBean> createFromList(List<ControllerAdviceBean> beans) {
+			List<MessagingAdviceBean> result = new ArrayList<>(beans.size());
+			for (ControllerAdviceBean bean : beans) {
+				result.add(new MessagingControllerAdviceBean(bean));
 			}
-			return messagingAdvice;
+			return result;
 		}
 
 		@Override
+		@Nullable
 		public Class<?> getBeanType() {
 			return this.adviceBean.getBeanType();
 		}
