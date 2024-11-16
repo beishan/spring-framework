@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,20 +41,27 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
-import javax.servlet.AsyncContext;
-import javax.servlet.DispatcherType;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-import javax.servlet.http.HttpUpgradeHandler;
-import javax.servlet.http.Part;
+import java.util.stream.Collectors;
+
+import jakarta.servlet.AsyncContext;
+import jakarta.servlet.AsyncEvent;
+import jakarta.servlet.AsyncListener;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletConnection;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletMapping;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpUpgradeHandler;
+import jakarta.servlet.http.MappingMatch;
+import jakarta.servlet.http.Part;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -64,17 +71,17 @@ import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.ObjectUtils;
-import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.UrlPathHelper;
 
 /**
- * Mock implementation of the {@link javax.servlet.http.HttpServletRequest} interface.
+ * Mock implementation of the {@link jakarta.servlet.http.HttpServletRequest} interface.
  *
  * <p>The default, preferred {@link Locale} for the <em>server</em> mocked by this request
  * is {@link Locale#ENGLISH}. This value can be changed via {@link #addPreferredLocale}
  * or {@link #setPreferredLocales}.
  *
- * <p>As of Spring Framework 5.0, this set of mocks is designed on a Servlet 4.0 baseline.
+ * <p>As of Spring 6.0, this set of mocks is designed on a Servlet 6.0 baseline.
  *
  * @author Juergen Hoeller
  * @author Rod Johnson
@@ -95,14 +102,8 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
 
-	private static final ServletInputStream EMPTY_SERVLET_INPUT_STREAM =
-			new DelegatingServletInputStream(StreamUtils.emptyInput());
-
-	private static final BufferedReader EMPTY_BUFFERED_READER =
-			new BufferedReader(new StringReader(""));
-
 	/**
-	 * Date formats as specified in the HTTP RFC
+	 * Date formats as specified in the HTTP RFC.
 	 * @see <a href="https://tools.ietf.org/html/rfc7231#section-7.1.1.1">Section 7.1.1.1 of RFC 7231</a>
 	 */
 	private static final String[] DATE_FORMATS = new String[] {
@@ -178,6 +179,12 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	private String contentType;
 
+	@Nullable
+	private ServletInputStream inputStream;
+
+	@Nullable
+	private BufferedReader reader;
+
 	private final Map<String, String[]> parameters = new LinkedHashMap<>(16);
 
 	private String protocol = DEFAULT_PROTOCOL;
@@ -192,8 +199,8 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	private String remoteHost = DEFAULT_REMOTE_HOST;
 
-	/** List of locales in descending order */
-	private final List<Locale> locales = new LinkedList<>();
+	/** List of locales in descending order. */
+	private final LinkedList<Locale> locales = new LinkedList<>();
 
 	private boolean secure = false;
 
@@ -250,6 +257,9 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	private String requestedSessionId;
 
 	@Nullable
+	private String uriTemplate;
+
+	@Nullable
 	private String requestURI;
 
 	private String servletPath = "";
@@ -264,6 +274,9 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	private boolean requestedSessionIdFromURL = false;
 
 	private final MultiValueMap<String, Part> parts = new LinkedMultiValueMap<>();
+
+	@Nullable
+	private HttpServletMapping httpServletMapping;
 
 
 	// ---------------------------------------------------------------------
@@ -372,6 +385,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	// ---------------------------------------------------------------------
 
 	@Override
+	@Nullable
 	public Object getAttribute(String name) {
 		checkActive();
 		return this.attributes.get(name);
@@ -397,12 +411,12 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	private void updateContentTypeHeader() {
 		if (StringUtils.hasLength(this.contentType)) {
-			StringBuilder sb = new StringBuilder(this.contentType);
-			if (!this.contentType.toLowerCase().contains(CHARSET_PREFIX) &&
-					StringUtils.hasLength(this.characterEncoding)) {
-				sb.append(";").append(CHARSET_PREFIX).append(this.characterEncoding);
+			String value = this.contentType;
+			if (StringUtils.hasLength(this.characterEncoding) &&
+					!this.contentType.toLowerCase(Locale.ROOT).contains(CHARSET_PREFIX)) {
+				value += ';' + CHARSET_PREFIX + this.characterEncoding;
 			}
-			doAddHeaderValue(HttpHeaders.CONTENT_TYPE, sb.toString(), true);
+			doAddHeaderValue(HttpHeaders.CONTENT_TYPE, value, true);
 		}
 	}
 
@@ -417,6 +431,8 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 */
 	public void setContent(@Nullable byte[] content) {
 		this.content = content;
+		this.inputStream = null;
+		this.reader = null;
 	}
 
 	/**
@@ -475,7 +491,8 @@ public class MockHttpServletRequest implements HttpServletRequest {
 			}
 			catch (IllegalArgumentException ex) {
 				// Try to get charset value anyway
-				int charsetIndex = contentType.toLowerCase().indexOf(CHARSET_PREFIX);
+				contentType = contentType.toLowerCase(Locale.ROOT);
+				int charsetIndex = contentType.indexOf(CHARSET_PREFIX);
 				if (charsetIndex != -1) {
 					this.characterEncoding = contentType.substring(charsetIndex + CHARSET_PREFIX.length());
 				}
@@ -492,12 +509,18 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public ServletInputStream getInputStream() {
-		if (this.content != null) {
-			return new DelegatingServletInputStream(new ByteArrayInputStream(this.content));
+		if (this.inputStream != null) {
+			return this.inputStream;
 		}
-		else {
-			return EMPTY_SERVLET_INPUT_STREAM;
+		else if (this.reader != null) {
+			throw new IllegalStateException(
+					"Cannot call getInputStream() after getReader() has already been called for the current request");
 		}
+
+		this.inputStream = (this.content != null ?
+				new DelegatingServletInputStream(new ByteArrayInputStream(this.content)) :
+				new DelegatingServletInputStream(InputStream.nullInputStream()));
+		return this.inputStream;
 	}
 
 	/**
@@ -526,19 +549,18 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 */
 	public void setParameters(Map<String, ?> params) {
 		Assert.notNull(params, "Parameter map must not be null");
-		for (String key : params.keySet()) {
-			Object value = params.get(key);
-			if (value instanceof String) {
-				setParameter(key, (String) value);
+		params.forEach((key, value) -> {
+			if (value instanceof String str) {
+				setParameter(key, str);
 			}
-			else if (value instanceof String[]) {
-				setParameter(key, (String[]) value);
+			else if (value instanceof String[] strings) {
+				setParameter(key, strings);
 			}
 			else {
 				throw new IllegalArgumentException(
 						"Parameter map value must be single value " + " or array of type [" + String.class.getName() + "]");
 			}
-		}
+		});
 	}
 
 	/**
@@ -570,25 +592,24 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
-	 * Adds all provided parameters <strong>without</strong> replacing any
+	 * Add all provided parameters <strong>without</strong> replacing any
 	 * existing values. To replace existing values, use
 	 * {@link #setParameters(java.util.Map)}.
 	 */
 	public void addParameters(Map<String, ?> params) {
 		Assert.notNull(params, "Parameter map must not be null");
-		for (String key : params.keySet()) {
-			Object value = params.get(key);
-			if (value instanceof String) {
-				addParameter(key, (String) value);
+		params.forEach((key, value) -> {
+			if (value instanceof String str) {
+				addParameter(key, str);
 			}
-			else if (value instanceof String[]) {
-				addParameter(key, (String[]) value);
+			else if (value instanceof String[] strings) {
+				addParameter(key, strings);
 			}
 			else {
 				throw new IllegalArgumentException("Parameter map value must be single value " +
 						" or array of type [" + String.class.getName() + "]");
 			}
-		}
+		});
 	}
 
 	/**
@@ -600,7 +621,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
-	 * Removes all existing parameters.
+	 * Remove all existing parameters.
 	 */
 	public void removeAllParameters() {
 		this.parameters.clear();
@@ -620,6 +641,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	@Override
+	@Nullable
 	public String[] getParameterValues(String name) {
 		Assert.notNull(name, "Parameter name must not be null");
 		return this.parameters.get(name);
@@ -654,11 +676,14 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public String getServerName() {
-		String host = getHeader(HttpHeaders.HOST);
+		String rawHostHeader = getHeader(HttpHeaders.HOST);
+		String host = rawHostHeader;
 		if (host != null) {
 			host = host.trim();
 			if (host.startsWith("[")) {
-				host = host.substring(1, host.indexOf(']'));
+				int indexOfClosingBracket = host.indexOf(']');
+				Assert.state(indexOfClosingBracket > -1, () -> "Invalid Host header: " + rawHostHeader);
+				host = host.substring(0, indexOfClosingBracket + 1);
 			}
 			else if (host.contains(":")) {
 				host = host.substring(0, host.indexOf(':'));
@@ -676,18 +701,21 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getServerPort() {
-		String host = getHeader(HttpHeaders.HOST);
+		String rawHostHeader = getHeader(HttpHeaders.HOST);
+		String host = rawHostHeader;
 		if (host != null) {
 			host = host.trim();
 			int idx;
 			if (host.startsWith("[")) {
-				idx = host.indexOf(':', host.indexOf(']'));
+				int indexOfClosingBracket = host.indexOf(']');
+				Assert.state(indexOfClosingBracket > -1, () -> "Invalid Host header: " + rawHostHeader);
+				idx = host.indexOf(':', indexOfClosingBracket);
 			}
 			else {
 				idx = host.indexOf(':');
 			}
 			if (idx != -1) {
-				return Integer.parseInt(host.substring(idx + 1));
+				return Integer.parseInt(host, idx + 1, host.length(), 10);
 			}
 		}
 
@@ -697,16 +725,25 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public BufferedReader getReader() throws UnsupportedEncodingException {
+		if (this.reader != null) {
+			return this.reader;
+		}
+		else if (this.inputStream != null) {
+			throw new IllegalStateException(
+					"Cannot call getReader() after getInputStream() has already been called for the current request");
+		}
+
 		if (this.content != null) {
 			InputStream sourceStream = new ByteArrayInputStream(this.content);
 			Reader sourceReader = (this.characterEncoding != null) ?
 					new InputStreamReader(sourceStream, this.characterEncoding) :
 					new InputStreamReader(sourceStream);
-			return new BufferedReader(sourceReader);
+			this.reader = new BufferedReader(sourceReader);
 		}
 		else {
-			return EMPTY_BUFFERED_READER;
+			this.reader = new BufferedReader(new StringReader(""));
 		}
+		return this.reader;
 	}
 
 	public void setRemoteAddr(String remoteAddr) {
@@ -759,15 +796,15 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 */
 	public void addPreferredLocale(Locale locale) {
 		Assert.notNull(locale, "Locale must not be null");
-		this.locales.add(0, locale);
+		this.locales.addFirst(locale);
 		updateAcceptLanguageHeader();
 	}
 
 	/**
 	 * Set the list of preferred locales, in descending order, effectively replacing
 	 * any existing locales.
-	 * @see #addPreferredLocale
 	 * @since 3.2
+	 * @see #addPreferredLocale
 	 */
 	public void setPreferredLocales(List<Locale> locales) {
 		Assert.notEmpty(locales, "Locale list must not be empty");
@@ -791,13 +828,13 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 * <p>In contrast to the Servlet specification, this mock implementation
 	 * does <strong>not</strong> take into consideration any locales
 	 * specified via the {@code Accept-Language} header.
-	 * @see javax.servlet.ServletRequest#getLocale()
+	 * @see jakarta.servlet.ServletRequest#getLocale()
 	 * @see #addPreferredLocale(Locale)
 	 * @see #setPreferredLocales(List)
 	 */
 	@Override
 	public Locale getLocale() {
-		return this.locales.get(0);
+		return this.locales.getFirst();
 	}
 
 	/**
@@ -809,7 +846,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 * <p>In contrast to the Servlet specification, this mock implementation
 	 * does <strong>not</strong> take into consideration any locales
 	 * specified via the {@code Accept-Language} header.
-	 * @see javax.servlet.ServletRequest#getLocales()
+	 * @see jakarta.servlet.ServletRequest#getLocales()
 	 * @see #addPreferredLocale(Locale)
 	 * @see #setPreferredLocales(List)
 	 */
@@ -832,7 +869,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	/**
 	 * Return {@code true} if the {@link #setSecure secure} flag has been set
 	 * to {@code true} or if the {@link #getScheme scheme} is {@code https}.
-	 * @see javax.servlet.ServletRequest#isSecure()
+	 * @see jakarta.servlet.ServletRequest#isSecure()
 	 */
 	@Override
 	public boolean isSecure() {
@@ -842,12 +879,6 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	@Override
 	public RequestDispatcher getRequestDispatcher(String path) {
 		return new MockRequestDispatcher(path);
-	}
-
-	@Override
-	@Deprecated
-	public String getRealPath(String path) {
-		return this.servletContext.getRealPath(path);
 	}
 
 	public void setRemotePort(int remotePort) {
@@ -895,7 +926,19 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	public AsyncContext startAsync(ServletRequest request, @Nullable ServletResponse response) {
 		Assert.state(this.asyncSupported, "Async not supported");
 		this.asyncStarted = true;
-		this.asyncContext = new MockAsyncContext(request, response);
+		MockAsyncContext newAsyncContext = new MockAsyncContext(request, response);
+		if (this.asyncContext != null) {
+			try {
+				AsyncEvent startEvent = new AsyncEvent(newAsyncContext);
+				for (AsyncListener asyncListener : this.asyncContext.getListeners()) {
+					asyncListener.onStartAsync(startEvent);
+				}
+			}
+			catch (IOException ex) {
+				// ignore failures
+			}
+		}
+		this.asyncContext = newAsyncContext;
 		return this.asyncContext;
 	}
 
@@ -936,6 +979,38 @@ public class MockHttpServletRequest implements HttpServletRequest {
 		return this.dispatcherType;
 	}
 
+	@Override
+	public String getRequestId() {
+		return "";
+	}
+
+	@Override
+	public String getProtocolRequestId() {
+		return "";
+	}
+
+	@Override
+	public ServletConnection getServletConnection() {
+		return new ServletConnection() {
+			@Override
+			public String getConnectionId() {
+				return MockHttpServletRequest.this.getRequestId();
+			}
+			@Override
+			public String getProtocol() {
+				return MockHttpServletRequest.this.getProtocol();
+			}
+			@Override
+			public String getProtocolConnectionId() {
+				return MockHttpServletRequest.this.getProtocolRequestId();
+			}
+			@Override
+			public boolean isSecure() {
+				return MockHttpServletRequest.this.isSecure();
+			}
+		};
+	}
+
 
 	// ---------------------------------------------------------------------
 	// HttpServletRequest interface
@@ -953,12 +1028,18 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	public void setCookies(@Nullable Cookie... cookies) {
 		this.cookies = (ObjectUtils.isEmpty(cookies) ? null : cookies);
-		this.headers.remove(HttpHeaders.COOKIE);
-		if (this.cookies != null) {
-			Arrays.stream(this.cookies)
-					.map(c -> c.getName() + '=' + (c.getValue() == null ? "" : c.getValue()))
-					.forEach(value -> doAddHeaderValue(HttpHeaders.COOKIE, value, false));
+		if (this.cookies == null) {
+			removeHeader(HttpHeaders.COOKIE);
 		}
+		else {
+			doAddHeaderValue(HttpHeaders.COOKIE, encodeCookies(this.cookies), true);
+		}
+	}
+
+	private static String encodeCookies(Cookie... cookies) {
+		return Arrays.stream(cookies)
+				.map(c -> c.getName() + '=' + (c.getValue() == null ? "" : c.getValue()))
+				.collect(Collectors.joining("; "));
 	}
 
 	@Override
@@ -968,9 +1049,9 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	/**
-	 * Add a header entry for the given name.
-	 * <p>While this method can take any {@code Object} as a parameter, it
-	 * is recommended to use the following types:
+	 * Add an HTTP header entry for the given name.
+	 * <p>While this method can take any {@code Object} as a parameter,
+	 * it is recommended to use the following types:
 	 * <ul>
 	 * <li>String or any Object to be converted using {@code toString()}; see {@link #getHeader}.</li>
 	 * <li>String, Number, or Date for date headers; see {@link #getDateHeader}.</li>
@@ -992,12 +1073,17 @@ public class MockHttpServletRequest implements HttpServletRequest {
 			try {
 				HttpHeaders headers = new HttpHeaders();
 				headers.add(HttpHeaders.ACCEPT_LANGUAGE, value.toString());
-				setPreferredLocales(headers.getAcceptLanguageAsLocales());
+				List<Locale> locales = headers.getAcceptLanguageAsLocales();
+				this.locales.clear();
+				this.locales.addAll(locales);
+				if (this.locales.isEmpty()) {
+					this.locales.add(Locale.ENGLISH);
+				}
 			}
 			catch (IllegalArgumentException ex) {
-				// Invalid Accept-Language format -> store plain header instead
-				doAddHeaderValue(name, value, true);
+				// Invalid Accept-Language format -> just store plain header
 			}
+			doAddHeaderValue(name, value, true);
 		}
 		else {
 			doAddHeaderValue(name, value, false);
@@ -1005,14 +1091,14 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	}
 
 	private void doAddHeaderValue(String name, @Nullable Object value, boolean replace) {
-		HeaderValueHolder header = HeaderValueHolder.getByName(this.headers, name);
+		HeaderValueHolder header = this.headers.get(name);
 		Assert.notNull(value, "Header value must not be null");
 		if (header == null || replace) {
 			header = new HeaderValueHolder();
 			this.headers.put(name, header);
 		}
-		if (value instanceof Collection) {
-			header.addValues((Collection<?>) value);
+		if (value instanceof Collection<?> collection) {
+			header.addValues(collection);
 		}
 		else if (value.getClass().isArray()) {
 			header.addValueArray(value);
@@ -1020,6 +1106,15 @@ public class MockHttpServletRequest implements HttpServletRequest {
 		else {
 			header.addValue(value);
 		}
+	}
+
+	/**
+	 * Remove already registered entries for the specified HTTP header, if any.
+	 * @since 4.3.20
+	 */
+	public void removeHeader(String name) {
+		Assert.notNull(name, "Header name must not be null");
+		this.headers.remove(name);
 	}
 
 	/**
@@ -1036,16 +1131,16 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 */
 	@Override
 	public long getDateHeader(String name) {
-		HeaderValueHolder header = HeaderValueHolder.getByName(this.headers, name);
+		HeaderValueHolder header = this.headers.get(name);
 		Object value = (header != null ? header.getValue() : null);
-		if (value instanceof Date) {
-			return ((Date) value).getTime();
+		if (value instanceof Date date) {
+			return date.getTime();
 		}
-		else if (value instanceof Number) {
-			return ((Number) value).longValue();
+		else if (value instanceof Number number) {
+			return number.longValue();
 		}
-		else if (value instanceof String) {
-			return parseDateHeader(name, (String) value);
+		else if (value instanceof String str) {
+			return parseDateHeader(name, str);
 		}
 		else if (value != null) {
 			throw new IllegalArgumentException(
@@ -1073,14 +1168,15 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getHeader(String name) {
-		HeaderValueHolder header = HeaderValueHolder.getByName(this.headers, name);
+		HeaderValueHolder header = this.headers.get(name);
 		return (header != null ? header.getStringValue() : null);
 	}
 
 	@Override
 	public Enumeration<String> getHeaders(String name) {
-		HeaderValueHolder header = HeaderValueHolder.getByName(this.headers, name);
-		return Collections.enumeration(header != null ? header.getStringValues() : new LinkedList<>());
+		HeaderValueHolder header = this.headers.get(name);
+		return (header != null ? Collections.enumeration(header.getStringValues()) :
+				Collections.emptyEnumeration());
 	}
 
 	@Override
@@ -1090,13 +1186,13 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public int getIntHeader(String name) {
-		HeaderValueHolder header = HeaderValueHolder.getByName(this.headers, name);
+		HeaderValueHolder header = this.headers.get(name);
 		Object value = (header != null ? header.getValue() : null);
-		if (value instanceof Number) {
-			return ((Number) value).intValue();
+		if (value instanceof Number number) {
+			return number.intValue();
 		}
-		else if (value instanceof String) {
-			return Integer.parseInt((String) value);
+		else if (value instanceof String str) {
+			return Integer.parseInt(str);
 		}
 		else if (value != null) {
 			throw new NumberFormatException("Value for header '" + name + "' is not a Number: " + value);
@@ -1129,7 +1225,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	@Override
 	@Nullable
 	public String getPathTranslated() {
-		return (this.pathInfo != null ? getRealPath(this.pathInfo) : null);
+		return (this.pathInfo != null ? this.servletContext.getRealPath(this.pathInfo) : null);
 	}
 
 	public void setContextPath(String contextPath) {
@@ -1167,8 +1263,9 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	@Override
 	public boolean isUserInRole(String role) {
-		return (this.userRoles.contains(role) || (this.servletContext instanceof MockServletContext &&
-				((MockServletContext) this.servletContext).getDeclaredRoles().contains(role)));
+		return (this.userRoles.contains(role) ||
+				(this.servletContext instanceof MockServletContext mockContext &&
+						mockContext.getDeclaredRoles().contains(role)));
 	}
 
 	public void setUserPrincipal(@Nullable Principal userPrincipal) {
@@ -1189,6 +1286,24 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	@Nullable
 	public String getRequestedSessionId() {
 		return this.requestedSessionId;
+	}
+
+	/**
+	 * Set the original URI template used to prepare the request, if any.
+	 * @param uriTemplate the URI template used to set up the request, if any
+	 * @since 6.2
+	 */
+	public void setUriTemplate(@Nullable String uriTemplate) {
+		this.uriTemplate = uriTemplate;
+	}
+
+	/**
+	 * Return the original URI template used to prepare the request, if any.
+	 * @since 6.2
+	 */
+	@Nullable
+	public String getUriTemplate() {
+		return this.uriTemplate;
 	}
 
 	public void setRequestURI(@Nullable String requestURI) {
@@ -1230,8 +1345,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 
 	public void setSession(HttpSession session) {
 		this.session = session;
-		if (session instanceof MockHttpSession) {
-			MockHttpSession mockSession = ((MockHttpSession) session);
+		if (session instanceof MockHttpSession mockSession) {
 			mockSession.access();
 		}
 	}
@@ -1241,7 +1355,7 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	public HttpSession getSession(boolean create) {
 		checkActive();
 		// Reset session if invalidated.
-		if (this.session instanceof MockHttpSession && ((MockHttpSession) this.session).isInvalid()) {
+		if (this.session instanceof MockHttpSession mockSession && mockSession.isInvalid()) {
 			this.session = null;
 		}
 		// Create new session if necessary.
@@ -1263,10 +1377,11 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	 * Otherwise it simply returns the current session id.
 	 * @since 4.0.3
 	 */
+	@Override
 	public String changeSessionId() {
 		Assert.isTrue(this.session != null, "The request does not have a session");
-		if (this.session instanceof MockHttpSession) {
-			return ((MockHttpSession) session).changeSessionId();
+		if (this.session instanceof MockHttpSession mockSession) {
+			return mockSession.changeSessionId();
 		}
 		return this.session.getId();
 	}
@@ -1296,12 +1411,6 @@ public class MockHttpServletRequest implements HttpServletRequest {
 	@Override
 	public boolean isRequestedSessionIdFromURL() {
 		return this.requestedSessionIdFromURL;
-	}
-
-	@Override
-	@Deprecated
-	public boolean isRequestedSessionIdFromUrl() {
-		return isRequestedSessionIdFromURL();
 	}
 
 	@Override
@@ -1338,6 +1447,33 @@ public class MockHttpServletRequest implements HttpServletRequest {
 			result.addAll(list);
 		}
 		return result;
+	}
+
+	public void setHttpServletMapping(@Nullable HttpServletMapping httpServletMapping) {
+		this.httpServletMapping = httpServletMapping;
+	}
+
+	@Override
+	public HttpServletMapping getHttpServletMapping() {
+		return (this.httpServletMapping == null ?
+				new MockHttpServletMapping("", "", "", determineMappingMatch()) :
+				this.httpServletMapping);
+	}
+
+	/**
+	 * Best effort to detect a Servlet path mapping, for example, {@code "/foo/*"}, by
+	 * checking whether the length of requestURI > contextPath + servletPath.
+	 * This helps {@link org.springframework.web.util.ServletRequestPathUtils}
+	 * to take into account the Servlet path when parsing the requestURI.
+	 */
+	@Nullable
+	private MappingMatch determineMappingMatch() {
+		if (StringUtils.hasText(this.requestURI) && StringUtils.hasText(this.servletPath)) {
+			String path = UrlPathHelper.defaultInstance.getRequestUri(this);
+			String prefix = this.contextPath + this.servletPath;
+			return (path.startsWith(prefix) && (path.length() > prefix.length()) ? MappingMatch.PATH : null);
+		}
+		return null;
 	}
 
 	@Override

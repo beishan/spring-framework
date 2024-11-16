@@ -15,8 +15,8 @@
 		]]></xsd:documentation>
 	</xsd:annotation>
 
-	<xsd:import namespace="http://www.springframework.org/schema/beans" schemaLocation="http://www.springframework.org/schema/beans/spring-beans.xsd"/>
-	<xsd:import namespace="http://www.springframework.org/schema/tool" schemaLocation="http://www.springframework.org/schema/tool/spring-tool.xsd"/>
+	<xsd:import namespace="http://www.springframework.org/schema/beans" schemaLocation="https://www.springframework.org/schema/beans/spring-beans.xsd"/>
+	<xsd:import namespace="http://www.springframework.org/schema/tool" schemaLocation="https://www.springframework.org/schema/tool/spring-tool.xsd"/>
 
 	<xsd:element name="defaults">
 		<xsd:annotation>
@@ -131,7 +131,7 @@
 
 	Singletons are most commonly used, and are ideal for multi-threaded
 	service objects. Further scopes, such as "request" or "session", might
-	be supported by extended bean factories (e.g. in a web environment).
+	be supported by extended bean factories (for example, in a web environment).
 						]]></xsd:documentation>
 					</xsd:annotation>
 				</xsd:attribute>

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,20 +31,22 @@ import org.springframework.util.concurrent.SuccessCallback;
  * A pass-through {@code Future} handle that can be used for method signatures
  * which are declared with a {@code Future} return type for asynchronous execution.
  *
- * <p>As of Spring 4.1, this class implements {@link ListenableFuture}, not just
+ * <p>As of Spring 4.1, this class implements {@code ListenableFuture}, not just
  * plain {@link java.util.concurrent.Future}, along with the corresponding support
- * in {@code @Async} processing.
- *
- * <p>As of Spring 4.2, this class also supports passing execution exceptions back
- * to the caller.
+ * in {@code @Async} processing. As of 7.0, this will be turned back to a plain
+ * {@code Future} in order to focus on compatibility with existing common usage.
  *
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev
  * @since 3.0
+ * @param <V> the value type
  * @see Async
  * @see #forValue(Object)
  * @see #forExecutionException(Throwable)
+ * @deprecated as of 6.0, in favor of {@link CompletableFuture}
  */
+@Deprecated(since = "6.0")
+@SuppressWarnings("removal")
 public class AsyncResult<V> implements ListenableFuture<V> {
 
 	@Nullable
@@ -91,8 +93,7 @@ public class AsyncResult<V> implements ListenableFuture<V> {
 	@Nullable
 	public V get() throws ExecutionException {
 		if (this.executionException != null) {
-			throw (this.executionException instanceof ExecutionException ?
-					(ExecutionException) this.executionException :
+			throw (this.executionException instanceof ExecutionException execEx ? execEx :
 					new ExecutionException(this.executionException));
 		}
 		return this.value;
@@ -143,7 +144,7 @@ public class AsyncResult<V> implements ListenableFuture<V> {
 	 * @since 4.2
 	 * @see Future#get()
 	 */
-	public static <V> ListenableFuture<V> forValue(V value) {
+	public static <V> org.springframework.util.concurrent.ListenableFuture<V> forValue(V value) {
 		return new AsyncResult<>(value, null);
 	}
 
@@ -155,7 +156,7 @@ public class AsyncResult<V> implements ListenableFuture<V> {
 	 * @since 4.2
 	 * @see ExecutionException
 	 */
-	public static <V> ListenableFuture<V> forExecutionException(Throwable ex) {
+	public static <V> org.springframework.util.concurrent.ListenableFuture<V> forExecutionException(Throwable ex) {
 		return new AsyncResult<>(null, ex);
 	}
 

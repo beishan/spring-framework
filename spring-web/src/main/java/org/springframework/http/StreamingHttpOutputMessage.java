@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Represents a HTTP output message that allows for setting a streaming body.
+ * Represents an HTTP output message that allows for setting a streaming body.
  * Note that such messages typically do not support {@link #getBody()} access.
  *
  * @author Arjen Poutsma
@@ -50,6 +50,18 @@ public interface StreamingHttpOutputMessage extends HttpOutputMessage {
 		 * @throws IOException in case of I/O errors
 		 */
 		void writeTo(OutputStream outputStream) throws IOException;
+
+		/**
+		 * Indicates whether this body is capable of
+		 * {@linkplain #writeTo(OutputStream) writing its data} more than
+		 * once. The default implementation returns {@code false}.
+		 * @return {@code true} if this body can be written repeatedly,
+		 * {@code false} otherwise
+		 * @since 6.1
+		 */
+		default boolean repeatable() {
+			return false;
+		}
 	}
 
 }

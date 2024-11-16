@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,14 +34,14 @@ public abstract class NonTransientDataAccessException extends DataAccessExceptio
 	 * Constructor for NonTransientDataAccessException.
 	 * @param msg the detail message
 	 */
-	public NonTransientDataAccessException(String msg) {
+	public NonTransientDataAccessException(@Nullable String msg) {
 		super(msg);
 	}
 
 	/**
 	 * Constructor for NonTransientDataAccessException.
 	 * @param msg the detail message
-	 * @param cause the root cause (usually from using a underlying
+	 * @param cause the root cause (usually from using an underlying
 	 * data access API such as JDBC)
 	 */
 	public NonTransientDataAccessException(@Nullable String msg, @Nullable Throwable cause) {

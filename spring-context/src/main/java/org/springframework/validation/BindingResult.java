@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,14 +24,14 @@ import org.springframework.lang.Nullable;
 
 /**
  * General interface that represents binding results. Extends the
- * {@link Errors interface} for error registration capabilities,
+ * {@link Errors} interface for error registration capabilities,
  * allowing for a {@link Validator} to be applied, and adds
  * binding-specific analysis and model building.
  *
  * <p>Serves as result holder for a {@link DataBinder}, obtained via
  * the {@link DataBinder#getBindingResult()} method. BindingResult
  * implementations can also be used directly, for example to invoke
- * a {@link Validator} on it (e.g. as part of a unit test).
+ * a {@link Validator} on it (for example, as part of a unit test).
  *
  * @author Juergen Hoeller
  * @since 2.0
@@ -143,7 +143,7 @@ public interface BindingResult extends Errors {
 	 * @param value the original value
 	 * @since 5.0.4
 	 */
-	default void recordFieldValue(String field, Class<?> type, Object value) {
+	default void recordFieldValue(String field, Class<?> type, @Nullable Object value) {
 	}
 
 	/**

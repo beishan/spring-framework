@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,8 +47,14 @@ import org.springframework.util.Assert;
 public class GenericMessagingTemplate extends AbstractDestinationResolvingMessagingTemplate<MessageChannel>
 		implements BeanFactoryAware {
 
+	/**
+	 * The default header key used for a send timeout.
+	 */
 	public static final String DEFAULT_SEND_TIMEOUT_HEADER = "sendTimeout";
 
+	/**
+	 * The default header key used for a receive timeout.
+	 */
 	public static final String DEFAULT_RECEIVE_TIMEOUT_HEADER = "receiveTimeout";
 
 	private volatile long sendTimeout = -1;
@@ -59,7 +65,7 @@ public class GenericMessagingTemplate extends AbstractDestinationResolvingMessag
 
 	private String receiveTimeoutHeader = DEFAULT_RECEIVE_TIMEOUT_HEADER;
 
-	private volatile boolean throwExceptionOnLateReply = false;
+	private volatile boolean throwExceptionOnLateReply;
 
 
 	/**
@@ -195,13 +201,14 @@ public class GenericMessagingTemplate extends AbstractDestinationResolvingMessag
 	@Nullable
 	protected final Message<?> doReceive(MessageChannel channel, long timeout) {
 		Assert.notNull(channel, "MessageChannel is required");
-		Assert.state(channel instanceof PollableChannel, "A PollableChannel is required to receive messages");
+		if (!(channel instanceof PollableChannel pollableChannel)) {
+			throw new IllegalStateException("A PollableChannel is required to receive messages");
+		}
 
-		Message<?> message = (timeout >= 0 ?
-				((PollableChannel) channel).receive(timeout) : ((PollableChannel) channel).receive());
+		Message<?> message = (timeout >= 0 ? pollableChannel.receive(timeout) : pollableChannel.receive());
 
-		if (message == null && this.logger.isTraceEnabled()) {
-			this.logger.trace("Failed to receive message from channel '" + channel + "' within timeout: " + timeout);
+		if (message == null && logger.isTraceEnabled()) {
+			logger.trace("Failed to receive message from channel '" + channel + "' within timeout: " + timeout);
 		}
 
 		return message;
@@ -254,11 +261,11 @@ public class GenericMessagingTemplate extends AbstractDestinationResolvingMessag
 
 	@Nullable
 	private Long headerToLong(@Nullable Object headerValue) {
-		if (headerValue instanceof Number) {
-			return ((Number) headerValue).longValue();
+		if (headerValue instanceof Number number) {
+			return number.longValue();
 		}
-		else if (headerValue instanceof String) {
-			return Long.parseLong((String) headerValue);
+		else if (headerValue instanceof String text) {
+			return Long.parseLong(text);
 		}
 		else {
 			return null;
@@ -348,7 +355,7 @@ public class GenericMessagingTemplate extends AbstractDestinationResolvingMessag
 
 			if (errorDescription != null) {
 				if (logger.isWarnEnabled()) {
-					logger.warn(errorDescription + ":" + message);
+					logger.warn(errorDescription + ": " + message);
 				}
 				if (this.throwExceptionOnLateReply) {
 					throw new MessageDeliveryException(message, errorDescription);

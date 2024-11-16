@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,16 +18,18 @@ package org.springframework.core.task;
 
 import java.util.concurrent.Callable;
 
-import org.springframework.util.concurrent.ListenableFuture;
-
 /**
  * Extension of the {@link AsyncTaskExecutor} interface, adding the capability to submit
- * tasks for {@link ListenableFuture}s.
+ * tasks for {@code ListenableFutures}.
  *
  * @author Arjen Poutsma
  * @since 4.0
- * @see ListenableFuture
+ * @deprecated as of 6.0, in favor of
+ * {@link AsyncTaskExecutor#submitCompletable(Runnable)} and
+ * {@link AsyncTaskExecutor#submitCompletable(Callable)}
  */
+@Deprecated(since = "6.0", forRemoval = true)
+@SuppressWarnings("removal")
 public interface AsyncListenableTaskExecutor extends AsyncTaskExecutor {
 
 	/**
@@ -36,8 +38,10 @@ public interface AsyncListenableTaskExecutor extends AsyncTaskExecutor {
 	 * @param task the {@code Runnable} to execute (never {@code null})
 	 * @return a {@code ListenableFuture} representing pending completion of the task
 	 * @throws TaskRejectedException if the given task was not accepted
+	 * @deprecated in favor of {@link AsyncTaskExecutor#submitCompletable(Runnable)}
 	 */
-	ListenableFuture<?> submitListenable(Runnable task);
+	@Deprecated(since = "6.0", forRemoval = true)
+	org.springframework.util.concurrent.ListenableFuture<?> submitListenable(Runnable task);
 
 	/**
 	 * Submit a {@code Callable} task for execution, receiving a {@code ListenableFuture}
@@ -46,7 +50,9 @@ public interface AsyncListenableTaskExecutor extends AsyncTaskExecutor {
 	 * @param task the {@code Callable} to execute (never {@code null})
 	 * @return a {@code ListenableFuture} representing pending completion of the task
 	 * @throws TaskRejectedException if the given task was not accepted
+	 * @deprecated in favor of {@link AsyncTaskExecutor#submitCompletable(Callable)}
 	 */
-	<T> ListenableFuture<T> submitListenable(Callable<T> task);
+	@Deprecated(since = "6.0", forRemoval = true)
+	<T> org.springframework.util.concurrent.ListenableFuture<T> submitListenable(Callable<T> task);
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,65 +16,63 @@
 
 package org.springframework.orm.jpa.support;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-
-import org.junit.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.orm.jpa.EntityManagerHolder;
 import org.springframework.orm.jpa.EntityManagerProxy;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Phillip Webb
  */
-public class SharedEntityManagerFactoryTests {
+class SharedEntityManagerFactoryTests {
 
 	@Test
-	public void testValidUsage() {
+	void testValidUsage() {
 		Object o = new Object();
 
-		EntityManager mockEm = mock(EntityManager.class);
+		EntityManager mockEm = mock();
 		given(mockEm.isOpen()).willReturn(true);
 
-		EntityManagerFactory mockEmf = mock(EntityManagerFactory.class);
+		EntityManagerFactory mockEmf = mock();
 		given(mockEmf.createEntityManager()).willReturn(mockEm);
 
 		SharedEntityManagerBean proxyFactoryBean = new SharedEntityManagerBean();
 		proxyFactoryBean.setEntityManagerFactory(mockEmf);
 		proxyFactoryBean.afterPropertiesSet();
 
-		assertTrue(EntityManager.class.isAssignableFrom(proxyFactoryBean.getObjectType()));
-		assertTrue(proxyFactoryBean.isSingleton());
+		assertThat(EntityManager.class.isAssignableFrom(proxyFactoryBean.getObjectType())).isTrue();
+		assertThat(proxyFactoryBean.isSingleton()).isTrue();
 
 		EntityManager proxy = proxyFactoryBean.getObject();
-		assertSame(proxy, proxyFactoryBean.getObject());
-		assertFalse(proxy.contains(o));
+		assertThat(proxyFactoryBean.getObject()).isSameAs(proxy);
+		assertThat(proxy.contains(o)).isFalse();
 
-		assertTrue(proxy instanceof EntityManagerProxy);
+		boolean condition = proxy instanceof EntityManagerProxy;
+		assertThat(condition).isTrue();
 		EntityManagerProxy emProxy = (EntityManagerProxy) proxy;
-		try {
-			emProxy.getTargetEntityManager();
-			fail("Should have thrown IllegalStateException outside of transaction");
-		}
-		catch (IllegalStateException ex) {
-			// expected
-		}
+		assertThatIllegalStateException().as("outside of transaction").isThrownBy(
+				emProxy::getTargetEntityManager);
 
 		TransactionSynchronizationManager.bindResource(mockEmf, new EntityManagerHolder(mockEm));
 		try {
-			assertSame(mockEm, emProxy.getTargetEntityManager());
+			assertThat(emProxy.getTargetEntityManager()).isSameAs(mockEm);
 		}
 		finally {
 			TransactionSynchronizationManager.unbindResource(mockEmf);
 		}
 
-		assertTrue(TransactionSynchronizationManager.getResourceMap().isEmpty());
+		assertThat(TransactionSynchronizationManager.getResourceMap()).isEmpty();
 		verify(mockEm).contains(o);
 		verify(mockEm).close();
 	}

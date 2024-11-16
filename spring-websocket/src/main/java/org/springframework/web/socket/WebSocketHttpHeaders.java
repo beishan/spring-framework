@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.Nullable;
@@ -56,7 +57,7 @@ public class WebSocketHttpHeaders extends HttpHeaders {
 	 * Create a new instance.
 	 */
 	public WebSocketHttpHeaders() {
-		this(new HttpHeaders(), false);
+		this(new HttpHeaders());
 	}
 
 	/**
@@ -65,21 +66,7 @@ public class WebSocketHttpHeaders extends HttpHeaders {
 	 * @param headers the HTTP headers to wrap
 	 */
 	public WebSocketHttpHeaders(HttpHeaders headers) {
-		this(headers, false);
-	}
-
-	/**
-	 * Private constructor that can create read-only {@code WebSocketHttpHeader} instances.
-	 */
-	private WebSocketHttpHeaders(HttpHeaders headers, boolean readOnly) {
-		this.headers = readOnly ? HttpHeaders.readOnlyHttpHeaders(headers) : headers;
-	}
-
-	/**
-	 * Returns {@code WebSocketHttpHeaders} object that can only be read, not written to.
-	 */
-	public static WebSocketHttpHeaders readOnlyWebSocketHttpHeaders(WebSocketHttpHeaders headers) {
-		return new WebSocketHttpHeaders(headers, true);
+		this.headers = headers;
 	}
 
 
@@ -270,6 +257,7 @@ public class WebSocketHttpHeaders extends HttpHeaders {
 	}
 
 	@Override
+	@Nullable
 	public List<String> get(Object key) {
 		return this.headers.get(key);
 	}
@@ -309,17 +297,21 @@ public class WebSocketHttpHeaders extends HttpHeaders {
 		return this.headers.entrySet();
 	}
 
+	@Override
+	public void forEach(BiConsumer<? super String, ? super List<String>> action) {
+		this.headers.forEach(action);
+	}
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof WebSocketHttpHeaders)) {
-			return false;
-		}
-		WebSocketHttpHeaders otherHeaders = (WebSocketHttpHeaders) other;
-		return this.headers.equals(otherHeaders.headers);
+	public List<String> putIfAbsent(String key, List<String> value) {
+		return this.headers.putIfAbsent(key, value);
+	}
+
+
+	@Override
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof WebSocketHttpHeaders that &&
+				this.headers.equals(that.headers)));
 	}
 
 	@Override

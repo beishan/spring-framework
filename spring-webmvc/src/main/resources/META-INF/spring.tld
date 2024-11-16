@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <taglib xmlns="http://java.sun.com/xml/ns/j2ee"
 		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-jsptaglibrary_2_0.xsd"
+		xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee https://java.sun.com/xml/ns/j2ee/web-jsptaglibrary_2_0.xsd"
 		version="2.0">
 
 	<description>Spring Framework JSP Tag Library</description>
@@ -257,7 +257,7 @@
 			<variable-class>java.lang.String</variable-class>
 		</variable>
 		<attribute>
-			<description>Set the path that this tag should apply. E.g. 'customer'
+			<description>Set the path that this tag should apply. For example, 'customer'
 			to allow bind paths like 'address.street' rather than
 			'customer.address.street'.</description>
 			<name>path</name>

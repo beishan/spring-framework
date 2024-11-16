@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -29,6 +29,7 @@ import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.annotation.DirtiesContext.HierarchyMode;
 import org.springframework.test.annotation.DirtiesContext.MethodMode;
 import org.springframework.test.context.TestContext;
+import org.springframework.test.context.TestContextAnnotationUtils;
 import org.springframework.util.Assert;
 
 /**
@@ -47,7 +48,7 @@ import org.springframework.util.Assert;
  */
 public abstract class AbstractDirtiesContextTestExecutionListener extends AbstractTestExecutionListener {
 
-	private static final Log logger = LogFactory.getLog(AbstractDirtiesContextTestExecutionListener.class);
+	private final Log logger = LogFactory.getLog(getClass());
 
 
 	@Override
@@ -83,6 +84,7 @@ public abstract class AbstractDirtiesContextTestExecutionListener extends Abstra
 	 * @since 4.2
 	 * @see #dirtyContext
 	 */
+	@SuppressWarnings("NullAway")
 	protected void beforeOrAfterTestMethod(TestContext testContext, MethodMode requiredMethodMode,
 			ClassMode requiredClassMode) throws Exception {
 
@@ -96,17 +98,25 @@ public abstract class AbstractDirtiesContextTestExecutionListener extends Abstra
 		Assert.notNull(testMethod, "The test method of the supplied TestContext must not be null");
 
 		DirtiesContext methodAnn = AnnotatedElementUtils.findMergedAnnotation(testMethod, DirtiesContext.class);
-		DirtiesContext classAnn = AnnotatedElementUtils.findMergedAnnotation(testClass, DirtiesContext.class);
+		DirtiesContext classAnn = TestContextAnnotationUtils.findMergedAnnotation(testClass, DirtiesContext.class);
 		boolean methodAnnotated = (methodAnn != null);
 		boolean classAnnotated = (classAnn != null);
 		MethodMode methodMode = (methodAnnotated ? methodAnn.methodMode() : null);
 		ClassMode classMode = (classAnnotated ? classAnn.classMode() : null);
 
-		if (logger.isDebugEnabled()) {
-			String phase = (requiredClassMode.name().startsWith("BEFORE") ? "Before" : "After");
-			logger.debug(String.format("%s test method: context %s, class annotated with @DirtiesContext [%s] "
-					+ "with mode [%s], method annotated with @DirtiesContext [%s] with mode [%s].", phase, testContext,
-				classAnnotated, classMode, methodAnnotated, methodMode));
+		if (logger.isTraceEnabled()) {
+			logger.trace("""
+					%s test method: context %s, class annotated with @DirtiesContext [%s] \
+					with mode [%s], method annotated with @DirtiesContext [%s] with mode [%s]"""
+						.formatted(getPhase(requiredMethodMode), testContext, classAnnotated, classMode,
+							methodAnnotated, methodMode));
+		}
+		else if (logger.isDebugEnabled()) {
+			logger.debug("""
+					%s test method: class [%s], method [%s], class annotated with @DirtiesContext [%s] \
+					with mode [%s], method annotated with @DirtiesContext [%s] with mode [%s]"""
+						.formatted(getPhase(requiredMethodMode), testClass.getSimpleName(),
+							testMethod.getName(), classAnnotated, classMode, methodAnnotated, methodMode));
 		}
 
 		if ((methodMode == requiredMethodMode) || (classMode == requiredClassMode)) {
@@ -126,6 +136,7 @@ public abstract class AbstractDirtiesContextTestExecutionListener extends Abstra
 	 * @since 4.2
 	 * @see #dirtyContext
 	 */
+	@SuppressWarnings("NullAway")
 	protected void beforeOrAfterTestClass(TestContext testContext, ClassMode requiredClassMode) throws Exception {
 		Assert.notNull(testContext, "TestContext must not be null");
 		Assert.notNull(requiredClassMode, "requiredClassMode must not be null");
@@ -133,20 +144,30 @@ public abstract class AbstractDirtiesContextTestExecutionListener extends Abstra
 		Class<?> testClass = testContext.getTestClass();
 		Assert.notNull(testClass, "The test class of the supplied TestContext must not be null");
 
-		DirtiesContext dirtiesContext = AnnotatedElementUtils.findMergedAnnotation(testClass, DirtiesContext.class);
+		DirtiesContext dirtiesContext = TestContextAnnotationUtils.findMergedAnnotation(testClass, DirtiesContext.class);
 		boolean classAnnotated = (dirtiesContext != null);
 		ClassMode classMode = (classAnnotated ? dirtiesContext.classMode() : null);
 
-		if (logger.isDebugEnabled()) {
-			String phase = (requiredClassMode.name().startsWith("BEFORE") ? "Before" : "After");
-			logger.debug(String.format(
-				"%s test class: context %s, class annotated with @DirtiesContext [%s] with mode [%s].", phase,
-				testContext, classAnnotated, classMode));
+		if (logger.isTraceEnabled()) {
+			logger.trace("%s test class: context %s, class annotated with @DirtiesContext [%s] with mode [%s]"
+					.formatted(getPhase(requiredClassMode), testContext, classAnnotated, classMode));
+		}
+		else if (logger.isDebugEnabled()) {
+			logger.debug("%s test class: class [%s], class annotated with @DirtiesContext [%s] with mode [%s]"
+					.formatted(getPhase(requiredClassMode), testClass.getSimpleName(), classAnnotated, classMode));
 		}
 
 		if (classMode == requiredClassMode) {
 			dirtyContext(testContext, dirtiesContext.hierarchyMode());
 		}
+	}
+
+	private static String getPhase(ClassMode classMode) {
+		return (classMode.name().startsWith("BEFORE") ? "Before" : "After");
+	}
+
+	private static String getPhase(MethodMode methodMode) {
+		return (methodMode.name().startsWith("BEFORE") ? "Before" : "After");
 	}
 
 }

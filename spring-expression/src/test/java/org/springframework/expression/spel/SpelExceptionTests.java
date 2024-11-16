@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,14 +19,15 @@ package org.springframework.expression.spel;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * SpelEvaluationException tests (SPR-16544).
@@ -34,20 +35,22 @@ import static org.junit.Assert.*;
  * @author Juergen Hoeller
  * @author DJ Kulkarni
  */
-public class SpelExceptionTests {
+class SpelExceptionTests {
 
-	@Test(expected = SpelEvaluationException.class)
-	public void spelExpressionMapNullVariables() {
+	@Test
+	void spelExpressionMapNullVariables() {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aMap.containsKey('one')");
-		spelExpression.getValue();
+		assertThatExceptionOfType(SpelEvaluationException.class).isThrownBy(
+				spelExpression::getValue);
 	}
 
-	@Test(expected = SpelEvaluationException.class)
-	public void spelExpressionMapIndexAccessNullVariables() {
+	@Test
+	void spelExpressionMapIndexAccessNullVariables() {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aMap['one'] eq 1");
-		spelExpression.getValue();
+		assertThatExceptionOfType(SpelEvaluationException.class).isThrownBy(
+				spelExpression::getValue);
 	}
 
 	@Test
@@ -56,7 +59,7 @@ public class SpelExceptionTests {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aMap['one'] eq 1");
 		StandardEvaluationContext ctx = new StandardEvaluationContext();
-		ctx.setVariables(new HashMap<String, Object>() {
+		ctx.setVariables(new HashMap<>() {
 			{
 				put("aMap", new HashMap<String, Integer>() {
 					{
@@ -69,22 +72,24 @@ public class SpelExceptionTests {
 			}
 		});
 		boolean result = spelExpression.getValue(ctx, Boolean.class);
-		assertTrue(result);
+		assertThat(result).isTrue();
 
 	}
 
-	@Test(expected = SpelEvaluationException.class)
-	public void spelExpressionListNullVariables() {
+	@Test
+	void spelExpressionListNullVariables() {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aList.contains('one')");
-		spelExpression.getValue();
+		assertThatExceptionOfType(SpelEvaluationException.class).isThrownBy(
+				spelExpression::getValue);
 	}
 
-	@Test(expected = SpelEvaluationException.class)
-	public void spelExpressionListIndexAccessNullVariables() {
+	@Test
+	void spelExpressionListIndexAccessNullVariables() {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aList[0] eq 'one'");
-		spelExpression.getValue();
+		assertThatExceptionOfType(SpelEvaluationException.class).isThrownBy(
+				spelExpression::getValue);
 	}
 
 	@Test
@@ -93,7 +98,7 @@ public class SpelExceptionTests {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aList.contains('one')");
 		StandardEvaluationContext ctx = new StandardEvaluationContext();
-		ctx.setVariables(new HashMap<String, Object>() {
+		ctx.setVariables(new HashMap<>() {
 			{
 				put("aList", new ArrayList<String>() {
 					{
@@ -106,7 +111,7 @@ public class SpelExceptionTests {
 			}
 		});
 		boolean result = spelExpression.getValue(ctx, Boolean.class);
-		assertTrue(result);
+		assertThat(result).isTrue();
 	}
 
 	@Test
@@ -115,7 +120,7 @@ public class SpelExceptionTests {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#aList[0] eq 'one'");
 		StandardEvaluationContext ctx = new StandardEvaluationContext();
-		ctx.setVariables(new HashMap<String, Object>() {
+		ctx.setVariables(new HashMap<>() {
 			{
 				put("aList", new ArrayList<String>() {
 					{
@@ -128,14 +133,15 @@ public class SpelExceptionTests {
 			}
 		});
 		boolean result = spelExpression.getValue(ctx, Boolean.class);
-		assertTrue(result);
+		assertThat(result).isTrue();
 	}
 
-	@Test(expected = SpelEvaluationException.class)
-	public void spelExpressionArrayIndexAccessNullVariables() {
+	@Test
+	void spelExpressionArrayIndexAccessNullVariables() {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#anArray[0] eq 1");
-		spelExpression.getValue();
+		assertThatExceptionOfType(SpelEvaluationException.class).isThrownBy(
+				spelExpression::getValue);
 	}
 
 	@Test
@@ -144,13 +150,13 @@ public class SpelExceptionTests {
 		ExpressionParser parser = new SpelExpressionParser();
 		Expression spelExpression = parser.parseExpression("#anArray[0] eq 1");
 		StandardEvaluationContext ctx = new StandardEvaluationContext();
-		ctx.setVariables(new HashMap<String, Object>() {
+		ctx.setVariables(new HashMap<>() {
 			{
 				put("anArray", new int[] {1,2,3});
 			}
 		});
 		boolean result = spelExpression.getValue(ctx, Boolean.class);
-		assertTrue(result);
+		assertThat(result).isTrue();
 	}
 
 }

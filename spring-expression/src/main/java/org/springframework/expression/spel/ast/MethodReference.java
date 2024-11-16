@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.StringJoiner;
 
 import org.springframework.asm.Label;
 import org.springframework.asm.MethodVisitor;
@@ -49,28 +50,41 @@ import org.springframework.util.ObjectUtils;
  *
  * @author Andy Clement
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 3.0
  */
 public class MethodReference extends SpelNodeImpl {
 
-	private final String name;
-
 	private final boolean nullSafe;
 
+	private final String name;
+
 	@Nullable
-	private String originalPrimitiveExitTypeDescriptor;
+	private Character originalPrimitiveExitTypeDescriptor;
 
 	@Nullable
 	private volatile CachedMethodExecutor cachedExecutor;
 
 
-	public MethodReference(boolean nullSafe, String methodName, int pos, SpelNodeImpl... arguments) {
-		super(pos, arguments);
+	public MethodReference(boolean nullSafe, String methodName, int startPos, int endPos, SpelNodeImpl... arguments) {
+		super(startPos, endPos, arguments);
 		this.name = methodName;
 		this.nullSafe = nullSafe;
 	}
 
 
+	/**
+	 * Does this node represent a null-safe method reference?
+	 * @since 6.0.13
+	 */
+	@Override
+	public final boolean isNullSafe() {
+		return this.nullSafe;
+	}
+
+	/**
+	 * Get the name of the referenced method.
+	 */
 	public final String getName() {
 		return this.name;
 	}
@@ -131,9 +145,9 @@ public class MethodReference extends SpelNodeImpl {
 		}
 
 		// either there was no accessor or it no longer existed
-		executorToUse = findAccessorForMethod(this.name, argumentTypes, value, evaluationContext);
+		executorToUse = findAccessorForMethod(argumentTypes, value, evaluationContext);
 		this.cachedExecutor = new CachedMethodExecutor(
-				executorToUse, (value instanceof Class ? (Class<?>) value : null), targetType, argumentTypes);
+				executorToUse, (value instanceof Class<?> clazz ? clazz : null), targetType, argumentTypes);
 		try {
 			return executorToUse.execute(evaluationContext, value, arguments);
 		}
@@ -182,8 +196,7 @@ public class MethodReference extends SpelNodeImpl {
 			@Nullable TypeDescriptor target, List<TypeDescriptor> argumentTypes) {
 
 		List<MethodResolver> methodResolvers = evaluationContext.getMethodResolvers();
-		if (methodResolvers.size() != 1 ||
-				!(methodResolvers.get(0) instanceof ReflectiveMethodResolver)) {
+		if (methodResolvers.size() != 1 || !(methodResolvers.get(0) instanceof ReflectiveMethodResolver)) {
 			// Not a default ReflectiveMethodResolver - don't know whether caching is valid
 			return null;
 		}
@@ -196,39 +209,45 @@ public class MethodReference extends SpelNodeImpl {
 		return null;
 	}
 
-	private MethodExecutor findAccessorForMethod(String name, List<TypeDescriptor> argumentTypes,
-			Object targetObject, EvaluationContext evaluationContext) throws SpelEvaluationException {
+	private MethodExecutor findAccessorForMethod(List<TypeDescriptor> argumentTypes, Object targetObject,
+			EvaluationContext evaluationContext) throws SpelEvaluationException {
 
-		List<MethodResolver> methodResolvers = evaluationContext.getMethodResolvers();
-		for (MethodResolver methodResolver : methodResolvers) {
+		AccessException accessException = null;
+		for (MethodResolver methodResolver : evaluationContext.getMethodResolvers()) {
 			try {
 				MethodExecutor methodExecutor = methodResolver.resolve(
-						evaluationContext, targetObject, name, argumentTypes);
+						evaluationContext, targetObject, this.name, argumentTypes);
 				if (methodExecutor != null) {
 					return methodExecutor;
 				}
 			}
 			catch (AccessException ex) {
-				throw new SpelEvaluationException(getStartPosition(), ex,
-						SpelMessage.PROBLEM_LOCATING_METHOD, name, targetObject.getClass());
+				accessException = ex;
+				break;
 			}
 		}
 
-		throw new SpelEvaluationException(getStartPosition(), SpelMessage.METHOD_NOT_FOUND,
-				FormatHelper.formatMethodForMessage(name, argumentTypes),
-				FormatHelper.formatClassNameForMessage(
-						targetObject instanceof Class ? ((Class<?>) targetObject) : targetObject.getClass()));
+		String method = FormatHelper.formatMethodForMessage(this.name, argumentTypes);
+		String className = FormatHelper.formatClassNameForMessage(
+				targetObject instanceof Class<?> clazz ? clazz : targetObject.getClass());
+		if (accessException != null) {
+			throw new SpelEvaluationException(
+					getStartPosition(), accessException, SpelMessage.PROBLEM_LOCATING_METHOD, method, className);
+		}
+		else {
+			throw new SpelEvaluationException(getStartPosition(), SpelMessage.METHOD_NOT_FOUND, method, className);
+		}
 	}
 
 	/**
-	 * Decode the AccessException, throwing a lightweight evaluation exception or, if the
-	 * cause was a RuntimeException, throw the RuntimeException directly.
+	 * Decode the AccessException, throwing a lightweight evaluation exception or,
+	 * if the cause was a RuntimeException, throw the RuntimeException directly.
 	 */
 	private void throwSimpleExceptionIfPossible(Object value, AccessException ex) {
-		if (ex.getCause() instanceof InvocationTargetException) {
-			Throwable rootCause = ex.getCause().getCause();
-			if (rootCause instanceof RuntimeException) {
-				throw (RuntimeException) rootCause;
+		if (ex.getCause() instanceof InvocationTargetException cause) {
+			Throwable rootCause = cause.getCause();
+			if (rootCause instanceof RuntimeException runtimeException) {
+				throw runtimeException;
 			}
 			throw new ExpressionInvocationTargetException(getStartPosition(),
 					"A problem occurred when trying to execute method '" + this.name +
@@ -238,11 +257,11 @@ public class MethodReference extends SpelNodeImpl {
 
 	private void updateExitTypeDescriptor() {
 		CachedMethodExecutor executorToCheck = this.cachedExecutor;
-		if (executorToCheck != null && executorToCheck.get() instanceof ReflectiveMethodExecutor) {
-			Method method = ((ReflectiveMethodExecutor) executorToCheck.get()).getMethod();
+		if (executorToCheck != null && executorToCheck.get() instanceof ReflectiveMethodExecutor reflectiveMethodExecutor) {
+			Method method = reflectiveMethodExecutor.getMethod();
 			String descriptor = CodeFlow.toDescriptor(method.getReturnType());
-			if (this.nullSafe && CodeFlow.isPrimitive(descriptor)) {
-				originalPrimitiveExitTypeDescriptor = descriptor;
+			if (this.nullSafe && CodeFlow.isPrimitive(descriptor) && (descriptor.charAt(0) != 'V')) {
+				this.originalPrimitiveExitTypeDescriptor = descriptor.charAt(0);
 				this.exitTypeDescriptor = CodeFlow.toBoxedDescriptor(descriptor);
 			}
 			else {
@@ -253,16 +272,11 @@ public class MethodReference extends SpelNodeImpl {
 
 	@Override
 	public String toStringAST() {
-		StringBuilder sb = new StringBuilder(this.name);
-		sb.append("(");
+		StringJoiner sj = new StringJoiner(",", "(", ")");
 		for (int i = 0; i < getChildCount(); i++) {
-			if (i > 0) {
-				sb.append(",");
-			}
-			sb.append(getChild(i).toStringAST());
+			sj.add(getChild(i).toStringAST());
 		}
-		sb.append(")");
-		return sb.toString();
+		return this.name + sj;
 	}
 
 	/**
@@ -273,7 +287,7 @@ public class MethodReference extends SpelNodeImpl {
 	public boolean isCompilable() {
 		CachedMethodExecutor executorToCheck = this.cachedExecutor;
 		if (executorToCheck == null || executorToCheck.hasProxyTarget() ||
-				!(executorToCheck.get() instanceof ReflectiveMethodExecutor)) {
+				!(executorToCheck.get() instanceof ReflectiveMethodExecutor executor)) {
 			return false;
 		}
 
@@ -282,79 +296,79 @@ public class MethodReference extends SpelNodeImpl {
 				return false;
 			}
 		}
-
-		ReflectiveMethodExecutor executor = (ReflectiveMethodExecutor) executorToCheck.get();
 		if (executor.didArgumentConversionOccur()) {
 			return false;
 		}
-		Class<?> clazz = executor.getMethod().getDeclaringClass();
-		if (!Modifier.isPublic(clazz.getModifiers()) && executor.getPublicDeclaringClass() == null) {
-			return false;
-		}
 
-		return true;
+		Method method = executor.getMethod();
+		return (Modifier.isPublic(method.getModifiers()) && executor.getPublicDeclaringClass() != null);
 	}
-	
+
 	@Override
 	public void generateCode(MethodVisitor mv, CodeFlow cf) {
 		CachedMethodExecutor executorToCheck = this.cachedExecutor;
-		if (executorToCheck == null || !(executorToCheck.get() instanceof ReflectiveMethodExecutor)) {
+		if (executorToCheck == null || !(executorToCheck.get() instanceof ReflectiveMethodExecutor methodExecutor)) {
 			throw new IllegalStateException("No applicable cached executor found: " + executorToCheck);
 		}
-
-		ReflectiveMethodExecutor methodExecutor = (ReflectiveMethodExecutor) executorToCheck.get();
 		Method method = methodExecutor.getMethod();
-		boolean isStaticMethod = Modifier.isStatic(method.getModifiers());
+
+		Class<?> publicDeclaringClass = methodExecutor.getPublicDeclaringClass();
+		Assert.state(publicDeclaringClass != null,
+				() -> "Failed to find public declaring class for method: " + method);
+
+		String classDesc = publicDeclaringClass.getName().replace('.', '/');
+		boolean isStatic = Modifier.isStatic(method.getModifiers());
 		String descriptor = cf.lastDescriptor();
 
-		Label skipIfNull = null;
-		if (descriptor == null && !isStaticMethod) {
+		if (descriptor == null && !isStatic) {
 			// Nothing on the stack but something is needed
 			cf.loadTarget(mv);
 		}
-		if ((descriptor != null || !isStaticMethod) && this.nullSafe) {
-			mv.visitInsn(DUP);
+
+		Label skipIfNull = null;
+		if (this.nullSafe && (descriptor != null || !isStatic)) {
 			skipIfNull = new Label();
 			Label continueLabel = new Label();
+			mv.visitInsn(DUP);
 			mv.visitJumpInsn(IFNONNULL, continueLabel);
 			CodeFlow.insertCheckCast(mv, this.exitTypeDescriptor);
 			mv.visitJumpInsn(GOTO, skipIfNull);
 			mv.visitLabel(continueLabel);
 		}
-		if (descriptor != null && isStaticMethod) {
-			// Something on the stack when nothing is needed
+
+		if (descriptor != null && isStatic) {
+			// A static method call will not consume what is on the stack, so
+			// it needs to be popped off.
 			mv.visitInsn(POP);
 		}
-		
+
 		if (CodeFlow.isPrimitive(descriptor)) {
 			CodeFlow.insertBoxIfNecessary(mv, descriptor.charAt(0));
 		}
 
-		String classDesc;
-		if (Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
-			classDesc = method.getDeclaringClass().getName().replace('.', '/');
-		}
-		else {
-			Class<?> publicDeclaringClass = methodExecutor.getPublicDeclaringClass();
-			Assert.state(publicDeclaringClass != null, "No public declaring class");
-			classDesc = publicDeclaringClass.getName().replace('.', '/');
-		}
-
-		if (!isStaticMethod && (descriptor == null || !descriptor.substring(1).equals(classDesc))) {
+		if (!isStatic && (descriptor == null || !descriptor.substring(1).equals(classDesc))) {
 			CodeFlow.insertCheckCast(mv, "L" + classDesc);
 		}
 
 		generateCodeForArguments(mv, cf, method, this.children);
-		mv.visitMethodInsn((isStaticMethod ? INVOKESTATIC : INVOKEVIRTUAL), classDesc, method.getName(),
-				CodeFlow.createSignatureDescriptor(method), method.getDeclaringClass().isInterface());
+		boolean isInterface = publicDeclaringClass.isInterface();
+		int opcode = (isStatic ? INVOKESTATIC : isInterface ? INVOKEINTERFACE : INVOKEVIRTUAL);
+		mv.visitMethodInsn(opcode, classDesc, method.getName(), CodeFlow.createSignatureDescriptor(method),
+				isInterface);
 		cf.pushDescriptor(this.exitTypeDescriptor);
 
 		if (this.originalPrimitiveExitTypeDescriptor != null) {
 			// The output of the accessor will be a primitive but from the block above it might be null,
-			// so to have a 'common stack' element at skipIfNull target we need to box the primitive
+			// so to have a 'common stack' element at the skipIfNull target we need to box the primitive.
 			CodeFlow.insertBoxIfNecessary(mv, this.originalPrimitiveExitTypeDescriptor);
 		}
+
 		if (skipIfNull != null) {
+			if ("V".equals(this.exitTypeDescriptor)) {
+				// If the method return type is 'void', we need to push a null object
+				// reference onto the stack to satisfy the needs of the skipIfNull target.
+				mv.visitInsn(ACONST_NULL);
+			}
 			mv.visitLabel(skipIfNull);
 		}
 	}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package org.springframework.core.env;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -59,6 +60,9 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 
 	@Nullable
 	private String valueSeparator = SystemPropertyUtils.VALUE_SEPARATOR;
+
+	@Nullable
+	private Character escapeCharacter = SystemPropertyUtils.ESCAPE_CHARACTER;
 
 	private final Set<String> requiredProperties = new LinkedHashSet<>();
 
@@ -121,6 +125,19 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	}
 
 	/**
+	 * Specify the escape character to use to ignore placeholder prefix
+	 * or value separator, or {@code null} if no escaping should take
+	 * place.
+	 * <p>The default is "\".
+	 * @since 6.2
+	 * @see org.springframework.util.SystemPropertyUtils#ESCAPE_CHARACTER
+	 */
+	@Override
+	public void setEscapeCharacter(@Nullable Character escapeCharacter) {
+		this.escapeCharacter = escapeCharacter;
+	}
+
+	/**
 	 * Set whether to throw an exception when encountering an unresolvable placeholder
 	 * nested within the value of a given property. A {@code false} value indicates strict
 	 * resolution, i.e. that an exception will be thrown. A {@code true} value indicates
@@ -136,9 +153,7 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 
 	@Override
 	public void setRequiredProperties(String... requiredProperties) {
-		for (String key : requiredProperties) {
-			this.requiredProperties.add(key);
-		}
+		Collections.addAll(this.requiredProperties, requiredProperties);
 	}
 
 	@Override
@@ -217,20 +232,23 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	 * unresolvable placeholders should raise an exception or be ignored.
 	 * <p>Invoked from {@link #getProperty} and its variants, implicitly resolving
 	 * nested placeholders. In contrast, {@link #resolvePlaceholders} and
-	 * {@link #resolveRequiredPlaceholders} do <emphasis>not</emphasis> delegate
+	 * {@link #resolveRequiredPlaceholders} do <i>not</i> delegate
 	 * to this method but rather perform their own handling of unresolvable
 	 * placeholders, as specified by each of those methods.
 	 * @since 3.2
 	 * @see #setIgnoreUnresolvableNestedPlaceholders
 	 */
 	protected String resolveNestedPlaceholders(String value) {
+		if (value.isEmpty()) {
+			return value;
+		}
 		return (this.ignoreUnresolvableNestedPlaceholders ?
 				resolvePlaceholders(value) : resolveRequiredPlaceholders(value));
 	}
 
 	private PropertyPlaceholderHelper createPlaceholderHelper(boolean ignoreUnresolvablePlaceholders) {
 		return new PropertyPlaceholderHelper(this.placeholderPrefix, this.placeholderSuffix,
-				this.valueSeparator, ignoreUnresolvablePlaceholders);
+				this.valueSeparator, this.escapeCharacter, ignoreUnresolvablePlaceholders);
 	}
 
 	private String doResolvePlaceholders(String text, PropertyPlaceholderHelper helper) {

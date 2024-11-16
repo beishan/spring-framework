@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
 import javax.management.MalformedObjectNameException;
 import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
@@ -156,27 +157,18 @@ public class NotificationListenerHolder {
 
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof NotificationListenerHolder)) {
-			return false;
-		}
-		NotificationListenerHolder otherNlh = (NotificationListenerHolder) other;
-		return (ObjectUtils.nullSafeEquals(this.notificationListener, otherNlh.notificationListener) &&
-				ObjectUtils.nullSafeEquals(this.notificationFilter, otherNlh.notificationFilter) &&
-				ObjectUtils.nullSafeEquals(this.handback, otherNlh.handback) &&
-				ObjectUtils.nullSafeEquals(this.mappedObjectNames, otherNlh.mappedObjectNames));
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof NotificationListenerHolder that &&
+				ObjectUtils.nullSafeEquals(this.notificationListener, that.notificationListener) &&
+				ObjectUtils.nullSafeEquals(this.notificationFilter, that.notificationFilter) &&
+				ObjectUtils.nullSafeEquals(this.handback, that.handback) &&
+				ObjectUtils.nullSafeEquals(this.mappedObjectNames, that.mappedObjectNames)));
 	}
 
 	@Override
 	public int hashCode() {
-		int hashCode = ObjectUtils.nullSafeHashCode(this.notificationListener);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.notificationFilter);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.handback);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.mappedObjectNames);
-		return hashCode;
+		return ObjectUtils.nullSafeHash(this.notificationListener, this.notificationFilter,
+				this.handback, this.mappedObjectNames);
 	}
 
 }

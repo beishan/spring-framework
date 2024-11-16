@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,7 +46,7 @@ import org.springframework.util.StringUtils;
  * {@link org.springframework.messaging.support.NativeMessageHeaderAccessor}
  * while the parent class {@link SimpMessageHeaderAccessor} manages common
  * processing headers some of which are based on STOMP headers
- * (e.g. destination, content-type, etc).
+ * (for example, destination, content-type, etc).
  *
  * <p>An instance of this class can also be created by wrapping an existing
  * {@code Message}. That message may have been created with the more generic
@@ -160,7 +160,7 @@ public class StompHeaderAccessor extends SimpMessageHeaderAccessor {
 				super.setSubscriptionId(value);
 			}
 		}
-		else if (StompCommand.CONNECT.equals(command)) {
+		else if (StompCommand.CONNECT.equals(command) || StompCommand.STOMP.equals(command)) {
 			protectPasscode();
 		}
 	}
@@ -237,13 +237,15 @@ public class StompHeaderAccessor extends SimpMessageHeaderAccessor {
 		return (SimpMessageType.HEARTBEAT == getMessageType());
 	}
 
+	@SuppressWarnings("NullAway")
 	public long[] getHeartbeat() {
 		String rawValue = getFirstNativeHeader(STOMP_HEARTBEAT_HEADER);
-		String[] rawValues = StringUtils.split(rawValue, ",");
-		if (rawValues == null) {
+		int pos = (rawValue != null ? rawValue.indexOf(',') : -1);
+		if (pos == -1) {
 			return Arrays.copyOf(DEFAULT_HEARTBEAT, 2);
 		}
-		return new long[] {Long.valueOf(rawValues[0]), Long.valueOf(rawValues[1])};
+		return new long[] {Long.parseLong(rawValue, 0, pos, 10),
+				Long.parseLong(rawValue, pos + 1, rawValue.length(), 10)};
 	}
 
 	public void setAcceptVersion(String acceptVersion) {
@@ -425,6 +427,10 @@ public class StompHeaderAccessor extends SimpMessageHeaderAccessor {
 			Principal user = getUser();
 			return "CONNECT" + (user != null ? " user=" + user.getName() : "") + appendSession();
 		}
+		else if (StompCommand.STOMP.equals(command)) {
+			Principal user = getUser();
+			return "STOMP" + (user != null ? " user=" + user.getName() : "") + appendSession();
+		}
 		else if (StompCommand.CONNECTED.equals(command)) {
 			return "CONNECTED heart-beat=" + Arrays.toString(getHeartbeat()) + appendSession();
 		}
@@ -448,7 +454,7 @@ public class StompHeaderAccessor extends SimpMessageHeaderAccessor {
 			return super.getDetailedLogMessage(payload);
 		}
 		StringBuilder sb = new StringBuilder();
-		sb.append(command.name()).append(" ");
+		sb.append(command.name()).append(' ');
 		Map<String, List<String>> nativeHeaders = getNativeHeaders();
 		if (nativeHeaders != null) {
 			sb.append(nativeHeaders);

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,7 +30,7 @@ import org.springframework.util.StringUtils;
  * {@link org.springframework.beans.BeanWrapperImpl} will register this
  * editor by default.
  *
- * <p>Also supports conversion from a Unicode character sequence; e.g.
+ * <p>Also supports conversion from a Unicode character sequence; for example,
  * {@code u0041} ('A').
  *
  * @author Juergen Hoeller
@@ -82,7 +82,7 @@ public class CharacterEditor extends PropertyEditorSupport {
 			setAsUnicode(text);
 		}
 		else if (text.length() == 1) {
-			setValue(Character.valueOf(text.charAt(0)));
+			setValue(text.charAt(0));
 		}
 		else {
 			throw new IllegalArgumentException("String [" + text + "] with length " +
@@ -103,7 +103,7 @@ public class CharacterEditor extends PropertyEditorSupport {
 
 	private void setAsUnicode(String text) {
 		int code = Integer.parseInt(text.substring(UNICODE_PREFIX.length()), 16);
-		setValue(Character.valueOf((char) code));
+		setValue((char) code);
 	}
 
 }

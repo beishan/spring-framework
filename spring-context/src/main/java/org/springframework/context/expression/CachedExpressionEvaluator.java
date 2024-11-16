@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,12 +22,12 @@ import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
-import org.springframework.util.ObjectUtils;
 
 /**
  * Shared utility class used to evaluate and cache SpEL expressions that
- * are defined on {@link java.lang.reflect.AnnotatedElement}.
+ * are defined on an {@link java.lang.reflect.AnnotatedElement AnnotatedElement}.
  *
  * @author Stephane Nicoll
  * @since 4.2
@@ -41,18 +41,18 @@ public abstract class CachedExpressionEvaluator {
 
 
 	/**
+	 * Create a new instance with the default {@link SpelExpressionParser}.
+	 */
+	protected CachedExpressionEvaluator() {
+		this(new SpelExpressionParser());
+	}
+
+	/**
 	 * Create a new instance with the specified {@link SpelExpressionParser}.
 	 */
 	protected CachedExpressionEvaluator(SpelExpressionParser parser) {
 		Assert.notNull(parser, "SpelExpressionParser must not be null");
 		this.parser = parser;
-	}
-
-	/**
-	 * Create a new instance with a default {@link SpelExpressionParser}.
-	 */
-	protected CachedExpressionEvaluator() {
-		this(new SpelExpressionParser());
 	}
 
 
@@ -71,24 +71,29 @@ public abstract class CachedExpressionEvaluator {
 		return this.parameterNameDiscoverer;
 	}
 
-
 	/**
-	 * Return the {@link Expression} for the specified SpEL value
-	 * <p>Parse the expression if it hasn't been already.
+	 * Return the parsed {@link Expression} for the specified SpEL expression.
+	 * <p>{@linkplain #parseExpression(String) Parses} the expression if it hasn't
+	 * already been parsed and cached.
 	 * @param cache the cache to use
-	 * @param elementKey the element on which the expression is defined
+	 * @param elementKey the {@code AnnotatedElementKey} containing the element
+	 * on which the expression is defined
 	 * @param expression the expression to parse
 	 */
 	protected Expression getExpression(Map<ExpressionKey, Expression> cache,
 			AnnotatedElementKey elementKey, String expression) {
 
 		ExpressionKey expressionKey = createKey(elementKey, expression);
-		Expression expr = cache.get(expressionKey);
-		if (expr == null) {
-			expr = getParser().parseExpression(expression);
-			cache.put(expressionKey, expr);
-		}
-		return expr;
+		return cache.computeIfAbsent(expressionKey, key -> parseExpression(expression));
+	}
+
+	/**
+	 * Parse the specified {@code expression}.
+	 * @param expression the expression to parse
+	 * @since 5.3.13
+	 */
+	protected Expression parseExpression(String expression) {
+		return getParser().parseExpression(expression);
 	}
 
 	private ExpressionKey createKey(AnnotatedElementKey elementKey, String expression) {
@@ -96,6 +101,9 @@ public abstract class CachedExpressionEvaluator {
 	}
 
 
+	/**
+	 * An expression key.
+	 */
 	protected static class ExpressionKey implements Comparable<ExpressionKey> {
 
 		private final AnnotatedElementKey element;
@@ -110,16 +118,9 @@ public abstract class CachedExpressionEvaluator {
 		}
 
 		@Override
-		public boolean equals(Object other) {
-			if (this == other) {
-				return true;
-			}
-			if (!(other instanceof ExpressionKey)) {
-				return false;
-			}
-			ExpressionKey otherKey = (ExpressionKey) other;
-			return (this.element.equals(otherKey.element) &&
-					ObjectUtils.nullSafeEquals(this.expression, otherKey.expression));
+		public boolean equals(@Nullable Object other) {
+			return (this == other || (other instanceof ExpressionKey that &&
+					this.element.equals(that.element) && this.expression.equals(that.expression)));
 		}
 
 		@Override

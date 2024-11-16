@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,7 +38,12 @@ import org.springframework.util.Assert;
  * @since 4.1
  * @see TransactionalTestExecutionListener
  */
-public class TestTransaction {
+public final class TestTransaction {
+
+
+	private TestTransaction() {
+	}
+
 
 	/**
 	 * Determine whether a test-managed transaction is currently <em>active</em>.
@@ -75,7 +80,7 @@ public class TestTransaction {
 	/**
 	 * Flag the current test-managed transaction for <em>rollback</em>.
 	 * <p>Invoking this method will <em>not</em> end the current transaction.
-	 * Rather, the value of this flag will be used to determine whether or not
+	 * Rather, the value of this flag will be used to determine whether
 	 * the current test-managed transaction should be rolled back or committed
 	 * once it is {@linkplain #end ended}.
 	 * @throws IllegalStateException if no transaction is active for the current test
@@ -91,7 +96,7 @@ public class TestTransaction {
 	/**
 	 * Flag the current test-managed transaction for <em>commit</em>.
 	 * <p>Invoking this method will <em>not</em> end the current transaction.
-	 * Rather, the value of this flag will be used to determine whether or not
+	 * Rather, the value of this flag will be used to determine whether
 	 * the current test-managed transaction should be rolled back or committed
 	 * once it is {@linkplain #end ended}.
 	 * @throws IllegalStateException if no transaction is active for the current test

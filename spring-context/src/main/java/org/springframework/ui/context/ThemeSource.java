@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,13 +26,15 @@ import org.springframework.lang.Nullable;
  * @author Jean-Pierre Pawlak
  * @author Juergen Hoeller
  * @see Theme
+ * @deprecated as of 6.0 in favor of using CSS, without direct replacement
  */
+@Deprecated(since = "6.0")
 public interface ThemeSource {
 
 	/**
 	 * Return the Theme instance for the given theme name.
 	 * <p>The returned Theme will resolve theme-specific messages, codes,
-	 * file paths, etc (e.g. CSS and image files in a web environment).
+	 * file paths, etc (for example, CSS and image files in a web environment).
 	 * @param themeName the name of the theme
 	 * @return the corresponding Theme, or {@code null} if none defined.
 	 * Note that, by convention, a ThemeSource should at least be able to

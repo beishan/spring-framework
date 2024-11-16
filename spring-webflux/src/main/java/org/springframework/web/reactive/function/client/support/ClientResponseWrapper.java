@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +25,8 @@ import reactor.core.publisher.Mono;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyExtractor;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 /**
  * Implementation of the {@link ClientResponse} interface that can be subclassed
@@ -55,7 +57,7 @@ public class ClientResponseWrapper implements ClientResponse {
 	 * @param delegate the response to wrap
 	 */
 	public ClientResponseWrapper(ClientResponse delegate) {
-		Assert.notNull(delegate, "'delegate' must not be null");
+		Assert.notNull(delegate, "Delegate is required");
 		this.delegate = delegate;
 	}
 
@@ -68,12 +70,7 @@ public class ClientResponseWrapper implements ClientResponse {
 	}
 
 	@Override
-	public ExchangeStrategies strategies() {
-		return this.delegate.strategies();
-	}
-
-	@Override
-	public HttpStatus statusCode() {
+	public HttpStatusCode statusCode() {
 		return this.delegate.statusCode();
 	}
 
@@ -88,6 +85,16 @@ public class ClientResponseWrapper implements ClientResponse {
 	}
 
 	@Override
+	public ExchangeStrategies strategies() {
+		return this.delegate.strategies();
+	}
+
+	@Override
+	public HttpRequest request() {
+		return this.delegate.request();
+	}
+
+	@Override
 	public <T> T body(BodyExtractor<T, ? super ClientHttpResponse> extractor) {
 		return this.delegate.body(extractor);
 	}
@@ -98,8 +105,8 @@ public class ClientResponseWrapper implements ClientResponse {
 	}
 
 	@Override
-	public <T> Mono<T> bodyToMono(ParameterizedTypeReference<T> typeReference) {
-		return this.delegate.bodyToMono(typeReference);
+	public <T> Mono<T> bodyToMono(ParameterizedTypeReference<T> elementTypeRef) {
+		return this.delegate.bodyToMono(elementTypeRef);
 	}
 
 	@Override
@@ -108,8 +115,18 @@ public class ClientResponseWrapper implements ClientResponse {
 	}
 
 	@Override
-	public <T> Flux<T> bodyToFlux(ParameterizedTypeReference<T> typeReference) {
-		return this.delegate.bodyToFlux(typeReference);
+	public <T> Flux<T> bodyToFlux(ParameterizedTypeReference<T> elementTypeRef) {
+		return this.delegate.bodyToFlux(elementTypeRef);
+	}
+
+	@Override
+	public Mono<Void> releaseBody() {
+		return this.delegate.releaseBody();
+	}
+
+	@Override
+	public Mono<ResponseEntity<Void>> toBodilessEntity() {
+		return this.delegate.toBodilessEntity();
 	}
 
 	@Override
@@ -118,18 +135,33 @@ public class ClientResponseWrapper implements ClientResponse {
 	}
 
 	@Override
-	public <T> Mono<ResponseEntity<T>> toEntity(ParameterizedTypeReference<T> typeReference) {
-		return this.delegate.toEntity(typeReference);
+	public <T> Mono<ResponseEntity<T>> toEntity(ParameterizedTypeReference<T> bodyTypeReference) {
+		return this.delegate.toEntity(bodyTypeReference);
 	}
 
 	@Override
-	public <T> Mono<ResponseEntity<List<T>>> toEntityList(Class<T> elementType) {
-		return this.delegate.toEntityList(elementType);
+	public <T> Mono<ResponseEntity<List<T>>> toEntityList(Class<T> elementClass) {
+		return this.delegate.toEntityList(elementClass);
 	}
 
 	@Override
-	public <T> Mono<ResponseEntity<List<T>>> toEntityList(ParameterizedTypeReference<T> typeReference) {
-		return this.delegate.toEntityList(typeReference);
+	public <T> Mono<ResponseEntity<List<T>>> toEntityList(ParameterizedTypeReference<T> elementTypeRef) {
+		return this.delegate.toEntityList(elementTypeRef);
+	}
+
+	@Override
+	public Mono<WebClientResponseException> createException() {
+		return this.delegate.createException();
+	}
+
+	@Override
+	public <T> Mono<T> createError() {
+		return this.delegate.createError();
+	}
+
+	@Override
+	public String logPrefix() {
+		return this.delegate.logPrefix();
 	}
 
 	/**

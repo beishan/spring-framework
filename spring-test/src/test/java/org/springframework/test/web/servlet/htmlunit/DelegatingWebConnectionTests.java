@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,32 +19,31 @@ package org.springframework.test.web.servlet.htmlunit;
 import java.net.URL;
 import java.util.Collections;
 
-import com.gargoylesoftware.htmlunit.HttpWebConnection;
-import com.gargoylesoftware.htmlunit.Page;
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.WebConnection;
-import com.gargoylesoftware.htmlunit.WebRequest;
-import com.gargoylesoftware.htmlunit.WebResponse;
-import com.gargoylesoftware.htmlunit.WebResponseData;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.htmlunit.HttpWebConnection;
+import org.htmlunit.Page;
+import org.htmlunit.WebClient;
+import org.htmlunit.WebConnection;
+import org.htmlunit.WebRequest;
+import org.htmlunit.WebResponse;
+import org.htmlunit.WebResponseData;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.core.testfixture.EnabledForTestGroups;
 import org.springframework.stereotype.Controller;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.htmlunit.DelegatingWebConnection.DelegateWebConnection;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.tests.Assume;
-import org.springframework.tests.TestGroup;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.sameInstance;
-import static org.hamcrest.Matchers.*;
-import static org.hamcrest.core.IsNot.not;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.springframework.core.testfixture.TestGroup.LONG_RUNNING;
 
 /**
  * Unit and integration tests for {@link DelegatingWebConnection}.
@@ -52,8 +51,8 @@ import static org.mockito.Mockito.*;
  * @author Rob Winch
  * @since 4.2
  */
-@RunWith(MockitoJUnitRunner.class)
-public class DelegatingWebConnectionTests {
+@ExtendWith(MockitoExtension.class)
+class DelegatingWebConnectionTests {
 
 	private DelegatingWebConnection webConnection;
 
@@ -78,10 +77,10 @@ public class DelegatingWebConnectionTests {
 	private WebConnection connection2;
 
 
-	@Before
-	public void setup() throws Exception {
+	@BeforeEach
+	void setup() throws Exception {
 		request = new WebRequest(new URL("http://localhost/"));
-		WebResponseData data = new WebResponseData("".getBytes("UTF-8"), 200, "", Collections.emptyList());
+		WebResponseData data = new WebResponseData("".getBytes(UTF_8), 200, "", Collections.emptyList());
 		expectedResponse = new WebResponse(data, request, 100L);
 		webConnection = new DelegatingWebConnection(defaultConnection,
 				new DelegateWebConnection(matcher1, connection1), new DelegateWebConnection(matcher2, connection2));
@@ -89,11 +88,11 @@ public class DelegatingWebConnectionTests {
 
 
 	@Test
-	public void getResponseDefault() throws Exception {
-		when(defaultConnection.getResponse(request)).thenReturn(expectedResponse);
+	void getResponseDefault() throws Exception {
+		given(defaultConnection.getResponse(request)).willReturn(expectedResponse);
 		WebResponse response = webConnection.getResponse(request);
 
-		assertThat(response, sameInstance(expectedResponse));
+		assertThat(response).isSameAs(expectedResponse);
 		verify(matcher1).matches(request);
 		verify(matcher2).matches(request);
 		verifyNoMoreInteractions(connection1, connection2);
@@ -101,24 +100,24 @@ public class DelegatingWebConnectionTests {
 	}
 
 	@Test
-	public void getResponseAllMatches() throws Exception {
-		when(matcher1.matches(request)).thenReturn(true);
-		when(connection1.getResponse(request)).thenReturn(expectedResponse);
+	void getResponseAllMatches() throws Exception {
+		given(matcher1.matches(request)).willReturn(true);
+		given(connection1.getResponse(request)).willReturn(expectedResponse);
 		WebResponse response = webConnection.getResponse(request);
 
-		assertThat(response, sameInstance(expectedResponse));
+		assertThat(response).isSameAs(expectedResponse);
 		verify(matcher1).matches(request);
 		verifyNoMoreInteractions(matcher2, connection2, defaultConnection);
 		verify(connection1).getResponse(request);
 	}
 
 	@Test
-	public void getResponseSecondMatches() throws Exception {
-		when(matcher2.matches(request)).thenReturn(true);
-		when(connection2.getResponse(request)).thenReturn(expectedResponse);
+	void getResponseSecondMatches() throws Exception {
+		given(matcher2.matches(request)).willReturn(true);
+		given(connection2.getResponse(request)).willReturn(expectedResponse);
 		WebResponse response = webConnection.getResponse(request);
 
-		assertThat(response, sameInstance(expectedResponse));
+		assertThat(response).isSameAs(expectedResponse);
 		verify(matcher1).matches(request);
 		verify(matcher2).matches(request);
 		verifyNoMoreInteractions(connection1, defaultConnection);
@@ -126,9 +125,8 @@ public class DelegatingWebConnectionTests {
 	}
 
 	@Test
-	public void verifyExampleInClassLevelJavadoc() throws Exception {
-		Assume.group(TestGroup.PERFORMANCE);
-
+	@EnabledForTestGroups(LONG_RUNNING)
+	void verifyExampleInClassLevelJavadoc() throws Exception {
 		WebClient webClient = new WebClient();
 
 		MockMvc mockMvc = MockMvcBuilders.standaloneSetup().build();
@@ -139,9 +137,9 @@ public class DelegatingWebConnectionTests {
 		webClient.setWebConnection(
 				new DelegatingWebConnection(mockConnection, new DelegateWebConnection(cdnMatcher, httpConnection)));
 
-		Page page = webClient.getPage("http://code.jquery.com/jquery-1.11.0.min.js");
-		assertThat(page.getWebResponse().getStatusCode(), equalTo(200));
-		assertThat(page.getWebResponse().getContentAsString(), not(isEmptyString()));
+		Page page = webClient.getPage("https://code.jquery.com/jquery-1.11.0.min.js");
+		assertThat(page.getWebResponse().getStatusCode()).isEqualTo(200);
+		assertThat(page.getWebResponse().getContentAsString()).isNotEmpty();
 	}
 
 

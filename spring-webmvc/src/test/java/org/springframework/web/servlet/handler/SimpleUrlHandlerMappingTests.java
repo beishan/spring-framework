@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,158 +16,219 @@
 
 package org.springframework.web.servlet.handler;
 
-import java.util.LinkedHashMap;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import org.springframework.beans.FatalBeanException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.context.support.StaticApplicationContext;
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockServletContext;
-import org.springframework.web.context.support.XmlWebApplicationContext;
+import org.springframework.http.HttpStatus;
+import org.springframework.util.Assert;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.mvc.ParameterizableViewController;
+import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.util.UrlPathHelper;
 import org.springframework.web.util.WebUtils;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Named.named;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.springframework.web.servlet.HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE;
+import static org.springframework.web.servlet.HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE;
+import static org.springframework.web.servlet.HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE;
 
 /**
- * @author Rod Johnson
- * @author Juergen Hoeller
+ * Tests for {@link SimpleUrlHandlerMapping}.
+ *
+ * @author Brian Clozel
  */
-public class SimpleUrlHandlerMappingTests {
+class SimpleUrlHandlerMappingTests {
 
 	@Test
-	public void handlerBeanNotFound() throws Exception {
-		MockServletContext sc = new MockServletContext("");
-		XmlWebApplicationContext root = new XmlWebApplicationContext();
-		root.setServletContext(sc);
-		root.setConfigLocations(new String[] {"/org/springframework/web/servlet/handler/map1.xml"});
-		root.refresh();
-		XmlWebApplicationContext wac = new XmlWebApplicationContext();
-		wac.setParent(root);
-		wac.setServletContext(sc);
-		wac.setNamespace("map2err");
-		wac.setConfigLocations(new String[] {"/org/springframework/web/servlet/handler/map2err.xml"});
-		try {
-			wac.refresh();
-			fail("Should have thrown NoSuchBeanDefinitionException");
-		}
-		catch (FatalBeanException ex) {
-			NoSuchBeanDefinitionException nestedEx = (NoSuchBeanDefinitionException) ex.getCause();
-			assertEquals("mainControlle", nestedEx.getBeanName());
-		}
+	void shouldFailWhenHandlerBeanNotFound() {
+		SimpleUrlHandlerMapping handlerMapping = new SimpleUrlHandlerMapping(Map.of("/welcome.html", "mainController"));
+		assertThatThrownBy(() -> handlerMapping.setApplicationContext(new StaticApplicationContext()))
+				.isInstanceOf(NoSuchBeanDefinitionException.class);
 	}
 
 	@Test
-	public void urlMappingWithUrlMap() throws Exception {
-		checkMappings("urlMapping");
-	}
-
-	@Test
-	public void urlMappingWithProps() throws Exception {
-		checkMappings("urlMappingWithProps");
-	}
-
-	@Test
-	public void testNewlineInRequest() throws Exception {
-		SimpleUrlHandlerMapping handlerMapping = new SimpleUrlHandlerMapping();
-		handlerMapping.setUrlDecode(false);
+	void newlineInRequestShouldMatch() throws Exception {
 		Object controller = new Object();
-		Map<String, Object> urlMap = new LinkedHashMap<>();
-		urlMap.put("/*/baz", controller);
-		handlerMapping.setUrlMap(urlMap);
-		handlerMapping.setApplicationContext(new StaticApplicationContext());
+		UrlPathHelper urlPathHelper = new UrlPathHelper();
+		urlPathHelper.setUrlDecode(false);
+		SimpleUrlHandlerMapping mapping = new SimpleUrlHandlerMapping(Collections.singletonMap("/*/baz", controller));
+		mapping.setUrlPathHelper(urlPathHelper);
+		mapping.setApplicationContext(new StaticApplicationContext());
 
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/foo%0a%0dbar/baz");
 
-		HandlerExecutionChain hec = handlerMapping.getHandler(request);
-		assertNotNull(hec);
-		assertSame(controller, hec.getHandler());
+		HandlerExecutionChain hec = mapping.getHandler(request);
+		assertThat(hec).isNotNull();
+		assertThat(hec.getHandler()).isSameAs(controller);
 	}
 
-	private void checkMappings(String beanName) throws Exception {
-		MockServletContext sc = new MockServletContext("");
-		XmlWebApplicationContext wac = new XmlWebApplicationContext();
-		wac.setServletContext(sc);
-		wac.setConfigLocations(new String[] {"/org/springframework/web/servlet/handler/map2.xml"});
-		wac.refresh();
-		Object bean = wac.getBean("mainController");
-		Object otherBean = wac.getBean("otherController");
-		Object defaultBean = wac.getBean("starController");
-		HandlerMapping hm = (HandlerMapping) wac.getBean(beanName);
+	@HandlerMappingsTest
+	void resolveFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		StaticApplicationContext applicationContext = new StaticApplicationContext();
+		applicationContext.registerSingleton("mainController", Object.class);
+		Object mainController = applicationContext.getBean("mainController");
+		handlerMapping.setUrlMap(Map.of("/welcome.html", "mainController"));
+		handlerMapping.setApplicationContext(applicationContext);
 
-		MockHttpServletRequest req = new MockHttpServletRequest("GET", "/welcome.html");
-		HandlerExecutionChain hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-		assertEquals("/welcome.html", req.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE));
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/welcome.html", usePathPatterns);
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
 
-		req = new MockHttpServletRequest("GET", "/welcome.x");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == otherBean);
-		assertEquals("welcome.x", req.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE));
-
-		req = new MockHttpServletRequest("GET", "/welcome/");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == otherBean);
-		assertEquals("welcome", req.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE));
-
-		req = new MockHttpServletRequest("GET", "/");
-		req.setServletPath("/welcome.html");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/welcome.html");
-		req.setContextPath("/app");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/show.html");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/bookseats.html");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/original-welcome.html");
-		req.setAttribute(WebUtils.INCLUDE_REQUEST_URI_ATTRIBUTE, "/welcome.html");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/original-show.html");
-		req.setAttribute(WebUtils.INCLUDE_REQUEST_URI_ATTRIBUTE, "/show.html");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/original-bookseats.html");
-		req.setAttribute(WebUtils.INCLUDE_REQUEST_URI_ATTRIBUTE, "/bookseats.html");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-
-		req = new MockHttpServletRequest("GET", "/");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == bean);
-		assertEquals("/", req.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE));
-
-		req = new MockHttpServletRequest("GET", "/somePath");
-		hec = getHandler(hm, req);
-		assertTrue("Handler is correct bean", hec != null && hec.getHandler() == defaultBean);
-		assertEquals("/somePath", req.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE));
+		assertThat(chain.getHandler()).isSameAs(mainController);
+		assertThat(request.getAttribute(PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE)).isEqualTo("/welcome.html");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(mainController);
 	}
 
-	private HandlerExecutionChain getHandler(HandlerMapping hm, MockHttpServletRequest req) throws Exception {
-		HandlerExecutionChain hec = hm.getHandler(req);
-		HandlerInterceptor[] interceptors = hec.getInterceptors();
-		if (interceptors != null) {
-			for (HandlerInterceptor interceptor : interceptors) {
-				interceptor.preHandle(req, null, hec.getHandler());
-			}
+	@HandlerMappingsTest
+	void resolvePatternFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		StaticApplicationContext applicationContext = new StaticApplicationContext();
+		applicationContext.registerSingleton("mainController", Object.class);
+		Object mainController = applicationContext.getBean("mainController");
+		handlerMapping.setUrlMap(Map.of("/welcome*", "mainController"));
+		handlerMapping.setApplicationContext(applicationContext);
+
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/welcome.x", usePathPatterns);
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
+
+		assertThat(chain.getHandler()).isSameAs(mainController);
+		assertThat(request.getAttribute(PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE)).isEqualTo("welcome.x");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(mainController);
+	}
+
+	@HandlerMappingsTest
+	void resolvePathWithParamFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		StaticApplicationContext applicationContext = new StaticApplicationContext();
+		applicationContext.registerSingleton("mainController", Object.class);
+		Object mainController = applicationContext.getBean("mainController");
+		handlerMapping.setUrlMap(Map.of("/welcome.x", "mainController"));
+		handlerMapping.setApplicationContext(applicationContext);
+
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/welcome.x;jsessionid=123", usePathPatterns);
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
+
+		assertThat(chain.getHandler()).isSameAs(mainController);
+		assertThat(request.getAttribute(PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE)).isEqualTo("/welcome.x");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(mainController);
+	}
+
+	@HandlerMappingsTest
+	void resolvePathWithContextFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		StaticApplicationContext applicationContext = new StaticApplicationContext();
+		applicationContext.registerSingleton("mainController", Object.class);
+		Object mainController = applicationContext.getBean("mainController");
+		handlerMapping.setUrlMap(Map.of("/welcome.x", "mainController"));
+		handlerMapping.setApplicationContext(applicationContext);
+
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/app", "/welcome.x", usePathPatterns);
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
+
+		assertThat(chain.getHandler()).isSameAs(mainController);
+		assertThat(request.getAttribute(PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE)).isEqualTo("/welcome.x");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(mainController);
+	}
+
+	@HandlerMappingsTest
+	void resolvePathWithIncludeFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		StaticApplicationContext applicationContext = new StaticApplicationContext();
+		applicationContext.registerSingleton("mainController", Object.class);
+		Object mainController = applicationContext.getBean("mainController");
+		handlerMapping.setUrlMap(Map.of("/welcome.html", "mainController"));
+		handlerMapping.setApplicationContext(applicationContext);
+
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/original.html", usePathPatterns);
+		request.setAttribute(WebUtils.INCLUDE_REQUEST_URI_ATTRIBUTE, "/welcome.html");
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
+
+		assertThat(chain.getHandler()).isSameAs(mainController);
+		assertThat(request.getAttribute(PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE)).isEqualTo("/welcome.html");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(mainController);
+	}
+
+	@HandlerMappingsTest
+	void resolveDefaultPathFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		StaticApplicationContext applicationContext = new StaticApplicationContext();
+		applicationContext.registerSingleton("mainController", Object.class);
+		Object mainController = applicationContext.getBean("mainController");
+		handlerMapping.setDefaultHandler(mainController);
+		handlerMapping.setApplicationContext(applicationContext);
+
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/", usePathPatterns);
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
+
+		assertThat(chain.getHandler()).isSameAs(mainController);
+		assertThat(request.getAttribute(PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE)).isEqualTo("/");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(mainController);
+	}
+
+	@HandlerMappingsTest
+	void resolveParameterizedControllerFromMap(SimpleUrlHandlerMapping handlerMapping) throws Exception {
+		ParameterizableViewController viewController = new ParameterizableViewController();
+		viewController.setView(new RedirectView("/after/{variable}"));
+		viewController.setStatusCode(HttpStatus.PERMANENT_REDIRECT);
+		handlerMapping.setUrlMap(Map.of("/before/{variable}", viewController));
+		handlerMapping.setApplicationContext(new StaticApplicationContext());
+
+		boolean usePathPatterns = handlerMapping.getPatternParser() != null;
+		MockHttpServletRequest request = PathPatternsTestUtils.initRequest("GET", "/before/test", usePathPatterns);
+		HandlerExecutionChain chain = getHandler(handlerMapping, request);
+
+		assertThat(chain.getHandler()).isSameAs(viewController);
+		@SuppressWarnings("unchecked")
+		Map<String, String> variables = (Map<String, String>) request.getAttribute(URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+		assertThat(variables).containsEntry("variable", "test");
+		assertThat(request.getAttribute(BEST_MATCHING_HANDLER_ATTRIBUTE)).isEqualTo(viewController);
+	}
+
+	private HandlerExecutionChain getHandler(HandlerMapping mapping, MockHttpServletRequest request) throws Exception {
+		HandlerExecutionChain chain = mapping.getHandler(request);
+		Assert.notNull(chain, "No handler found for request: " + request.getRequestURI());
+		for (HandlerInterceptor interceptor : chain.getInterceptorList()) {
+			interceptor.preHandle(request, null, chain.getHandler());
 		}
-		return hec;
+		return chain;
+	}
+
+
+	@Target(ElementType.METHOD)
+	@Retention(RetentionPolicy.RUNTIME)
+	@Documented
+	@ParameterizedTest(name="[{index}] {0}")
+	@MethodSource("handlerMappings")
+	@interface HandlerMappingsTest {
+	}
+
+	static Stream<Arguments> handlerMappings() {
+		SimpleUrlHandlerMapping defaultConfig = new SimpleUrlHandlerMapping();
+		SimpleUrlHandlerMapping antPatternConfig = new SimpleUrlHandlerMapping();
+		antPatternConfig.setPatternParser(null);
+		return Stream.of(
+				arguments(named("with PathPattern", defaultConfig)),
+				arguments(named("with AntPathMatcher", antPatternConfig))
+			);
 	}
 
 }

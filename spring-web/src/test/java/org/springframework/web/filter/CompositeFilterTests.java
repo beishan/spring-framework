@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,48 +17,48 @@
 package org.springframework.web.filter;
 
 import java.io.IOException;
-import java.util.Arrays;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import java.util.List;
 
-import org.junit.Test;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.mock.web.test.MockFilterConfig;
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
-import org.springframework.mock.web.test.MockServletContext;
+import org.springframework.web.testfixture.servlet.MockFilterConfig;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
+import org.springframework.web.testfixture.servlet.MockServletContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Dave Syer
  */
-public class CompositeFilterTests {
+class CompositeFilterTests {
 
 	@Test
-	public void testCompositeFilter() throws ServletException, IOException {
+	void testCompositeFilter() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 		MockFilter targetFilter = new MockFilter();
 		MockFilterConfig proxyConfig = new MockFilterConfig(sc);
 
 		CompositeFilter filterProxy = new CompositeFilter();
-		filterProxy.setFilters(Arrays.asList(targetFilter));
+		filterProxy.setFilters(List.of(targetFilter));
 		filterProxy.init(proxyConfig);
 
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNotNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNotNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 
@@ -67,7 +67,7 @@ public class CompositeFilterTests {
 		public FilterConfig filterConfig;
 
 		@Override
-		public void init(FilterConfig filterConfig) throws ServletException {
+		public void init(FilterConfig filterConfig) {
 			this.filterConfig = filterConfig;
 		}
 

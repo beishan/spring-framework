@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,7 +43,7 @@ public interface RequestBodyAdvice {
 	 * Invoked first to determine if this interceptor applies.
 	 * @param methodParameter the method parameter
 	 * @param targetType the target type, not necessarily the same as the method
-	 * parameter type, e.g. for {@code HttpEntity<String>}.
+	 * parameter type, for example, for {@code HttpEntity<String>}.
 	 * @param converterType the selected converter type
 	 * @return whether this interceptor should be invoked or not
 	 */
@@ -55,9 +55,9 @@ public interface RequestBodyAdvice {
 	 * @param inputMessage the request
 	 * @param parameter the target method parameter
 	 * @param targetType the target type, not necessarily the same as the method
-	 * parameter type, e.g. for {@code HttpEntity<String>}.
+	 * parameter type, for example, for {@code HttpEntity<String>}.
 	 * @param converterType the converter used to deserialize the body
-	 * @return the input request or a new instance, never {@code null}
+	 * @return the input request or a new instance (never {@code null})
 	 */
 	HttpInputMessage beforeBodyRead(HttpInputMessage inputMessage, MethodParameter parameter,
 			Type targetType, Class<? extends HttpMessageConverter<?>> converterType) throws IOException;
@@ -68,7 +68,7 @@ public interface RequestBodyAdvice {
 	 * @param inputMessage the request
 	 * @param parameter the target method parameter
 	 * @param targetType the target type, not necessarily the same as the method
-	 * parameter type, e.g. for {@code HttpEntity<String>}.
+	 * parameter type, for example, for {@code HttpEntity<String>}.
 	 * @param converterType the converter used to deserialize the body
 	 * @return the same body or a new instance
 	 */
@@ -81,10 +81,10 @@ public interface RequestBodyAdvice {
 	 * @param inputMessage the request
 	 * @param parameter the method parameter
 	 * @param targetType the target type, not necessarily the same as the method
-	 * parameter type, e.g. for {@code HttpEntity<String>}.
+	 * parameter type, for example, for {@code HttpEntity<String>}.
 	 * @param converterType the selected converter type
-	 * @return the value to use or {@code null} which may then raise an
-	 * {@code HttpMessageNotReadableException} if the argument is required.
+	 * @return the value to use, or {@code null} which may then raise an
+	 * {@code HttpMessageNotReadableException} if the argument is required
 	 */
 	@Nullable
 	Object handleEmptyBody(@Nullable Object body, HttpInputMessage inputMessage, MethodParameter parameter,

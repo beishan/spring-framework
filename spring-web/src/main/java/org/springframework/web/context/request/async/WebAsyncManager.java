@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
-import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.atomic.AtomicReference;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -34,7 +34,6 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.async.DeferredResult.DeferredResultHandler;
-import org.springframework.web.util.UrlPathHelper;
 
 /**
  * The central class for managing asynchronous request processing, mainly intended
@@ -52,6 +51,7 @@ import org.springframework.web.util.UrlPathHelper;
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 3.2
  * @see org.springframework.web.context.request.AsyncWebRequestInterceptor
  * @see org.springframework.web.servlet.AsyncHandlerInterceptor
@@ -62,9 +62,10 @@ public final class WebAsyncManager {
 
 	private static final Object RESULT_NONE = new Object();
 
-	private static final Log logger = LogFactory.getLog(WebAsyncManager.class);
+	private static final AsyncTaskExecutor DEFAULT_TASK_EXECUTOR =
+			new SimpleAsyncTaskExecutor(WebAsyncManager.class.getSimpleName());
 
-	private static final UrlPathHelper urlPathHelper = new UrlPathHelper();
+	private static final Log logger = LogFactory.getLog(WebAsyncManager.class);
 
 	private static final CallableProcessingInterceptor timeoutCallableInterceptor =
 			new TimeoutCallableProcessingInterceptor();
@@ -73,13 +74,20 @@ public final class WebAsyncManager {
 			new TimeoutDeferredResultProcessingInterceptor();
 
 
+	@Nullable
 	private AsyncWebRequest asyncWebRequest;
 
-	private AsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor(this.getClass().getSimpleName());
+	private AsyncTaskExecutor taskExecutor = DEFAULT_TASK_EXECUTOR;
 
+	private boolean isMultipartRequestParsed;
+
+	@Nullable
 	private volatile Object concurrentResult = RESULT_NONE;
 
+	@Nullable
 	private volatile Object[] concurrentResultContext;
+
+	private final AtomicReference<State> state = new AtomicReference<>(State.NOT_STARTED);
 
 	private final Map<Object, CallableProcessingInterceptor> callableInterceptors = new LinkedHashMap<>();
 
@@ -88,7 +96,7 @@ public final class WebAsyncManager {
 
 	/**
 	 * Package-private constructor.
-	 * @see WebAsyncUtils#getAsyncManager(javax.servlet.ServletRequest)
+	 * @see WebAsyncUtils#getAsyncManager(jakarta.servlet.ServletRequest)
 	 * @see WebAsyncUtils#getAsyncManager(org.springframework.web.context.request.WebRequest)
 	 */
 	WebAsyncManager() {
@@ -98,7 +106,7 @@ public final class WebAsyncManager {
 	/**
 	 * Configure the {@link AsyncWebRequest} to use. This property may be set
 	 * more than once during a single request to accurately reflect the current
-	 * state of the request (e.g. following a forward, request/response
+	 * state of the request (for example, following a forward, request/response
 	 * wrapping, etc). However, it should not be set while concurrent handling
 	 * is in progress, i.e. while {@link #isConcurrentHandlingStarted()} is
 	 * {@code true}.
@@ -112,6 +120,15 @@ public final class WebAsyncManager {
 	}
 
 	/**
+	 * Return the current {@link AsyncWebRequest}.
+	 * @since 5.3.33
+	 */
+	@Nullable
+	public AsyncWebRequest getAsyncWebRequest() {
+		return this.asyncWebRequest;
+	}
+
+	/**
 	 * Configure an AsyncTaskExecutor for use with concurrent processing via
 	 * {@link #startCallableProcessing(Callable, Object...)}.
 	 * <p>By default a {@link SimpleAsyncTaskExecutor} instance is used.
@@ -121,8 +138,8 @@ public final class WebAsyncManager {
 	}
 
 	/**
-	 * Whether the selected handler for the current request chose to handle the
-	 * request asynchronously. A return value of "true" indicates concurrent
+	 * Return whether the selected handler for the current request chose to handle
+	 * the request asynchronously. A return value of "true" indicates concurrent
 	 * handling is under way and the response will remain open. A return value
 	 * of "false" means concurrent handling was either not started or possibly
 	 * that it has completed and the request was dispatched for further
@@ -133,27 +150,28 @@ public final class WebAsyncManager {
 	}
 
 	/**
-	 * Whether a result value exists as a result of concurrent handling.
+	 * Return whether a result value exists as a result of concurrent handling.
 	 */
 	public boolean hasConcurrentResult() {
 		return (this.concurrentResult != RESULT_NONE);
 	}
 
 	/**
-	 * Provides access to the result from concurrent handling.
+	 * Get the result from concurrent handling.
 	 * @return an Object, possibly an {@code Exception} or {@code Throwable} if
-	 * concurrent handling raised one.
+	 * concurrent handling raised one
 	 * @see #clearConcurrentResult()
 	 */
+	@Nullable
 	public Object getConcurrentResult() {
 		return this.concurrentResult;
 	}
 
 	/**
-	 * Provides access to additional processing context saved at the start of
-	 * concurrent handling.
+	 * Get the additional processing context saved at the start of concurrent handling.
 	 * @see #clearConcurrentResult()
 	 */
+	@Nullable
 	public Object[] getConcurrentResultContext() {
 		return this.concurrentResultContext;
 	}
@@ -185,13 +203,13 @@ public final class WebAsyncManager {
 	 */
 	public void registerCallableInterceptor(Object key, CallableProcessingInterceptor interceptor) {
 		Assert.notNull(key, "Key is required");
-		Assert.notNull(interceptor, "CallableProcessingInterceptor  is required");
+		Assert.notNull(interceptor, "CallableProcessingInterceptor is required");
 		this.callableInterceptors.put(key, interceptor);
 	}
 
 	/**
 	 * Register a {@link CallableProcessingInterceptor} without a key.
-	 * The key is derived from the class name and hashcode.
+	 * The key is derived from the class name and hash code.
 	 * @param interceptors one or more interceptors to register
 	 */
 	public void registerCallableInterceptors(CallableProcessingInterceptor... interceptors) {
@@ -214,8 +232,8 @@ public final class WebAsyncManager {
 	}
 
 	/**
-	 * Register one or more {@link DeferredResultProcessingInterceptor}s without a specified key.
-	 * The default key is derived from the interceptor class name and hash code.
+	 * Register one or more {@link DeferredResultProcessingInterceptor DeferredResultProcessingInterceptors}
+	 * without a specified key. The default key is derived from the interceptor class name and hash code.
 	 * @param interceptors one or more interceptors to register
 	 */
 	public void registerDeferredResultInterceptors(DeferredResultProcessingInterceptor... interceptors) {
@@ -227,10 +245,33 @@ public final class WebAsyncManager {
 	}
 
 	/**
+	 * Mark the {@link WebAsyncManager} as wrapping a multipart async request.
+	 * @since 6.1.12
+	 */
+	public void setMultipartRequestParsed(boolean isMultipart) {
+		this.isMultipartRequestParsed = isMultipart;
+	}
+
+	/**
+	 * Return {@code true} if this {@link WebAsyncManager} was previously marked
+	 * as wrapping a multipart async request, {@code false} otherwise.
+	 * @since 6.1.12
+	 */
+	public boolean isMultipartRequestParsed() {
+		return this.isMultipartRequestParsed;
+	}
+
+	/**
 	 * Clear {@linkplain #getConcurrentResult() concurrentResult} and
 	 * {@linkplain #getConcurrentResultContext() concurrentResultContext}.
 	 */
 	public void clearConcurrentResult() {
+		if (!this.state.compareAndSet(State.RESULT_SET, State.NOT_STARTED)) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Unexpected call to clear: [" + this.state.get() + "]");
+			}
+			return;
+		}
 		synchronized (WebAsyncManager.this) {
 			this.concurrentResult = RESULT_NONE;
 			this.concurrentResultContext = null;
@@ -250,7 +291,7 @@ public final class WebAsyncManager {
 	 * @see #getConcurrentResult()
 	 * @see #getConcurrentResultContext()
 	 */
-	@SuppressWarnings({"unchecked", "rawtypes"})
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	public void startCallableProcessing(Callable<?> callable, Object... processingContext) throws Exception {
 		Assert.notNull(callable, "Callable must not be null");
 		startCallableProcessing(new WebAsyncTask(callable), processingContext);
@@ -265,11 +306,17 @@ public final class WebAsyncManager {
 	 * via {@link #getConcurrentResultContext()}
 	 * @throws Exception if concurrent processing failed to start
 	 */
+	@SuppressWarnings("NullAway")
 	public void startCallableProcessing(final WebAsyncTask<?> webAsyncTask, Object... processingContext)
 			throws Exception {
 
 		Assert.notNull(webAsyncTask, "WebAsyncTask must not be null");
 		Assert.state(this.asyncWebRequest != null, "AsyncWebRequest must not be null");
+
+		if (!this.state.compareAndSet(State.NOT_STARTED, State.ASYNC_PROCESSING)) {
+			throw new IllegalStateException(
+					"Unexpected call to startCallableProcessing: [" + this.state.get() + "]");
+		}
 
 		Long timeout = webAsyncTask.getTimeout();
 		if (timeout != null) {
@@ -290,7 +337,9 @@ public final class WebAsyncManager {
 		final CallableInterceptorChain interceptorChain = new CallableInterceptorChain(interceptors);
 
 		this.asyncWebRequest.addTimeoutHandler(() -> {
-			logger.debug("Processing timeout");
+			if (logger.isDebugEnabled()) {
+				logger.debug("Servlet container timeout notification for " + formatUri(this.asyncWebRequest));
+			}
 			Object result = interceptorChain.triggerAfterTimeout(this.asyncWebRequest, callable);
 			if (result != CallableProcessingInterceptor.RESULT_NONE) {
 				setConcurrentResultAndDispatch(result);
@@ -298,7 +347,9 @@ public final class WebAsyncManager {
 		});
 
 		this.asyncWebRequest.addErrorHandler(ex -> {
-			logger.debug("Processing error");
+			if (logger.isDebugEnabled()) {
+				logger.debug("Servlet container error notification for " + formatUri(this.asyncWebRequest) + ": " + ex);
+			}
 			Object result = interceptorChain.triggerAfterError(this.asyncWebRequest, callable, ex);
 			result = (result != CallableProcessingInterceptor.RESULT_NONE ? result : ex);
 			setConcurrentResultAndDispatch(result);
@@ -326,31 +377,40 @@ public final class WebAsyncManager {
 			});
 			interceptorChain.setTaskFuture(future);
 		}
-		catch (RejectedExecutionException ex) {
+		catch (Throwable ex) {
 			Object result = interceptorChain.applyPostProcess(this.asyncWebRequest, callable, ex);
 			setConcurrentResultAndDispatch(result);
-			throw ex;
 		}
 	}
 
-	private void setConcurrentResultAndDispatch(Object result) {
+	private void setConcurrentResultAndDispatch(@Nullable Object result) {
+		Assert.state(this.asyncWebRequest != null, "AsyncWebRequest must not be null");
 		synchronized (WebAsyncManager.this) {
-			if (this.concurrentResult != RESULT_NONE) {
+			if (!this.state.compareAndSet(State.ASYNC_PROCESSING, State.RESULT_SET)) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Async result already set: [" + this.state.get() +
+							"], ignored result for " + formatUri(this.asyncWebRequest));
+				}
 				return;
 			}
+
 			this.concurrentResult = result;
-		}
+			if (logger.isDebugEnabled()) {
+				logger.debug("Async result set for " + formatUri(this.asyncWebRequest));
+			}
 
-		if (this.asyncWebRequest.isAsyncComplete()) {
-			logger.error("Could not complete async processing due to timeout or network error");
-			return;
-		}
+			if (this.asyncWebRequest.isAsyncComplete()) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Async request already completed for " + formatUri(this.asyncWebRequest));
+				}
+				return;
+			}
 
-		if (logger.isDebugEnabled()) {
-			logger.debug("Concurrent result value [" + this.concurrentResult +
-					"] - dispatching request to resume processing");
+			if (logger.isDebugEnabled()) {
+				logger.debug("Performing async dispatch for " + formatUri(this.asyncWebRequest));
+			}
+			this.asyncWebRequest.dispatch();
 		}
-		this.asyncWebRequest.dispatch();
 	}
 
 	/**
@@ -367,11 +427,17 @@ public final class WebAsyncManager {
 	 * @see #getConcurrentResult()
 	 * @see #getConcurrentResultContext()
 	 */
+	@SuppressWarnings("NullAway")
 	public void startDeferredResultProcessing(
 			final DeferredResult<?> deferredResult, Object... processingContext) throws Exception {
 
 		Assert.notNull(deferredResult, "DeferredResult must not be null");
 		Assert.state(this.asyncWebRequest != null, "AsyncWebRequest must not be null");
+
+		if (!this.state.compareAndSet(State.NOT_STARTED, State.ASYNC_PROCESSING)) {
+			throw new IllegalStateException(
+					"Unexpected call to startDeferredResultProcessing: [" + this.state.get() + "]");
+		}
 
 		Long timeout = deferredResult.getTimeoutValue();
 		if (timeout != null) {
@@ -386,6 +452,9 @@ public final class WebAsyncManager {
 		final DeferredResultInterceptorChain interceptorChain = new DeferredResultInterceptorChain(interceptors);
 
 		this.asyncWebRequest.addTimeoutHandler(() -> {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Servlet container timeout notification for " + formatUri(this.asyncWebRequest));
+			}
 			try {
 				interceptorChain.triggerAfterTimeout(this.asyncWebRequest, deferredResult);
 			}
@@ -395,6 +464,9 @@ public final class WebAsyncManager {
 		});
 
 		this.asyncWebRequest.addErrorHandler(ex -> {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Servlet container error notification for " + formatUri(this.asyncWebRequest));
+			}
 			try {
 				if (!interceptorChain.triggerAfterError(this.asyncWebRequest, deferredResult, ex)) {
 					return;
@@ -406,8 +478,8 @@ public final class WebAsyncManager {
 			}
 		});
 
-		this.asyncWebRequest.addCompletionHandler(()
-				-> interceptorChain.triggerAfterCompletion(this.asyncWebRequest, deferredResult));
+		this.asyncWebRequest.addCompletionHandler(() ->
+				interceptorChain.triggerAfterCompletion(this.asyncWebRequest, deferredResult));
 
 		interceptorChain.applyBeforeConcurrentHandling(this.asyncWebRequest, deferredResult);
 		startAsyncProcessing(processingContext);
@@ -429,15 +501,45 @@ public final class WebAsyncManager {
 			this.concurrentResult = RESULT_NONE;
 			this.concurrentResultContext = processingContext;
 		}
-		this.asyncWebRequest.startAsync();
 
+		Assert.state(this.asyncWebRequest != null, "AsyncWebRequest must not be null");
 		if (logger.isDebugEnabled()) {
-			HttpServletRequest request = this.asyncWebRequest.getNativeRequest(HttpServletRequest.class);
-			if (request != null) {
-				String requestUri = urlPathHelper.getRequestUri(request);
-				logger.debug("Concurrent handling starting for " + request.getMethod() + " [" + requestUri + "]");
-			}
+			logger.debug("Started async request for " + formatUri(this.asyncWebRequest));
 		}
+
+		this.asyncWebRequest.startAsync();
+	}
+
+	private static String formatUri(AsyncWebRequest asyncWebRequest) {
+		HttpServletRequest request = asyncWebRequest.getNativeRequest(HttpServletRequest.class);
+		return (request != null ? "\"" + request.getRequestURI() + "\"" : "servlet container");
+	}
+
+
+	/**
+	 * Represents a state for {@link WebAsyncManager} to be in.
+	 * <p><pre>
+	 *        NOT_STARTED <------+
+	 *             |             |
+	 *             v             |
+	 *      ASYNC_PROCESSING     |
+	 *             |             |
+	 *             v             |
+	 *         RESULT_SET -------+
+	 * </pre>
+	 * @since 5.3.33
+	 */
+	private enum State {
+
+		/** No async processing in progress. */
+		NOT_STARTED,
+
+		/** Async handling has started, but the result hasn't been set yet. */
+		ASYNC_PROCESSING,
+
+		/** The result is set, and an async dispatch was performed, unless there is a network error. */
+		RESULT_SET
+
 	}
 
 }

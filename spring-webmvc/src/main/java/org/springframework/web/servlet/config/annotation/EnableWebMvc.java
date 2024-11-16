@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,19 +26,18 @@ import org.springframework.context.annotation.Import;
 
 /**
  * Adding this annotation to an {@code @Configuration} class imports the Spring MVC
- * configuration from {@link WebMvcConfigurationSupport}, e.g.:
+ * configuration from {@link WebMvcConfigurationSupport}, for example:
  *
  * <pre class="code">
  * &#064;Configuration
  * &#064;EnableWebMvc
  * &#064;ComponentScan(basePackageClasses = MyConfiguration.class)
  * public class MyConfiguration {
- *
  * }
  * </pre>
  *
  * <p>To customize the imported configuration, implement the interface
- * {@link WebMvcConfigurer} and override individual methods, e.g.:
+ * {@link WebMvcConfigurer} and override individual methods, for example:
  *
  * <pre class="code">
  * &#064;Configuration
@@ -46,15 +45,15 @@ import org.springframework.context.annotation.Import;
  * &#064;ComponentScan(basePackageClasses = MyConfiguration.class)
  * public class MyConfiguration implements WebMvcConfigurer {
  *
- * 	   &#064;Override
- * 	   public void addFormatters(FormatterRegistry formatterRegistry) {
+ *     &#064;Override
+ *     public void addFormatters(FormatterRegistry formatterRegistry) {
  *         formatterRegistry.addConverter(new MyConverter());
- * 	   }
+ *     }
  *
- * 	   &#064;Override
- * 	   public void configureMessageConverters(List&lt;HttpMessageConverter&lt;?&gt;&gt; converters) {
+ *     &#064;Override
+ *     public void configureMessageConverters(List&lt;HttpMessageConverter&lt;?&gt;&gt; converters) {
  *         converters.add(new MyHttpMessageConverter());
- * 	   }
+ *     }
  *
  * }
  * </pre>
@@ -66,25 +65,25 @@ import org.springframework.context.annotation.Import;
  * configuration.
  *
  * <p>If {@link WebMvcConfigurer} does not expose some more advanced setting that
- * needs to be configured consider removing the {@code @EnableWebMvc}
+ * needs to be configured, consider removing the {@code @EnableWebMvc}
  * annotation and extending directly from {@link WebMvcConfigurationSupport}
- * or {@link DelegatingWebMvcConfiguration}, e.g.:
+ * or {@link DelegatingWebMvcConfiguration}, for example:
  *
  * <pre class="code">
  * &#064;Configuration
  * &#064;ComponentScan(basePackageClasses = { MyConfiguration.class })
  * public class MyConfiguration extends WebMvcConfigurationSupport {
  *
- * 	   &#064;Override
- *	   public void addFormatters(FormatterRegistry formatterRegistry) {
+ *     &#064;Override
+ *     public void addFormatters(FormatterRegistry formatterRegistry) {
  *         formatterRegistry.addConverter(new MyConverter());
- *	   }
+ *     }
  *
- *	   &#064;Bean
- *	   public RequestMappingHandlerAdapter requestMappingHandlerAdapter() {
+ *     &#064;Bean
+ *     public RequestMappingHandlerAdapter requestMappingHandlerAdapter() {
  *         // Create or delegate to "super" to create and
  *         // customize properties of RequestMappingHandlerAdapter
- *	   }
+ *     }
  * }
  * </pre>
  *

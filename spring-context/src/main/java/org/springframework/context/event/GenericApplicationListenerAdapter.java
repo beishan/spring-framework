@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,8 @@
 
 package org.springframework.context.event;
 
+import java.util.Map;
+
 import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
@@ -23,6 +25,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.ResolvableType;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ConcurrentReferenceHashMap;
 
 /**
  * {@link GenericApplicationListener} adapter that determines supported event types
@@ -33,7 +36,10 @@ import org.springframework.util.Assert;
  * @since 3.0
  * @see org.springframework.context.ApplicationListener#onApplicationEvent
  */
-public class GenericApplicationListenerAdapter implements GenericApplicationListener, SmartApplicationListener {
+public class GenericApplicationListenerAdapter implements GenericApplicationListener {
+
+	private static final Map<Class<?>, ResolvableType> eventTypeCache = new ConcurrentReferenceHashMap<>();
+
 
 	private final ApplicationListener<ApplicationEvent> delegate;
 
@@ -61,9 +67,12 @@ public class GenericApplicationListenerAdapter implements GenericApplicationList
 	@Override
 	@SuppressWarnings("unchecked")
 	public boolean supportsEventType(ResolvableType eventType) {
-		if (this.delegate instanceof SmartApplicationListener) {
+		if (this.delegate instanceof GenericApplicationListener gal) {
+			return gal.supportsEventType(eventType);
+		}
+		else if (this.delegate instanceof SmartApplicationListener sal) {
 			Class<? extends ApplicationEvent> eventClass = (Class<? extends ApplicationEvent>) eventType.resolve();
-			return (eventClass != null && ((SmartApplicationListener) this.delegate).supportsEventType(eventClass));
+			return (eventClass != null && sal.supportsEventType(eventClass));
 		}
 		else {
 			return (this.declaredEventType == null || this.declaredEventType.isAssignableFrom(eventType));
@@ -71,38 +80,41 @@ public class GenericApplicationListenerAdapter implements GenericApplicationList
 	}
 
 	@Override
-	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
-		return supportsEventType(ResolvableType.forClass(eventType));
-	}
-
-	@Override
 	public boolean supportsSourceType(@Nullable Class<?> sourceType) {
-		return !(this.delegate instanceof SmartApplicationListener) ||
-				((SmartApplicationListener) this.delegate).supportsSourceType(sourceType);
+		return (!(this.delegate instanceof SmartApplicationListener sal) || sal.supportsSourceType(sourceType));
 	}
 
 	@Override
 	public int getOrder() {
-		return (this.delegate instanceof Ordered ? ((Ordered) this.delegate).getOrder() : Ordered.LOWEST_PRECEDENCE);
+		return (this.delegate instanceof Ordered ordered ? ordered.getOrder() : Ordered.LOWEST_PRECEDENCE);
 	}
 
-	@Nullable
-	static ResolvableType resolveDeclaredEventType(Class<?> listenerType) {
-		ResolvableType resolvableType = ResolvableType.forClass(listenerType).as(ApplicationListener.class);
-		return (resolvableType.hasGenerics() ? resolvableType.getGeneric() : null);
+	@Override
+	public String getListenerId() {
+		return (this.delegate instanceof SmartApplicationListener sal ? sal.getListenerId() : "");
 	}
+
 
 	@Nullable
 	private static ResolvableType resolveDeclaredEventType(ApplicationListener<ApplicationEvent> listener) {
 		ResolvableType declaredEventType = resolveDeclaredEventType(listener.getClass());
-		if (declaredEventType == null || declaredEventType.isAssignableFrom(
-				ResolvableType.forClass(ApplicationEvent.class))) {
+		if (declaredEventType == null || declaredEventType.isAssignableFrom(ApplicationEvent.class)) {
 			Class<?> targetClass = AopUtils.getTargetClass(listener);
 			if (targetClass != listener.getClass()) {
 				declaredEventType = resolveDeclaredEventType(targetClass);
 			}
 		}
 		return declaredEventType;
+	}
+
+	@Nullable
+	static ResolvableType resolveDeclaredEventType(Class<?> listenerType) {
+		ResolvableType eventType = eventTypeCache.get(listenerType);
+		if (eventType == null) {
+			eventType = ResolvableType.forClass(listenerType).as(ApplicationListener.class).getGeneric();
+			eventTypeCache.put(listenerType, eventType);
+		}
+		return (eventType != ResolvableType.NONE ? eventType : null);
 	}
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,13 +20,11 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.jsp.JspException;
 
-import org.junit.Before;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.jsp.JspException;
+import org.junit.jupiter.api.BeforeEach;
 
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockPageContext;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.Errors;
 import org.springframework.web.context.WebApplicationContext;
@@ -38,9 +36,11 @@ import org.springframework.web.servlet.support.RequestDataValueProcessor;
 import org.springframework.web.servlet.support.RequestDataValueProcessorWrapper;
 import org.springframework.web.servlet.tags.AbstractTagTests;
 import org.springframework.web.servlet.tags.RequestContextAwareTag;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockPageContext;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author Rob Harrop
@@ -55,7 +55,7 @@ public abstract class AbstractHtmlElementTagTests extends AbstractTagTests {
 	private MockPageContext pageContext;
 
 
-	@Before
+	@BeforeEach
 	public final void setUp() throws Exception {
 		// set up a writer for the tag content to be written to
 		this.writer = new StringWriter();
@@ -103,9 +103,8 @@ public abstract class AbstractHtmlElementTagTests extends AbstractTagTests {
 		return (RequestContext) getPageContext().getAttribute(RequestContextAwareTag.REQUEST_CONTEXT_PAGE_ATTRIBUTE);
 	}
 
-	@SuppressWarnings("deprecation")
 	protected RequestDataValueProcessor getMockRequestDataValueProcessor() {
-		RequestDataValueProcessor mockProcessor = mock(RequestDataValueProcessor.class);
+		RequestDataValueProcessor mockProcessor = mock();
 		HttpServletRequest request = (HttpServletRequest) getPageContext().getRequest();
 		WebApplicationContext wac = RequestContextUtils.findWebApplicationContext(request);
 		wac.getBean(RequestDataValueProcessorWrapper.class).setRequestDataValueProcessor(mockProcessor);
@@ -125,21 +124,20 @@ public abstract class AbstractHtmlElementTagTests extends AbstractTagTests {
 
 	protected final void assertContainsAttribute(String output, String attributeName, String attributeValue) {
 		String attributeString = attributeName + "=\"" + attributeValue + "\"";
-		assertTrue("Expected to find attribute '" + attributeName +
+		assertThat(output).as("Expected to find attribute '" + attributeName +
 				"' with value '" + attributeValue +
-				"' in output + '" + output + "'",
-				output.contains(attributeString));
+				"' in output + '" + output + "'").contains(attributeString);
 	}
 
 	protected final void assertAttributeNotPresent(String output, String attributeName) {
-		assertTrue("Unexpected attribute '" + attributeName + "' in output '" + output + "'.",
-				!output.contains(attributeName + "=\""));
+		assertThat(output).as("Unexpected attribute '" + attributeName + "' in output '" + output + "'.")
+				.doesNotContain(attributeName + "=\"");
 	}
 
 	protected final void assertBlockTagContains(String output, String desiredContents) {
-		String contents = output.substring(output.indexOf(">") + 1, output.lastIndexOf("<"));
-		assertTrue("Expected to find '" + desiredContents + "' in the contents of block tag '" + output + "'",
-				contents.contains(desiredContents));
+		String contents = output.substring(output.indexOf(">") + 1, output.lastIndexOf('<'));
+		assertThat(contents).as("Expected to find '" + desiredContents + "' in the contents of block tag '" + output + "'")
+				.contains(desiredContents);
 	}
 
 }

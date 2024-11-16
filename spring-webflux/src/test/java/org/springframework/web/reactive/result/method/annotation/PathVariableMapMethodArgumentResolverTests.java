@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,30 +21,28 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
-import org.springframework.mock.web.test.server.MockServerWebExchange;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.HandlerMapping;
+import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
+import org.springframework.web.testfixture.server.MockServerWebExchange;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
- * Unit tests for {@link PathVariableMapMethodArgumentResolver}.
+ * Tests for {@link PathVariableMapMethodArgumentResolver}.
  *
  * @author Rossen Stoyanchev
  */
-public class PathVariableMapMethodArgumentResolverTests {
+class PathVariableMapMethodArgumentResolverTests {
 
 	private PathVariableMapMethodArgumentResolver resolver;
 
@@ -56,8 +54,8 @@ public class PathVariableMapMethodArgumentResolverTests {
 	private MethodParameter paramMonoMap;
 
 
-	@Before
-	public void setup() throws Exception {
+	@BeforeEach
+	void setup() throws Exception {
 		this.resolver = new PathVariableMapMethodArgumentResolver(ReactiveAdapterRegistry.getSharedInstance());
 
 		Method method = ReflectionUtils.findMethod(getClass(), "handle", (Class<?>[]) null);
@@ -69,23 +67,17 @@ public class PathVariableMapMethodArgumentResolverTests {
 
 
 	@Test
-	public void supportsParameter() {
-		assertTrue(resolver.supportsParameter(paramMap));
-		assertFalse(resolver.supportsParameter(paramNamedMap));
-		assertFalse(resolver.supportsParameter(paramMapNoAnnot));
-		try {
-			this.resolver.supportsParameter(this.paramMonoMap);
-			fail();
-		}
-		catch (IllegalStateException ex) {
-			assertTrue("Unexpected error message:\n" + ex.getMessage(),
-					ex.getMessage().startsWith(
-							"PathVariableMapMethodArgumentResolver doesn't support reactive type wrapper"));
-		}
+	void supportsParameter() {
+		assertThat(resolver.supportsParameter(paramMap)).isTrue();
+		assertThat(resolver.supportsParameter(paramNamedMap)).isFalse();
+		assertThat(resolver.supportsParameter(paramMapNoAnnot)).isFalse();
+		assertThatIllegalStateException().isThrownBy(() ->
+				this.resolver.supportsParameter(this.paramMonoMap))
+			.withMessageStartingWith("PathVariableMapMethodArgumentResolver does not support reactive type wrapper");
 	}
 
 	@Test
-	public void resolveArgument() throws Exception {
+	void resolveArgument() throws Exception {
 		Map<String, String> uriTemplateVars = new HashMap<>();
 		uriTemplateVars.put("name1", "value1");
 		uriTemplateVars.put("name2", "value2");
@@ -94,15 +86,15 @@ public class PathVariableMapMethodArgumentResolverTests {
 		Mono<Object> mono = this.resolver.resolveArgument(this.paramMap, new BindingContext(), this.exchange);
 		Object result = mono.block();
 
-		assertEquals(uriTemplateVars, result);
+		assertThat(result).isEqualTo(uriTemplateVars);
 	}
 
 	@Test
-	public void resolveArgumentNoUriVars() throws Exception {
+	void resolveArgumentNoUriVars() {
 		Mono<Object> mono = this.resolver.resolveArgument(this.paramMap, new BindingContext(), this.exchange);
 		Object result = mono.block();
 
-		assertEquals(Collections.emptyMap(), result);
+		assertThat(result).isEqualTo(Collections.emptyMap());
 	}
 
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,22 +16,22 @@
 
 package org.springframework.web.reactive.result.method.annotation;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.Conventions;
+import org.springframework.core.KotlinDetector;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -46,6 +46,7 @@ import org.springframework.web.server.ServerWebExchange;
  * default model initialization through {@code @ModelAttribute} methods.
  *
  * @author Rossen Stoyanchev
+ * @author Sebastien Deleuze
  * @since 5.0
  */
 class ModelInitializer {
@@ -72,7 +73,6 @@ class ModelInitializer {
 	 * @param exchange the current exchange
 	 * @return a {@code Mono} for when the model is populated.
 	 */
-	@SuppressWarnings("Convert2MethodRef")
 	public Mono<Void> initModel(HandlerMethod handlerMethod, InitBinderBindingContext bindingContext,
 			ServerWebExchange exchange) {
 
@@ -112,7 +112,7 @@ class ModelInitializer {
 				.zip(resultList, objectArray ->
 						Arrays.stream(objectArray)
 								.map(object -> handleResult(((HandlerResult) object), bindingContext))
-								.collect(Collectors.toList()))
+								.toList())
 				.flatMap(Mono::when);
 	}
 
@@ -120,18 +120,22 @@ class ModelInitializer {
 		Object value = handlerResult.getReturnValue();
 		if (value != null) {
 			ResolvableType type = handlerResult.getReturnType();
-			ReactiveAdapter adapter = this.adapterRegistry.getAdapter(type.getRawClass(), value);
-			if (isAsyncVoidType(type, adapter)) {
+			MethodParameter typeSource = handlerResult.getReturnTypeSource();
+			ReactiveAdapter adapter = this.adapterRegistry.getAdapter(type.resolve(), value);
+			if (adapter != null && isAsyncVoidType(type, typeSource, adapter)) {
 				return Mono.from(adapter.toPublisher(value));
 			}
-			String name = getAttributeName(handlerResult.getReturnTypeSource());
+			String name = getAttributeName(typeSource);
 			bindingContext.getModel().asMap().putIfAbsent(name, value);
 		}
 		return Mono.empty();
 	}
 
-	private boolean isAsyncVoidType(ResolvableType type, @Nullable  ReactiveAdapter adapter) {
-		return adapter != null && (adapter.isNoValue() || type.resolveGeneric() == Void.class);
+
+	private boolean isAsyncVoidType(ResolvableType type, MethodParameter typeSource, ReactiveAdapter adapter) {
+		Method method = typeSource.getMethod();
+		return (adapter.isNoValue() || type.resolveGeneric() == Void.class || (method != null &&
+				KotlinDetector.isSuspendingFunction(method) && typeSource.getParameterType() == void.class));
 	}
 
 	private String getAttributeName(MethodParameter param) {
@@ -139,7 +143,7 @@ class ModelInitializer {
 				.ofNullable(AnnotatedElementUtils.findMergedAnnotation(param.getAnnotatedElement(), ModelAttribute.class))
 				.filter(ann -> StringUtils.hasText(ann.value()))
 				.map(ModelAttribute::value)
-				.orElse(Conventions.getVariableNameForParameter(param));
+				.orElseGet(() -> Conventions.getVariableNameForParameter(param));
 	}
 
 	/** Find {@code @ModelAttribute} arguments also listed as {@code @SessionAttributes}. */

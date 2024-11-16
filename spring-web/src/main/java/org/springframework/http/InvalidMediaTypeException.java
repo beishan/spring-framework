@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package org.springframework.http;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.InvalidMimeTypeException;
 
 /**
@@ -28,7 +29,7 @@ import org.springframework.util.InvalidMimeTypeException;
 @SuppressWarnings("serial")
 public class InvalidMediaTypeException extends IllegalArgumentException {
 
-	private String mediaType;
+	private final String mediaType;
 
 
 	/**
@@ -36,8 +37,8 @@ public class InvalidMediaTypeException extends IllegalArgumentException {
 	 * @param mediaType the offending media type
 	 * @param message a detail message indicating the invalid part
 	 */
-	public InvalidMediaTypeException(String mediaType, String message) {
-		super("Invalid media type \"" + mediaType + "\": " + message);
+	public InvalidMediaTypeException(String mediaType, @Nullable String message) {
+		super(message != null ? "Invalid media type \"" + mediaType + "\": " + message : "Invalid media type \"" + mediaType);
 		this.mediaType = mediaType;
 	}
 

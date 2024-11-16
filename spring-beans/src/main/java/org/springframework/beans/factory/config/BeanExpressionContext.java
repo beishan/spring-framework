@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -59,7 +59,7 @@ public class BeanExpressionContext {
 		if (this.beanFactory.containsBean(key)) {
 			return this.beanFactory.getBean(key);
 		}
-		else if (this.scope != null){
+		else if (this.scope != null) {
 			return this.scope.resolveContextualObject(key);
 		}
 		else {
@@ -69,15 +69,9 @@ public class BeanExpressionContext {
 
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof BeanExpressionContext)) {
-			return false;
-		}
-		BeanExpressionContext otherContext = (BeanExpressionContext) other;
-		return (this.beanFactory == otherContext.beanFactory && this.scope == otherContext.scope);
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof BeanExpressionContext that &&
+				this.beanFactory == that.beanFactory && this.scope == that.scope));
 	}
 
 	@Override

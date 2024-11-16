@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,11 @@
 
 package org.springframework.beans
 
-import org.junit.Assert.*
-import org.junit.Test
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
 
 /**
- * Kotlin tests for {@link BeanUtils}.
+ * Kotlin tests for [BeanUtils].
  * 
  * @author Sebastien Deleuze
  */
@@ -31,46 +31,140 @@ class BeanUtilsKotlinTests {
 	fun `Instantiate immutable class`() {
 		val constructor = BeanUtils.findPrimaryConstructor(Foo::class.java)!!
 		val foo = BeanUtils.instantiateClass(constructor, "a", 3)
-		assertEquals("a", foo.param1)
-		assertEquals(3, foo.param2)
+		assertThat(foo.param1).isEqualTo("a")
+		assertThat(foo.param2).isEqualTo(3)
 	}
 
 	@Test
 	fun `Instantiate immutable class with optional parameter and all parameters specified`() {
 		val constructor = BeanUtils.findPrimaryConstructor(Bar::class.java)!!
 		val bar = BeanUtils.instantiateClass(constructor, "a", 8)
-		assertEquals("a", bar.param1)
-		assertEquals(8, bar.param2)
+		assertThat(bar.param1).isEqualTo("a")
+		assertThat(bar.param2).isEqualTo(8)
 	}
 
 	@Test
 	fun `Instantiate immutable class with optional parameter and only mandatory parameters specified by position`() {
 		val constructor = BeanUtils.findPrimaryConstructor(Bar::class.java)!!
 		val bar = BeanUtils.instantiateClass(constructor, "a")
-		assertEquals("a", bar.param1)
-		assertEquals(12, bar.param2)
+		assertThat(bar.param1).isEqualTo("a")
+		assertThat(bar.param2).isEqualTo(12)
 	}
 
 	@Test
-		fun `Instantiate immutable class with optional parameter specified with null value`() {
+	fun `Instantiate immutable class with optional parameter specified with null value`() {
 		val constructor = BeanUtils.findPrimaryConstructor(Bar::class.java)!!
 		val bar = BeanUtils.instantiateClass(constructor, "a", null)
-		assertEquals("a", bar.param1)
-		assertEquals(12, bar.param2)
+		assertThat(bar.param1).isEqualTo("a")
+		assertThat(bar.param2).isEqualTo(12)
+	}
+
+	@Test  // gh-22531
+	fun `Instantiate immutable class with nullable parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(Qux::class.java)!!
+		val bar = BeanUtils.instantiateClass(constructor, "a", null)
+		assertThat(bar.param1).isEqualTo("a")
+		assertThat(bar.param2).isNull()
 	}
 
 	@Test  // SPR-15851
 	fun `Instantiate mutable class with declared constructor and default values for all parameters`() {
 		val baz = BeanUtils.instantiateClass(Baz::class.java.getDeclaredConstructor())
-		assertEquals("a", baz.param1)
-		assertEquals(12, baz.param2)
+		assertThat(baz.param1).isEqualTo("a")
+		assertThat(baz.param2).isEqualTo(12)
 	}
+
+	@Test
+	@Suppress("UsePropertyAccessSyntax")
+	fun `Instantiate class with private constructor`() {
+		BeanUtils.instantiateClass(PrivateConstructor::class.java.getDeclaredConstructor())
+	}
+
+	@Test
+	fun `Instantiate class with protected constructor`() {
+		BeanUtils.instantiateClass(ProtectedConstructor::class.java.getDeclaredConstructor())
+	}
+
+	@Test
+	fun `Instantiate private class`() {
+		BeanUtils.instantiateClass(PrivateClass::class.java.getDeclaredConstructor())
+	}
+
+	@Test
+	fun `Instantiate value class`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ValueClass::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = "Hello value class!"
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate value class with multiple constructors`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ValueClassWithMultipleConstructors::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = "Hello value class!"
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ValueClassWithMultipleConstructors(value))
+	}
+
+	@Test
+	fun `Instantiate class with value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithValueClass::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = ValueClass("Hello value class!")
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate class with nullable value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithNullableValueClass::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = ValueClass("Hello value class!")
+		var instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithNullableValueClass(value))
+		instance = BeanUtils.instantiateClass(constructor, null)
+		assertThat(instance).isEqualTo(ConstructorWithNullableValueClass(null))
+	}
+
+	@Test
+	fun `Instantiate primitive value class`() {
+		val constructor = BeanUtils.findPrimaryConstructor(PrimitiveValueClass::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = 0
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(PrimitiveValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate class with primitive value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithPrimitiveValueClass::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = PrimitiveValueClass(0)
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithPrimitiveValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate class with nullable primitive value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithNullablePrimitiveValueClass::class.java)!!
+		assertThat(constructor).isNotNull()
+		val value = PrimitiveValueClass(0)
+		var instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithNullablePrimitiveValueClass(value))
+		instance = BeanUtils.instantiateClass(constructor, null)
+		assertThat(instance).isEqualTo(ConstructorWithNullablePrimitiveValueClass(null))
+	}
+
 
 	class Foo(val param1: String, val param2: Int)
 
 	class Bar(val param1: String, val param2: Int = 12)
 
 	class Baz(var param1: String = "a", var param2: Int = 12)
+
+	class Qux(val param1: String, val param2: Int?)
 
 	class TwoConstructorsWithDefaultOne {
 
@@ -95,5 +189,31 @@ class BeanUtilsKotlinTests {
 
 		constructor(param1: String)
 	}
+
+	class PrivateConstructor private constructor()
+
+	open class ProtectedConstructor protected constructor()
+
+	private class PrivateClass
+
+	@JvmInline
+	value class ValueClass(private val value: String)
+
+	@JvmInline
+	value class ValueClassWithMultipleConstructors(private val value: String) {
+		constructor() : this("Fail")
+		constructor(part1: String, part2: String) : this("Fail")
+	}
+
+	data class ConstructorWithValueClass(val value: ValueClass)
+
+	data class ConstructorWithNullableValueClass(val value: ValueClass?)
+
+	@JvmInline
+	value class PrimitiveValueClass(private val value: Int)
+
+	data class ConstructorWithPrimitiveValueClass(val value: PrimitiveValueClass)
+
+	data class ConstructorWithNullablePrimitiveValueClass(val value: PrimitiveValueClass?)
 
 }

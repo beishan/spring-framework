@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,14 @@
 
 package org.springframework.dao;
 
+import org.springframework.lang.Nullable;
+
 /**
- * Exception thrown on failure to aquire a lock during an update,
+ * Exception thrown on failure to acquire a lock during an update,
  * for example during a "select for update" statement.
+ *
+ * <p>Consider handling the general {@link PessimisticLockingFailureException}
+ * instead, semantically including a wider range of locking-related failures.
  *
  * @author Rod Johnson
  */
@@ -29,7 +34,7 @@ public class CannotAcquireLockException extends PessimisticLockingFailureExcepti
 	 * Constructor for CannotAcquireLockException.
 	 * @param msg the detail message
 	 */
-	public CannotAcquireLockException(String msg) {
+	public CannotAcquireLockException(@Nullable String msg) {
 		super(msg);
 	}
 
@@ -38,7 +43,7 @@ public class CannotAcquireLockException extends PessimisticLockingFailureExcepti
 	 * @param msg the detail message
 	 * @param cause the root cause from the data access API in use
 	 */
-	public CannotAcquireLockException(String msg, Throwable cause) {
+	public CannotAcquireLockException(@Nullable String msg, @Nullable Throwable cause) {
 		super(msg, cause);
 	}
 

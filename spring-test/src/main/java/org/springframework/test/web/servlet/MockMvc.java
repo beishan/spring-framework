@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,15 +16,17 @@
 
 package org.springframework.test.web.servlet;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-import javax.servlet.AsyncContext;
-import javax.servlet.DispatcherType;
-import javax.servlet.Filter;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
+
+import jakarta.servlet.AsyncContext;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.Filter;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 
 import org.springframework.beans.Mergeable;
 import org.springframework.lang.Nullable;
@@ -35,6 +37,7 @@ import org.springframework.util.Assert;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.servlet.DispatcherServlet;
 
 /**
  * <strong>Main entry point for server-side Spring MVC test support.</strong>
@@ -53,9 +56,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * MockMvc mockMvc = webAppContextSetup(wac).build();
  *
  * mockMvc.perform(get("/form"))
- *     .andExpect(status().isOk())
- *     .andExpect(content().mimeType("text/html"))
- *     .andExpect(forwardedUrl("/WEB-INF/layouts/main.jsp"));
+ *     .andExpectAll(
+ *         status().isOk(),
+ *         content().contentType("text/html"),
+ *         forwardedUrl("/WEB-INF/layouts/main.jsp")
+ *     );
  * </pre>
  *
  * @author Rossen Stoyanchev
@@ -76,6 +81,9 @@ public final class MockMvc {
 	@Nullable
 	private RequestBuilder defaultRequestBuilder;
 
+	@Nullable
+	private Charset defaultResponseCharacterEncoding;
+
 	private List<ResultMatcher> defaultResultMatchers = new ArrayList<>();
 
 	private List<ResultHandler> defaultResultHandlers = new ArrayList<>();
@@ -89,6 +97,7 @@ public final class MockMvc {
 		Assert.notNull(servlet, "DispatcherServlet is required");
 		Assert.notNull(filters, "Filters cannot be null");
 		Assert.noNullElements(filters, "Filters cannot contain null values");
+
 		this.servlet = servlet;
 		this.filters = filters;
 		this.servletContext = servlet.getServletContext();
@@ -101,6 +110,14 @@ public final class MockMvc {
 	 */
 	void setDefaultRequest(@Nullable RequestBuilder requestBuilder) {
 		this.defaultRequestBuilder = requestBuilder;
+	}
+
+	/**
+	 * The default character encoding to be applied to every response.
+	 * @see org.springframework.test.web.servlet.setup.ConfigurableMockMvcBuilder#defaultResponseCharacterEncoding(Charset)
+	 */
+	void setDefaultResponseCharacterEncoding(@Nullable Charset defaultResponseCharacterEncoding) {
+		this.defaultResponseCharacterEncoding = defaultResponseCharacterEncoding;
 	}
 
 	/**
@@ -122,6 +139,22 @@ public final class MockMvc {
 	}
 
 	/**
+	 * Return the underlying {@link DispatcherServlet} instance that this
+	 * {@code MockMvc} was initialized with.
+	 * <p>This is intended for use in custom request processing scenario where a
+	 * request handling component happens to delegate to the {@code DispatcherServlet}
+	 * at runtime and therefore needs to be injected with it.
+	 * <p>For most processing scenarios, simply use {@link MockMvc#perform},
+	 * or if you need to configure the {@code DispatcherServlet}, provide a
+	 * {@link DispatcherServletCustomizer} to the {@code MockMvcBuilder}.
+	 * @since 5.1
+	 */
+	public DispatcherServlet getDispatcherServlet() {
+		return this.servlet;
+	}
+
+
+	/**
 	 * Perform a request and return a type that allows chaining further
 	 * actions, such as asserting expectations, on the result.
 	 * @param requestBuilder used to prepare the request to execute;
@@ -132,8 +165,8 @@ public final class MockMvc {
 	 * @see org.springframework.test.web.servlet.result.MockMvcResultMatchers
 	 */
 	public ResultActions perform(RequestBuilder requestBuilder) throws Exception {
-		if (this.defaultRequestBuilder != null && requestBuilder instanceof Mergeable) {
-			requestBuilder = (RequestBuilder) ((Mergeable) requestBuilder).merge(this.defaultRequestBuilder);
+		if (this.defaultRequestBuilder != null && requestBuilder instanceof Mergeable mergeable) {
+			requestBuilder = (RequestBuilder) mergeable.merge(this.defaultRequestBuilder);
 		}
 
 		MockHttpServletRequest request = requestBuilder.buildRequest(this.servletContext);
@@ -150,11 +183,15 @@ public final class MockMvc {
 			servletResponse = mockResponse;
 		}
 
-		if (requestBuilder instanceof SmartRequestBuilder) {
-			request = ((SmartRequestBuilder) requestBuilder).postProcessRequest(request);
+		if (this.defaultResponseCharacterEncoding != null) {
+			mockResponse.setDefaultCharacterEncoding(this.defaultResponseCharacterEncoding.name());
 		}
 
-		final MvcResult mvcResult = new DefaultMvcResult(request, mockResponse);
+		if (requestBuilder instanceof SmartRequestBuilder smartRequestBuilder) {
+			request = smartRequestBuilder.postProcessRequest(request);
+		}
+
+		MvcResult mvcResult = new DefaultMvcResult(request, mockResponse);
 		request.setAttribute(MVC_RESULT_ATTRIBUTE, mvcResult);
 
 		RequestAttributes previousAttributes = RequestContextHolder.getRequestAttributes();
@@ -164,7 +201,7 @@ public final class MockMvc {
 		filterChain.doFilter(request, servletResponse);
 
 		if (DispatcherType.ASYNC.equals(request.getDispatcherType()) &&
-				asyncContext != null & !request.isAsyncStarted()) {
+				asyncContext != null && !request.isAsyncStarted()) {
 			asyncContext.complete();
 		}
 
@@ -190,20 +227,19 @@ public final class MockMvc {
 	}
 
 	private MockHttpServletResponse unwrapResponseIfNecessary(ServletResponse servletResponse) {
-		while (servletResponse instanceof HttpServletResponseWrapper) {
-			servletResponse = ((HttpServletResponseWrapper) servletResponse).getResponse();
+		while (servletResponse instanceof HttpServletResponseWrapper wrapper) {
+			servletResponse = wrapper.getResponse();
 		}
 		Assert.isInstanceOf(MockHttpServletResponse.class, servletResponse);
 		return (MockHttpServletResponse) servletResponse;
 	}
 
 	private void applyDefaultResultActions(MvcResult mvcResult) throws Exception {
-		for (ResultMatcher matcher : this.defaultResultMatchers) {
-			matcher.match(mvcResult);
-		}
-
 		for (ResultHandler handler : this.defaultResultHandlers) {
 			handler.handle(mvcResult);
+		}
+		for (ResultMatcher matcher : this.defaultResultMatchers) {
+			matcher.match(mvcResult);
 		}
 	}
 

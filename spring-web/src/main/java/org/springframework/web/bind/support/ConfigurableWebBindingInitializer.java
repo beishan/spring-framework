@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -43,6 +43,9 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	private boolean autoGrowNestedPaths = true;
 
 	private boolean directFieldAccess = false;
+
+	@Nullable
+	private Boolean declarativeBinding;
 
 	@Nullable
 	private MessageCodesResolver messageCodesResolver;
@@ -96,7 +99,24 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	 * Return whether to use direct field access instead of bean property access.
 	 */
 	public boolean isDirectFieldAccess() {
-		return directFieldAccess;
+		return this.directFieldAccess;
+	}
+
+	/**
+	 * Set whether to bind only fields intended for binding as described in
+	 * {@link org.springframework.validation.DataBinder#setDeclarativeBinding}.
+	 * @since 6.1
+	 */
+	public void setDeclarativeBinding(boolean declarativeBinding) {
+		this.declarativeBinding = declarativeBinding;
+	}
+
+	/**
+	 * Return whether to bind only fields intended for binding.
+	 * @since 6.1
+	 */
+	public boolean isDeclarativeBinding() {
+		return (this.declarativeBinding != null ? this.declarativeBinding : false);
 	}
 
 	/**
@@ -197,15 +217,20 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 		if (this.directFieldAccess) {
 			binder.initDirectFieldAccess();
 		}
+		if (this.declarativeBinding != null) {
+			binder.setDeclarativeBinding(this.declarativeBinding);
+		}
 		if (this.messageCodesResolver != null) {
 			binder.setMessageCodesResolver(this.messageCodesResolver);
 		}
 		if (this.bindingErrorProcessor != null) {
 			binder.setBindingErrorProcessor(this.bindingErrorProcessor);
 		}
-		if (this.validator != null && binder.getTarget() != null &&
-				this.validator.supports(binder.getTarget().getClass())) {
-			binder.setValidator(this.validator);
+		if (this.validator != null) {
+			Class<?> type = getTargetType(binder);
+			if (type != null && this.validator.supports(type)) {
+				binder.setValidator(this.validator);
+			}
 		}
 		if (this.conversionService != null) {
 			binder.setConversionService(this.conversionService);
@@ -215,6 +240,18 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 				propertyEditorRegistrar.registerCustomEditors(binder);
 			}
 		}
+	}
+
+	@Nullable
+	private static Class<?> getTargetType(WebDataBinder binder) {
+		Class<?> type = null;
+		if (binder.getTarget() != null) {
+			type = binder.getTarget().getClass();
+		}
+		else if (binder.getTargetType() != null) {
+			type = binder.getTargetType().resolve();
+		}
+		return type;
 	}
 
 }

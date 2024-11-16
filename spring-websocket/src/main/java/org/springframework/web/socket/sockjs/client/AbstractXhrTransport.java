@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -28,8 +29,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
-import org.springframework.util.concurrent.ListenableFuture;
-import org.springframework.util.concurrent.SettableListenableFuture;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHandler;
@@ -49,9 +48,7 @@ public abstract class AbstractXhrTransport implements XhrTransport {
 
 	static {
 		byte[] bytes = new byte[2048];
-		for (int i = 0; i < bytes.length; i++) {
-			bytes[i] = 'h';
-		}
+		Arrays.fill(bytes, (byte) 'h');
 		PRELUDE = new String(bytes, SockJsFrame.CHARSET);
 	}
 
@@ -84,6 +81,7 @@ public abstract class AbstractXhrTransport implements XhrTransport {
 	/**
 	 * Whether XHR streaming is disabled or not.
 	 */
+	@Override
 	public boolean isXhrStreamingDisabled() {
 		return this.xhrStreamingDisabled;
 	}
@@ -92,8 +90,8 @@ public abstract class AbstractXhrTransport implements XhrTransport {
 	// Transport methods
 
 	@Override
-	public ListenableFuture<WebSocketSession> connect(TransportRequest request, WebSocketHandler handler) {
-		SettableListenableFuture<WebSocketSession> connectFuture = new SettableListenableFuture<>();
+	public CompletableFuture<WebSocketSession> connectAsync(TransportRequest request, WebSocketHandler handler) {
+		CompletableFuture<WebSocketSession> connectFuture = new CompletableFuture<>();
 		XhrClientSockJsSession session = new XhrClientSockJsSession(request, handler, this, connectFuture);
 		request.addTimeoutTask(session.getTimeoutTask());
 
@@ -110,9 +108,18 @@ public abstract class AbstractXhrTransport implements XhrTransport {
 		return connectFuture;
 	}
 
+	@Deprecated(since = "6.0", forRemoval = true)
+	@SuppressWarnings("removal")
+	protected void connectInternal(TransportRequest request, WebSocketHandler handler,
+			URI receiveUrl, HttpHeaders handshakeHeaders, XhrClientSockJsSession session,
+			org.springframework.util.concurrent.SettableListenableFuture<WebSocketSession> connectFuture) {
+
+		throw new UnsupportedOperationException("connectInternal has been deprecated in favor of connectInternal");
+	}
+
 	protected abstract void connectInternal(TransportRequest request, WebSocketHandler handler,
 			URI receiveUrl, HttpHeaders handshakeHeaders, XhrClientSockJsSession session,
-			SettableListenableFuture<WebSocketSession> connectFuture);
+			CompletableFuture<WebSocketSession> connectFuture);
 
 
 	// InfoReceiver methods

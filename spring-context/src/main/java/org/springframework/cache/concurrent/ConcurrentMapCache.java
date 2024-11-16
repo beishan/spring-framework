@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,12 @@
 
 package org.springframework.cache.concurrent;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 
 import org.springframework.cache.support.AbstractValueAdaptingCache;
 import org.springframework.core.serializer.support.SerializationDelegate;
@@ -29,12 +29,16 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * Simple {@link org.springframework.cache.Cache} implementation based on the
- * core JDK {@code java.util.concurrent} package.
+ * Simple {@link org.springframework.cache.Cache} implementation based on the core
+ * JDK {@code java.util.concurrent} package.
  *
  * <p>Useful for testing or simple caching scenarios, typically in combination
  * with {@link org.springframework.cache.support.SimpleCacheManager} or
  * dynamically through {@link ConcurrentMapCacheManager}.
+ *
+ * <p>Supports the  {@link #retrieve(Object)} and {@link #retrieve(Object, Supplier)}
+ * operations in a best-effort fashion, relying on default {@link CompletableFuture}
+ * execution (typically within the JVM's {@link ForkJoinPool#commonPool()}).
  *
  * <p><b>Note:</b> As {@link ConcurrentHashMap} (the default implementation used)
  * does not allow for {@code null} values to be stored, this class will replace
@@ -45,6 +49,7 @@ import org.springframework.util.Assert;
  * @author Juergen Hoeller
  * @author Stephane Nicoll
  * @since 3.1
+ * @see ConcurrentMapCacheManager
  */
 public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 
@@ -141,7 +146,7 @@ public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 	@Override
 	@Nullable
 	public <T> T get(Object key, Callable<T> valueLoader) {
-		return (T) fromStoreValue(this.store.computeIfAbsent(key, r -> {
+		return (T) fromStoreValue(this.store.computeIfAbsent(key, k -> {
 			try {
 				return toStoreValue(valueLoader.call());
 			}
@@ -149,6 +154,21 @@ public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 				throw new ValueRetrievalException(key, valueLoader, ex);
 			}
 		}));
+	}
+
+	@Override
+	@Nullable
+	public CompletableFuture<?> retrieve(Object key) {
+		Object value = lookup(key);
+		return (value != null ? CompletableFuture.completedFuture(
+				isAllowNullValues() ? toValueWrapper(value) : fromStoreValue(value)) : null);
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> CompletableFuture<T> retrieve(Object key, Supplier<CompletableFuture<T>> valueLoader) {
+		return CompletableFuture.supplyAsync(() ->
+				(T) fromStoreValue(this.store.computeIfAbsent(key, k -> toStoreValue(valueLoader.get().join()))));
 	}
 
 	@Override
@@ -169,8 +189,20 @@ public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 	}
 
 	@Override
+	public boolean evictIfPresent(Object key) {
+		return (this.store.remove(key) != null);
+	}
+
+	@Override
 	public void clear() {
 		this.store.clear();
+	}
+
+	@Override
+	public boolean invalidate() {
+		boolean notEmpty = !this.store.isEmpty();
+		this.store.clear();
+		return notEmpty;
 	}
 
 	@Override
@@ -178,7 +210,7 @@ public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 		Object storeValue = super.toStoreValue(userValue);
 		if (this.serialization != null) {
 			try {
-				return serializeValue(this.serialization, storeValue);
+				return this.serialization.serializeToByteArray(storeValue);
 			}
 			catch (Throwable ex) {
 				throw new IllegalArgumentException("Failed to serialize cache value '" + userValue +
@@ -190,22 +222,12 @@ public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 		}
 	}
 
-	private Object serializeValue(SerializationDelegate serialization, Object storeValue) throws IOException {
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		try {
-			serialization.serialize(storeValue, out);
-			return out.toByteArray();
-		}
-		finally {
-			out.close();
-		}
-	}
-
 	@Override
+	@Nullable
 	protected Object fromStoreValue(@Nullable Object storeValue) {
 		if (storeValue != null && this.serialization != null) {
 			try {
-				return super.fromStoreValue(deserializeValue(this.serialization, storeValue));
+				return super.fromStoreValue(this.serialization.deserializeFromByteArray((byte[]) storeValue));
 			}
 			catch (Throwable ex) {
 				throw new IllegalArgumentException("Failed to deserialize cache value '" + storeValue + "'", ex);
@@ -213,17 +235,6 @@ public class ConcurrentMapCache extends AbstractValueAdaptingCache {
 		}
 		else {
 			return super.fromStoreValue(storeValue);
-		}
-
-	}
-
-	private Object deserializeValue(SerializationDelegate serialization, Object storeValue) throws IOException {
-		ByteArrayInputStream in = new ByteArrayInputStream((byte[]) storeValue);
-		try {
-			return serialization.deserialize(in);
-		}
-		finally {
-			in.close();
 		}
 	}
 

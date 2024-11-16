@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,7 @@
 
 package org.springframework.expression.spel.support;
 
-import java.util.List;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.expression.EvaluationException;
@@ -28,46 +26,45 @@ import org.springframework.expression.TypeComparator;
 import org.springframework.expression.TypeConverter;
 import org.springframework.expression.TypeLocator;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-public class StandardComponentsTests {
+class StandardComponentsTests {
 
 	@Test
-	public void testStandardEvaluationContext() {
+	void standardEvaluationContext() {
 		StandardEvaluationContext context = new StandardEvaluationContext();
-		assertNotNull(context.getTypeComparator());
+		assertThat(context.getTypeComparator()).isNotNull();
 
-		TypeComparator tc = new StandardTypeComparator();
+		TypeComparator tc = StandardTypeComparator.INSTANCE;
 		context.setTypeComparator(tc);
-		assertEquals(tc, context.getTypeComparator());
+		assertThat(context.getTypeComparator()).isEqualTo(tc);
 
 		TypeLocator tl = new StandardTypeLocator();
 		context.setTypeLocator(tl);
-		assertEquals(tl, context.getTypeLocator());
-	}
-
-	@Test(expected = EvaluationException.class)
-	public void testStandardOperatorOverloader() throws EvaluationException {
-		OperatorOverloader oo = new StandardOperatorOverloader();
-		assertFalse(oo.overridesOperation(Operation.ADD, null, null));
-		oo.operate(Operation.ADD, 2, 3);
+		assertThat(context.getTypeLocator()).isEqualTo(tl);
 	}
 
 	@Test
-	public void testStandardTypeLocator() {
+	void standardOperatorOverloader() {
+		OperatorOverloader overloader = new StandardOperatorOverloader();
+		assertThat(overloader.overridesOperation(Operation.ADD, null, null)).isFalse();
+		assertThatExceptionOfType(EvaluationException.class)
+				.isThrownBy(() -> overloader.operate(Operation.ADD, 2, 3));
+	}
+
+	@Test
+	void standardTypeLocator() {
 		StandardTypeLocator tl = new StandardTypeLocator();
-		List<String> prefixes = tl.getImportPrefixes();
-		assertEquals(1, prefixes.size());
+		assertThat(tl.getImportPrefixes()).hasSize(1);
 		tl.registerImport("java.util");
-		prefixes = tl.getImportPrefixes();
-		assertEquals(2, prefixes.size());
+		assertThat(tl.getImportPrefixes()).hasSize(2);
 		tl.removeImport("java.util");
-		prefixes = tl.getImportPrefixes();
-		assertEquals(1, prefixes.size());
+		assertThat(tl.getImportPrefixes()).hasSize(1);
 	}
 
 	@Test
-	public void testStandardTypeConverter() throws EvaluationException {
+	void standardTypeConverter() {
 		TypeConverter tc = new StandardTypeConverter();
 		tc.convertValue(3, TypeDescriptor.forObject(3), TypeDescriptor.valueOf(Double.class));
 	}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,10 +16,7 @@
 
 package org.springframework.aop.framework.autoproxy;
 
-import java.io.IOException;
-
-import org.junit.Test;
-import test.mixin.Lockable;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.aop.Advisor;
 import org.springframework.aop.framework.Advised;
@@ -30,43 +27,30 @@ import org.springframework.aop.target.CommonsPool2TargetSource;
 import org.springframework.aop.target.LazyInitTargetSource;
 import org.springframework.aop.target.PrototypeTargetSource;
 import org.springframework.aop.target.ThreadLocalTargetSource;
-import org.springframework.beans.factory.BeanFactory;
+import org.springframework.aop.testfixture.advice.CountingBeforeAdvice;
+import org.springframework.aop.testfixture.interceptor.NopInterceptor;
+import org.springframework.aop.testfixture.mixin.Lockable;
+import org.springframework.beans.testfixture.beans.CountingTestBean;
+import org.springframework.beans.testfixture.beans.ITestBean;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.tests.aop.advice.CountingBeforeAdvice;
-import org.springframework.tests.aop.interceptor.NopInterceptor;
-import org.springframework.tests.sample.beans.CountingTestBean;
-import org.springframework.tests.sample.beans.ITestBean;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for auto proxy creation by advisor recognition.
  *
- * @see org.springframework.aop.framework.autoproxy.AdvisorAutoProxyCreatorIntegrationTests
- *
  * @author Rod Johnson
  * @author Dave Syer
  * @author Chris Beams
+ * @see org.springframework.aop.framework.autoproxy.AdvisorAutoProxyCreatorIntegrationTests
  */
-@SuppressWarnings("resource")
-public class AdvisorAutoProxyCreatorTests {
+class AdvisorAutoProxyCreatorTests {
 
-	private static final Class<?> CLASS = AdvisorAutoProxyCreatorTests.class;
-	private static final String CLASSNAME = CLASS.getSimpleName();
-
-	private static final String DEFAULT_CONTEXT = CLASSNAME + "-context.xml";
+	private static final String CLASSNAME = AdvisorAutoProxyCreatorTests.class.getSimpleName();
 	private static final String COMMON_INTERCEPTORS_CONTEXT = CLASSNAME + "-common-interceptors.xml";
 	private static final String CUSTOM_TARGETSOURCE_CONTEXT = CLASSNAME + "-custom-targetsource.xml";
 	private static final String QUICK_TARGETSOURCE_CONTEXT = CLASSNAME + "-quick-targetsource.xml";
 	private static final String OPTIMIZED_CONTEXT = CLASSNAME + "-optimized.xml";
-
-
-	/**
-	 * Return a bean factory with attributes and EnterpriseServices configured.
-	 */
-	protected BeanFactory getBeanFactory() throws IOException {
-		return new ClassPathXmlApplicationContext(DEFAULT_CONTEXT, CLASS);
-	}
 
 
 	/**
@@ -75,43 +59,44 @@ public class AdvisorAutoProxyCreatorTests {
 	 * which are sourced from matching advisors
 	 */
 	@Test
-	public void testCommonInterceptorAndAdvisor() throws Exception {
-		BeanFactory bf = new ClassPathXmlApplicationContext(COMMON_INTERCEPTORS_CONTEXT, CLASS);
-		ITestBean test1 = (ITestBean) bf.getBean("test1");
-		assertTrue(AopUtils.isAopProxy(test1));
+	void commonInterceptorAndAdvisor() {
+		ClassPathXmlApplicationContext ctx = context(COMMON_INTERCEPTORS_CONTEXT);
+		ITestBean test1 = (ITestBean) ctx.getBean("test1");
+		assertThat(AopUtils.isAopProxy(test1)).isTrue();
 
 		Lockable lockable1 = (Lockable) test1;
-		NopInterceptor nop1 = (NopInterceptor) bf.getBean("nopInterceptor");
-		NopInterceptor nop2 = (NopInterceptor) bf.getBean("pointcutAdvisor", Advisor.class).getAdvice();
+		NopInterceptor nop1 = (NopInterceptor) ctx.getBean("nopInterceptor");
+		NopInterceptor nop2 = (NopInterceptor) ctx.getBean("pointcutAdvisor", Advisor.class).getAdvice();
 
-		ITestBean test2 = (ITestBean) bf.getBean("test2");
+		ITestBean test2 = (ITestBean) ctx.getBean("test2");
 		Lockable lockable2 = (Lockable) test2;
 
 		// Locking should be independent; nop is shared
-		assertFalse(lockable1.locked());
-		assertFalse(lockable2.locked());
+		assertThat(lockable1.locked()).isFalse();
+		assertThat(lockable2.locked()).isFalse();
 		// equals 2 calls on shared nop, because it's first and sees calls
 		// against the Lockable interface introduced by the specific advisor
-		assertEquals(2, nop1.getCount());
-		assertEquals(0, nop2.getCount());
+		assertThat(nop1.getCount()).isEqualTo(2);
+		assertThat(nop2.getCount()).isEqualTo(0);
 		lockable1.lock();
-		assertTrue(lockable1.locked());
-		assertFalse(lockable2.locked());
-		assertEquals(5, nop1.getCount());
-		assertEquals(0, nop2.getCount());
+		assertThat(lockable1.locked()).isTrue();
+		assertThat(lockable2.locked()).isFalse();
+		assertThat(nop1.getCount()).isEqualTo(5);
+		assertThat(nop2.getCount()).isEqualTo(0);
 
-		PackageVisibleMethod packageVisibleMethod = (PackageVisibleMethod) bf.getBean("packageVisibleMethod");
-		assertEquals(5, nop1.getCount());
-		assertEquals(0, nop2.getCount());
+		PackageVisibleMethod packageVisibleMethod = (PackageVisibleMethod) ctx.getBean("packageVisibleMethod");
+		assertThat(nop1.getCount()).isEqualTo(5);
+		assertThat(nop2.getCount()).isEqualTo(0);
 		packageVisibleMethod.doSomething();
-		assertEquals(6, nop1.getCount());
-		assertEquals(1, nop2.getCount());
-		assertTrue(packageVisibleMethod instanceof Lockable);
+		assertThat(nop1.getCount()).isEqualTo(6);
+		assertThat(nop2.getCount()).isEqualTo(1);
+		assertThat(packageVisibleMethod).isInstanceOf(Lockable.class);
 		Lockable lockable3 = (Lockable) packageVisibleMethod;
 		lockable3.lock();
-		assertTrue(lockable3.locked());
+		assertThat(lockable3.locked()).isTrue();
 		lockable3.unlock();
-		assertFalse(lockable3.locked());
+		assertThat(lockable3.locked()).isFalse();
+		ctx.close();
 	}
 
 	/**
@@ -119,102 +104,108 @@ public class AdvisorAutoProxyCreatorTests {
 	 * hence no proxying, for this bean
 	 */
 	@Test
-	public void testCustomTargetSourceNoMatch() throws Exception {
-		BeanFactory bf = new ClassPathXmlApplicationContext(CUSTOM_TARGETSOURCE_CONTEXT, CLASS);
-		ITestBean test = (ITestBean) bf.getBean("test");
-		assertFalse(AopUtils.isAopProxy(test));
-		assertEquals("Rod", test.getName());
-		assertEquals("Kerry", test.getSpouse().getName());
+	void customTargetSourceNoMatch() {
+		ClassPathXmlApplicationContext ctx = context(CUSTOM_TARGETSOURCE_CONTEXT);
+		ITestBean test = (ITestBean) ctx.getBean("test");
+		assertThat(AopUtils.isAopProxy(test)).isFalse();
+		assertThat(test.getName()).isEqualTo("Rod");
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
+		ctx.close();
 	}
 
 	@Test
-	public void testCustomPrototypeTargetSource() throws Exception {
+	void customPrototypeTargetSource() {
 		CountingTestBean.count = 0;
-		BeanFactory bf = new ClassPathXmlApplicationContext(CUSTOM_TARGETSOURCE_CONTEXT, CLASS);
-		ITestBean test = (ITestBean) bf.getBean("prototypeTest");
-		assertTrue(AopUtils.isAopProxy(test));
+		ClassPathXmlApplicationContext ctx = context(CUSTOM_TARGETSOURCE_CONTEXT);
+		ITestBean test = (ITestBean) ctx.getBean("prototypeTest");
+		assertThat(AopUtils.isAopProxy(test)).isTrue();
 		Advised advised = (Advised) test;
-		assertTrue(advised.getTargetSource() instanceof PrototypeTargetSource);
-		assertEquals("Rod", test.getName());
+		assertThat(advised.getTargetSource()).isInstanceOf(PrototypeTargetSource.class);
+		assertThat(test.getName()).isEqualTo("Rod");
 		// Check that references survived prototype creation
-		assertEquals("Kerry", test.getSpouse().getName());
-		assertEquals("Only 2 CountingTestBeans instantiated", 2, CountingTestBean.count);
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
+		assertThat(CountingTestBean.count).as("Only 2 CountingTestBeans instantiated").isEqualTo(2);
 		CountingTestBean.count = 0;
+		ctx.close();
 	}
 
 	@Test
-	public void testLazyInitTargetSource() throws Exception {
+	void lazyInitTargetSource() {
 		CountingTestBean.count = 0;
-		BeanFactory bf = new ClassPathXmlApplicationContext(CUSTOM_TARGETSOURCE_CONTEXT, CLASS);
-		ITestBean test = (ITestBean) bf.getBean("lazyInitTest");
-		assertTrue(AopUtils.isAopProxy(test));
+		ClassPathXmlApplicationContext ctx = context(CUSTOM_TARGETSOURCE_CONTEXT);
+		ITestBean test = (ITestBean) ctx.getBean("lazyInitTest");
+		assertThat(AopUtils.isAopProxy(test)).isTrue();
 		Advised advised = (Advised) test;
-		assertTrue(advised.getTargetSource() instanceof LazyInitTargetSource);
-		assertEquals("No CountingTestBean instantiated yet", 0, CountingTestBean.count);
-		assertEquals("Rod", test.getName());
-		assertEquals("Kerry", test.getSpouse().getName());
-		assertEquals("Only 1 CountingTestBean instantiated", 1, CountingTestBean.count);
+		assertThat(advised.getTargetSource()).isInstanceOf(LazyInitTargetSource.class);
+		assertThat(CountingTestBean.count).as("No CountingTestBean instantiated yet").isEqualTo(0);
+		assertThat(test.getName()).isEqualTo("Rod");
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
+		assertThat(CountingTestBean.count).as("Only 1 CountingTestBean instantiated").isEqualTo(1);
 		CountingTestBean.count = 0;
+		ctx.close();
 	}
 
 	@Test
-	public void testQuickTargetSourceCreator() throws Exception {
-		ClassPathXmlApplicationContext bf =
-				new ClassPathXmlApplicationContext(QUICK_TARGETSOURCE_CONTEXT, CLASS);
-		ITestBean test = (ITestBean) bf.getBean("test");
-		assertFalse(AopUtils.isAopProxy(test));
-		assertEquals("Rod", test.getName());
+	void quickTargetSourceCreator() {
+		ClassPathXmlApplicationContext ctx = context(QUICK_TARGETSOURCE_CONTEXT);
+		ITestBean test = (ITestBean) ctx.getBean("test");
+		assertThat(AopUtils.isAopProxy(test)).isFalse();
+		assertThat(test.getName()).isEqualTo("Rod");
 		// Check that references survived pooling
-		assertEquals("Kerry", test.getSpouse().getName());
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
 
 		// Now test the pooled one
-		test = (ITestBean) bf.getBean(":test");
-		assertTrue(AopUtils.isAopProxy(test));
+		test = (ITestBean) ctx.getBean(":test");
+		assertThat(AopUtils.isAopProxy(test)).isTrue();
 		Advised advised = (Advised) test;
-		assertTrue(advised.getTargetSource() instanceof CommonsPool2TargetSource);
-		assertEquals("Rod", test.getName());
+		assertThat(advised.getTargetSource()).isInstanceOf(CommonsPool2TargetSource.class);
+		assertThat(test.getName()).isEqualTo("Rod");
 		// Check that references survived pooling
-		assertEquals("Kerry", test.getSpouse().getName());
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
 
 		// Now test the ThreadLocal one
-		test = (ITestBean) bf.getBean("%test");
-		assertTrue(AopUtils.isAopProxy(test));
+		test = (ITestBean) ctx.getBean("%test");
+		assertThat(AopUtils.isAopProxy(test)).isTrue();
 		advised = (Advised) test;
-		assertTrue(advised.getTargetSource() instanceof ThreadLocalTargetSource);
-		assertEquals("Rod", test.getName());
+		assertThat(advised.getTargetSource()).isInstanceOf(ThreadLocalTargetSource.class);
+		assertThat(test.getName()).isEqualTo("Rod");
 		// Check that references survived pooling
-		assertEquals("Kerry", test.getSpouse().getName());
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
 
 		// Now test the Prototype TargetSource
-		test = (ITestBean) bf.getBean("!test");
-		assertTrue(AopUtils.isAopProxy(test));
+		test = (ITestBean) ctx.getBean("!test");
+		assertThat(AopUtils.isAopProxy(test)).isTrue();
 		advised = (Advised) test;
-		assertTrue(advised.getTargetSource() instanceof PrototypeTargetSource);
-		assertEquals("Rod", test.getName());
+		assertThat(advised.getTargetSource()).isInstanceOf(PrototypeTargetSource.class);
+		assertThat(test.getName()).isEqualTo("Rod");
 		// Check that references survived pooling
-		assertEquals("Kerry", test.getSpouse().getName());
+		assertThat(test.getSpouse().getName()).isEqualTo("Kerry");
 
-
-		ITestBean test2 = (ITestBean) bf.getBean("!test");
-		assertFalse("Prototypes cannot be the same object", test == test2);
-		assertEquals("Rod", test2.getName());
-		assertEquals("Kerry", test2.getSpouse().getName());
-		bf.close();
+		ITestBean test2 = (ITestBean) ctx.getBean("!test");
+		assertThat(test).as("Prototypes cannot be the same object").isNotSameAs(test2);
+		assertThat(test2.getName()).isEqualTo("Rod");
+		assertThat(test2.getSpouse().getName()).isEqualTo("Kerry");
+		ctx.close();
 	}
 
 	@Test
-	public void testWithOptimizedProxy() throws Exception {
-		BeanFactory beanFactory = new ClassPathXmlApplicationContext(OPTIMIZED_CONTEXT, CLASS);
+	void withOptimizedProxy() {
+		ClassPathXmlApplicationContext ctx = context(OPTIMIZED_CONTEXT);
 
-		ITestBean testBean = (ITestBean) beanFactory.getBean("optimizedTestBean");
-		assertTrue(AopUtils.isAopProxy(testBean));
-
-		CountingBeforeAdvice beforeAdvice = (CountingBeforeAdvice) beanFactory.getBean("countingAdvice");
+		ITestBean testBean = (ITestBean) ctx.getBean("optimizedTestBean");
+		assertThat(AopUtils.isAopProxy(testBean)).isTrue();
 
 		testBean.setAge(23);
 		testBean.getAge();
 
-		assertEquals("Incorrect number of calls to proxy", 2, beforeAdvice.getCalls());
+		CountingBeforeAdvice beforeAdvice = (CountingBeforeAdvice) ctx.getBean("countingAdvice");
+		assertThat(beforeAdvice.getCalls()).as("Incorrect number of calls to proxy").isEqualTo(2);
+		ctx.close();
+	}
+
+
+	private ClassPathXmlApplicationContext context(String filename) {
+		return new ClassPathXmlApplicationContext(filename, getClass());
 	}
 
 }

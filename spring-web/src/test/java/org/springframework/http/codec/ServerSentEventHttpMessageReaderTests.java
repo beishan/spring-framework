@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,111 +16,102 @@
 
 package org.springframework.http.codec;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import org.springframework.core.ResolvableType;
-import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferLimitException;
+import org.springframework.core.testfixture.io.buffer.AbstractLeakCheckingTests;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
-import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
+import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
+import org.springframework.web.testfixture.xml.Pojo;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
+ * Tests for {@link ServerSentEventHttpMessageReader}.
+ *
  * @author Sebastien Deleuze
+ * @author Juergen Hoeller
  */
-public class ServerSentEventHttpMessageReaderTests extends AbstractDataBufferAllocatingTestCase {
+class ServerSentEventHttpMessageReaderTests extends AbstractLeakCheckingTests {
 
-	private ServerSentEventHttpMessageReader messageReader =
-			new ServerSentEventHttpMessageReader(new Jackson2JsonDecoder());
+	private final Jackson2JsonDecoder jsonDecoder = new Jackson2JsonDecoder();
+
+	private ServerSentEventHttpMessageReader reader = new ServerSentEventHttpMessageReader(this.jsonDecoder);
 
 
 	@Test
-	public void cantRead() {
-		assertFalse(messageReader.canRead(ResolvableType.forClass(Object.class),
-				new MediaType("foo", "bar")));
-		assertFalse(messageReader.canRead(ResolvableType.forClass(Object.class), null));
+	void cannotRead() {
+		assertThat(reader.canRead(ResolvableType.forClass(Object.class), new MediaType("foo", "bar"))).isFalse();
+		assertThat(reader.canRead(ResolvableType.forClass(Object.class), null)).isFalse();
 	}
 
 	@Test
-	public void canRead() {
-		assertTrue(messageReader.canRead(ResolvableType.forClass(Object.class),
-				new MediaType("text", "event-stream")));
-		assertTrue(messageReader.canRead(ResolvableType.forClass(ServerSentEvent.class),
-				new MediaType("foo", "bar")));
+	void canRead() {
+		assertThat(reader.canRead(ResolvableType.forClass(Object.class), new MediaType("text", "event-stream"))).isTrue();
+		assertThat(reader.canRead(ResolvableType.forClass(ServerSentEvent.class), new MediaType("foo", "bar"))).isTrue();
 	}
 
 	@Test
-	public void readServerSentEvents() {
-		MockServerHttpRequest request = MockServerHttpRequest.post("/").body(
-				"id:c42\nevent:foo\nretry:123\n:bla\n:bla bla\n:bla bla bla\ndata:bar\n\n" +
-			 	"id:c43\nevent:bar\nretry:456\ndata:baz\n\n");
+	@SuppressWarnings("rawtypes")
+	void readServerSentEvents() {
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Mono.just(stringBuffer(
+						"id:c42\nevent:foo\nretry:123\n:bla\n:bla bla\n:bla bla bla\ndata:bar\n\n" +
+						"id:c43\nevent:bar\nretry:456\ndata:baz\n\ndata:\n\ndata: \n\n")));
 
-		Flux<ServerSentEvent> events = this.messageReader
+		Flux<ServerSentEvent> events = this.reader
 				.read(ResolvableType.forClassWithGenerics(ServerSentEvent.class, String.class),
 						request, Collections.emptyMap()).cast(ServerSentEvent.class);
 
 		StepVerifier.create(events)
-				.consumeNextWith(event -> {
-					assertEquals("c42", event.id());
-					assertEquals("foo", event.event());
-					assertEquals(Duration.ofMillis(123), event.retry());
-					assertEquals("bla\nbla bla\nbla bla bla", event.comment());
-					assertEquals("bar", event.data());
-				})
-				.consumeNextWith(event -> {
-					assertEquals("c43", event.id());
-					assertEquals("bar", event.event());
-					assertEquals(Duration.ofMillis(456), event.retry());
-					assertNull(event.comment());
-					assertEquals("baz", event.data());
-				})
+				.expectNext(ServerSentEvent.builder().id("c42").event("foo")
+						.retry(Duration.ofMillis(123)).comment("bla\nbla bla\nbla bla bla").data("bar").build())
+				.expectNext(ServerSentEvent.builder().id("c43").event("bar")
+						.retry(Duration.ofMillis(456)).data("baz").build())
+				.consumeNextWith(event -> assertThat(event.data()).isNull())
+				.consumeNextWith(event -> assertThat(event.data()).isNull())
 				.expectComplete()
 				.verify();
 	}
 
 	@Test
-	public void readServerSentEventsWithMultipleChunks() {
+	@SuppressWarnings("rawtypes")
+	void readServerSentEventsWithMultipleChunks() {
 		MockServerHttpRequest request = MockServerHttpRequest.post("/")
 				.body(Flux.just(
 						stringBuffer("id:c42\nev"),
 						stringBuffer("ent:foo\nretry:123\n:bla\n:bla bla\n:bla bla bla\ndata:"),
 						stringBuffer("bar\n\nid:c43\nevent:bar\nretry:456\ndata:baz\n\n")));
 
-		Flux<ServerSentEvent> events = messageReader
+		Flux<ServerSentEvent> events = reader
 				.read(ResolvableType.forClassWithGenerics(ServerSentEvent.class, String.class),
 						request, Collections.emptyMap()).cast(ServerSentEvent.class);
 
 		StepVerifier.create(events)
-				.consumeNextWith(event -> {
-					assertEquals("c42", event.id());
-					assertEquals("foo", event.event());
-					assertEquals(Duration.ofMillis(123), event.retry());
-					assertEquals("bla\nbla bla\nbla bla bla", event.comment());
-					assertEquals("bar", event.data());
-				})
-				.consumeNextWith(event -> {
-					assertEquals("c43", event.id());
-					assertEquals("bar", event.event());
-					assertEquals(Duration.ofMillis(456), event.retry());
-					assertNull(event.comment());
-					assertEquals("baz", event.data());
-				})
+				.expectNext(ServerSentEvent.builder().id("c42").event("foo")
+						.retry(Duration.ofMillis(123)).comment("bla\nbla bla\nbla bla bla").data("bar").build())
+				.expectNext(ServerSentEvent.builder().id("c43").event("bar")
+						.retry(Duration.ofMillis(456)).data("baz").build())
 				.expectComplete()
 				.verify();
 	}
 
 	@Test
-	public void readString() {
-		String body = "data:foo\ndata:bar\n\ndata:baz\n\n";
-		MockServerHttpRequest request = MockServerHttpRequest.post("/").body(body);
+	void readString() {
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Mono.just(stringBuffer("data:foo\ndata:bar\n\ndata:baz\n\n")));
 
-		Flux<String> data = messageReader.read(ResolvableType.forClass(String.class),
+		Flux<String> data = reader.read(ResolvableType.forClass(String.class),
 				request, Collections.emptyMap()).cast(String.class);
 
 		StepVerifier.create(data)
@@ -131,38 +122,131 @@ public class ServerSentEventHttpMessageReaderTests extends AbstractDataBufferAll
 	}
 
 	@Test
-	public void readPojo() {
-		MockServerHttpRequest request = MockServerHttpRequest.post("/").body(
-				"data:{\"foo\": \"foofoo\", \"bar\": \"barbar\"}\n\n" +
-				"data:{\"foo\": \"foofoofoo\", \"bar\": \"barbarbar\"}\n\n");
+	void trimWhitespace() {
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Mono.just(stringBuffer("data: \tfoo \ndata:bar\t\n\n")));
 
-		Flux<Pojo> data = messageReader.read(ResolvableType.forClass(Pojo.class), request,
+		Flux<String> data = reader.read(ResolvableType.forClass(String.class),
+				request, Collections.emptyMap()).cast(String.class);
+
+		StepVerifier.create(data)
+				.expectNext("\tfoo \nbar\t")
+				.expectComplete()
+				.verify();
+	}
+
+	@Test
+	void readPojo() {
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Mono.just(stringBuffer("""
+						data:{"foo": "foofoo", "bar": "barbar"}
+
+						data:{"foo": "foofoofoo", "bar": "barbarbar"}
+
+						""")));
+
+		Flux<Pojo> data = reader.read(ResolvableType.forClass(Pojo.class), request,
 				Collections.emptyMap()).cast(Pojo.class);
 
 		StepVerifier.create(data)
 				.consumeNextWith(pojo -> {
-					assertEquals("foofoo", pojo.getFoo());
-					assertEquals("barbar", pojo.getBar());
+					assertThat(pojo.getFoo()).isEqualTo("foofoo");
+					assertThat(pojo.getBar()).isEqualTo("barbar");
 				})
 				.consumeNextWith(pojo -> {
-					assertEquals("foofoofoo", pojo.getFoo());
-					assertEquals("barbarbar", pojo.getBar());
+					assertThat(pojo.getFoo()).isEqualTo("foofoofoo");
+					assertThat(pojo.getBar()).isEqualTo("barbarbar");
 				})
 				.expectComplete()
 				.verify();
 	}
 
-	@Test  // SPR-15331
-	public void decodeFullContentAsString() {
-		String body = "data:foo\ndata:bar\n\ndata:baz\n\n";
-		MockServerHttpRequest request = MockServerHttpRequest.post("/").body(body);
+	@Test  // gh-24389
+	void readPojoWithCommentOnly() {
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Flux.just(stringBuffer(":ping\n"), stringBuffer("\n")));
 
-		String actual = messageReader
+		Flux<Object> data = this.reader.read(
+				ResolvableType.forType(String.class), request, Collections.emptyMap());
+
+		StepVerifier.create(data).expectComplete().verify();
+	}
+
+	@Test  // SPR-15331
+	void decodeFullContentAsString() {
+		String body = "data:foo\ndata:bar\n\ndata:baz\n\n";
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Mono.just(stringBuffer(body)));
+
+		String actual = reader
 				.readMono(ResolvableType.forClass(String.class), request, Collections.emptyMap())
 				.cast(String.class)
 				.block(Duration.ZERO);
 
-		assertEquals(body, actual);
+		assertThat(actual).isEqualTo(body);
+	}
+
+	@Test
+	void readError() {
+		Flux<DataBuffer> body = Flux.just(stringBuffer("data:foo\ndata:bar\n\ndata:baz\n\n"))
+				.concatWith(Flux.error(new RuntimeException()));
+
+		MockServerHttpRequest request = MockServerHttpRequest.post("/").body(body);
+
+		Flux<String> data = reader.read(ResolvableType.forClass(String.class),
+				request, Collections.emptyMap()).cast(String.class);
+
+		StepVerifier.create(data)
+				.expectNextMatches(elem -> elem.equals("foo\nbar"))
+				.expectNextMatches(elem -> elem.equals("baz"))
+				.expectError()
+				.verify();
+	}
+
+	@Test
+	void maxInMemoryLimit() {
+		this.reader.setMaxInMemorySize(17);
+
+		MockServerHttpRequest request = MockServerHttpRequest.post("/")
+				.body(Flux.just(stringBuffer("data:\"TOO MUCH DATA\"\ndata:bar\n\ndata:baz\n\n")));
+
+		Flux<String> data = this.reader.read(ResolvableType.forClass(String.class),
+				request, Collections.emptyMap()).cast(String.class);
+
+		StepVerifier.create(data)
+				.expectError(DataBufferLimitException.class)
+				.verify();
+	}
+
+	@Test  // gh-24312
+	void maxInMemoryLimitAllowsReadingPojoLargerThanDefaultSize() {
+		int limit = this.jsonDecoder.getMaxInMemorySize();
+
+		String fooValue = "x".repeat(limit) + " and then some more";
+		String content = "data:{\"foo\": \"" + fooValue + "\"}\n\n";
+		MockServerHttpRequest request = MockServerHttpRequest.post("/").body(Mono.just(stringBuffer(content)));
+
+		Jackson2JsonDecoder jacksonDecoder = new Jackson2JsonDecoder();
+		ServerSentEventHttpMessageReader messageReader = new ServerSentEventHttpMessageReader(jacksonDecoder);
+
+		jacksonDecoder.setMaxInMemorySize(limit + 1024);
+		messageReader.setMaxInMemorySize(limit + 1024);
+
+		Flux<Pojo> data = messageReader.read(ResolvableType.forClass(Pojo.class), request,
+				Collections.emptyMap()).cast(Pojo.class);
+
+		StepVerifier.create(data)
+				.consumeNextWith(pojo -> assertThat(pojo.getFoo()).isEqualTo(fooValue))
+				.expectComplete()
+				.verify();
+	}
+
+
+	private DataBuffer stringBuffer(String value) {
+		byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+		DataBuffer buffer = this.bufferFactory.allocateBuffer(bytes.length);
+		buffer.write(bytes);
+		return buffer;
 	}
 
 }

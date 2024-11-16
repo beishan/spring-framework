@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,11 +19,14 @@ package org.springframework.util.comparator;
 import java.io.Serializable;
 import java.util.Comparator;
 
+import org.springframework.lang.Nullable;
+
 /**
  * A {@link Comparator} for {@link Boolean} objects that can sort either
  * {@code true} or {@code false} first.
  *
  * @author Keith Donald
+ * @author Eugene Rabii
  * @since 1.2.2
  */
 @SuppressWarnings("serial")
@@ -61,20 +64,20 @@ public class BooleanComparator implements Comparator<Boolean>, Serializable {
 
 
 	@Override
-	public int compare(Boolean v1, Boolean v2) {
-		return (v1 ^ v2) ? ((v1 ^ this.trueLow) ? 1 : -1) : 0;
+	public int compare(Boolean left, Boolean right) {
+		int multiplier = this.trueLow ? -1 : 1;
+		return multiplier * Boolean.compare(left, right);
 	}
 
 
 	@Override
-	public boolean equals(Object obj) {
-		return (this == obj ||
-				(obj instanceof BooleanComparator && (this.trueLow == ((BooleanComparator) obj).trueLow)));
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof BooleanComparator that && this.trueLow == that.trueLow));
 	}
 
 	@Override
 	public int hashCode() {
-		return getClass().hashCode() * (this.trueLow ? -1 : 1);
+		return Boolean.hashCode(this.trueLow);
 	}
 
 	@Override

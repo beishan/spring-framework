@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
 
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.web.cors.CorsConfiguration;
@@ -37,7 +38,7 @@ import org.springframework.web.cors.CorsConfiguration;
  * {@link CorsConfiguration#applyPermitDefaultValues()}.
  *
  * <p>The rules for combining global and local configuration are generally
- * additive -- e.g. all global and all local origins. For those attributes
+ * additive -- for example, all global and all local origins. For those attributes
  * where only a single value can be accepted such as {@code allowCredentials}
  * and {@code maxAge}, the local overrides the global value.
  * See {@link CorsConfiguration#combine(CorsConfiguration)} for more details.
@@ -45,29 +46,13 @@ import org.springframework.web.cors.CorsConfiguration;
  * @author Russell Allen
  * @author Sebastien Deleuze
  * @author Sam Brannen
+ * @author Ruslan Akhundov
  * @since 4.2
  */
-@Target({ ElementType.METHOD, ElementType.TYPE })
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface CrossOrigin {
-
-	/** @deprecated as of Spring 5.0, in favor of {@link CorsConfiguration#applyPermitDefaultValues} */
-	@Deprecated
-	String[] DEFAULT_ORIGINS = { "*" };
-
-	/** @deprecated as of Spring 5.0, in favor of {@link CorsConfiguration#applyPermitDefaultValues} */
-	@Deprecated
-	String[] DEFAULT_ALLOWED_HEADERS = { "*" };
-
-	/** @deprecated as of Spring 5.0, in favor of {@link CorsConfiguration#applyPermitDefaultValues} */
-	@Deprecated
-	boolean DEFAULT_ALLOW_CREDENTIALS = false;
-
-	/** @deprecated as of Spring 5.0, in favor of {@link CorsConfiguration#applyPermitDefaultValues} */
-	@Deprecated
-	long DEFAULT_MAX_AGE = 1800;
-
 
 	/**
 	 * Alias for {@link #origins}.
@@ -76,41 +61,42 @@ public @interface CrossOrigin {
 	String[] value() default {};
 
 	/**
-	 * The list of allowed origins that be specific origins, e.g.
-	 * {@code "http://domain1.com"}, or {@code "*"} for all origins.
-	 * <p>A matched origin is listed in the {@code Access-Control-Allow-Origin}
-	 * response header of preflight actual CORS requests.
-	 * <p>By default all origins are allowed.
-	 * @see #value
+	 * A list of origins for which cross-origin requests are allowed. Please,
+	 * see {@link CorsConfiguration#setAllowedOrigins(List)} for details.
+	 * <p>By default all origins are allowed unless {@link #originPatterns} is
+	 * also set in which case {@code originPatterns} is used instead.
 	 */
 	@AliasFor("value")
 	String[] origins() default {};
 
 	/**
+	 * Alternative to {@link #origins} that supports more flexible origin
+	 * patterns. Please, see {@link CorsConfiguration#setAllowedOriginPatterns(List)}
+	 * for details.
+	 * <p>By default this is not set.
+	 * @since 5.3
+	 */
+	String[] originPatterns() default {};
+
+	/**
 	 * The list of request headers that are permitted in actual requests,
-	 * possibly {@code "*"}  to allow all headers.
-	 * <p>Allowed headers are listed in the {@code Access-Control-Allow-Headers}
-	 * response header of preflight requests.
-	 * <p>A header name is not required to be listed if it is one of:
-	 * {@code Cache-Control}, {@code Content-Language}, {@code Expires},
-	 * {@code Last-Modified}, or {@code Pragma} as per the CORS spec.
+	 * possibly {@code "*"} to allow all headers. Please, see
+	 * {@link CorsConfiguration#setAllowedHeaders(List)} for details.
 	 * <p>By default all requested headers are allowed.
 	 */
 	String[] allowedHeaders() default {};
 
 	/**
 	 * The List of response headers that the user-agent will allow the client
-	 * to access on an actual response, other than "simple" headers, i.e.
-	 * {@code Cache-Control}, {@code Content-Language}, {@code Content-Type},
-	 * {@code Expires}, {@code Last-Modified}, or {@code Pragma},
-	 * <p>Exposed headers are listed in the {@code Access-Control-Expose-Headers}
-	 * response header of actual CORS requests.
+	 * to access on an actual response, possibly {@code "*"} to expose all headers.
+	 * Please, see {@link CorsConfiguration#setExposedHeaders(List)} for details.
 	 * <p>By default no headers are listed as exposed.
 	 */
 	String[] exposedHeaders() default {};
 
 	/**
-	 * The list of supported HTTP request methods.
+	 * The list of supported HTTP request methods. Please, see
+	 * {@link CorsConfiguration#setAllowedMethods(List)} for details.
 	 * <p>By default the supported methods are the same as the ones to which a
 	 * controller method is mapped.
 	 */
@@ -118,9 +104,8 @@ public @interface CrossOrigin {
 
 	/**
 	 * Whether the browser should send credentials, such as cookies along with
-	 * cross domain requests, to the annotated endpoint. The configured value is
-	 * set on the {@code Access-Control-Allow-Credentials} response header of
-	 * preflight requests.
+	 * cross domain requests, to the annotated endpoint. Please, see
+	 * {@link CorsConfiguration#setAllowCredentials(Boolean)} for details.
 	 * <p><strong>NOTE:</strong> Be aware that this option establishes a high
 	 * level of trust with the configured domains and also increases the surface
 	 * attack of the web application by exposing sensitive user-specific
@@ -130,6 +115,14 @@ public @interface CrossOrigin {
 	 * credentials are therefore not allowed.
 	 */
 	String allowCredentials() default "";
+
+	/**
+	 * Whether private network access is supported. Please, see
+	 * {@link CorsConfiguration#setAllowPrivateNetwork(Boolean)} for details.
+	 * <p>By default this is not set (i.e. private network access is not supported).
+	 * @since 5.3.32
+	 */
+	String allowPrivateNetwork() default "";
 
 	/**
 	 * The maximum age (in seconds) of the cache duration for preflight responses.

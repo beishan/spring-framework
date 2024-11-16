@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package org.springframework.scripting.groovy;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.aop.Advisor;
 import org.springframework.aop.aspectj.AspectJExpressionPointcut;
@@ -26,13 +26,14 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.scripting.support.ResourceScriptSource;
 import org.springframework.util.ClassUtils;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * @author Dave Syer
  * @author Sam Brannen
  */
-public class GroovyAspectTests {
+class GroovyAspectTests {
 
 	private final LogUserAdvice logAdvice = new LogUserAdvice();
 
@@ -40,7 +41,7 @@ public class GroovyAspectTests {
 
 
 	@Test
-	public void manualGroovyBeanWithUnconditionalPointcut() throws Exception {
+	void manualGroovyBeanWithUnconditionalPointcut() throws Exception {
 		TestService target = (TestService) scriptFactory.getScriptedObject(new ResourceScriptSource(
 				new ClassPathResource("GroovyServiceImpl.grv", getClass())));
 
@@ -48,7 +49,7 @@ public class GroovyAspectTests {
 	}
 
 	@Test
-	public void manualGroovyBeanWithStaticPointcut() throws Exception {
+	void manualGroovyBeanWithStaticPointcut() throws Exception {
 		TestService target = (TestService) scriptFactory.getScriptedObject(new ResourceScriptSource(
 				new ClassPathResource("GroovyServiceImpl.grv", getClass())));
 
@@ -58,7 +59,7 @@ public class GroovyAspectTests {
 	}
 
 	@Test
-	public void manualGroovyBeanWithDynamicPointcut() throws Exception {
+	void manualGroovyBeanWithDynamicPointcut() throws Exception {
 		TestService target = (TestService) scriptFactory.getScriptedObject(new ResourceScriptSource(
 				new ClassPathResource("GroovyServiceImpl.grv", getClass())));
 
@@ -68,7 +69,7 @@ public class GroovyAspectTests {
 	}
 
 	@Test
-	public void manualGroovyBeanWithDynamicPointcutProxyTargetClass() throws Exception {
+	void manualGroovyBeanWithDynamicPointcutProxyTargetClass() throws Exception {
 		TestService target = (TestService) scriptFactory.getScriptedObject(new ResourceScriptSource(
 				new ClassPathResource("GroovyServiceImpl.grv", getClass())));
 
@@ -77,14 +78,13 @@ public class GroovyAspectTests {
 		testAdvice(new DefaultPointcutAdvisor(pointcut, logAdvice), logAdvice, target, "GroovyServiceImpl", true);
 	}
 
-	private void testAdvice(Advisor advisor, LogUserAdvice logAdvice, TestService target, String message)
-			throws Exception {
+	private void testAdvice(Advisor advisor, LogUserAdvice logAdvice, TestService target, String message) {
 
 		testAdvice(advisor, logAdvice, target, message, false);
 	}
 
 	private void testAdvice(Advisor advisor, LogUserAdvice logAdvice, TestService target, String message,
-			boolean proxyTargetClass) throws Exception {
+			boolean proxyTargetClass) {
 
 		logAdvice.reset();
 
@@ -93,15 +93,11 @@ public class GroovyAspectTests {
 		factory.addAdvisor(advisor);
 		TestService bean = (TestService) factory.getProxy();
 
-		assertEquals(0, logAdvice.getCountThrows());
-		try {
-			bean.sayHello();
-			fail("Expected exception");
-		}
-		catch (TestException ex) {
-			assertEquals(message, ex.getMessage());
-		}
-		assertEquals(1, logAdvice.getCountThrows());
+		assertThat(logAdvice.getCountThrows()).isEqualTo(0);
+		assertThatExceptionOfType(TestException.class).isThrownBy(
+				bean::sayHello)
+			.withMessage(message);
+		assertThat(logAdvice.getCountThrows()).isEqualTo(1);
 	}
 
 }

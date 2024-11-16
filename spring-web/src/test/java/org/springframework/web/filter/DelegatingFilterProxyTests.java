@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,24 +17,25 @@
 package org.springframework.web.filter;
 
 import java.io.IOException;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
 
-import org.junit.Test;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.mock.web.test.MockFilterConfig;
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
-import org.springframework.mock.web.test.MockServletContext;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.StaticWebApplicationContext;
+import org.springframework.web.testfixture.servlet.MockFilterConfig;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
+import org.springframework.web.testfixture.servlet.MockServletContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
  * @author Juergen Hoeller
@@ -42,10 +43,10 @@ import static org.junit.Assert.*;
  * @author Rob Winch
  * @since 08.05.2005
  */
-public class DelegatingFilterProxyTests {
+class DelegatingFilterProxyTests {
 
 	@Test
-	public void testDelegatingFilterProxy() throws ServletException, IOException {
+	void testDelegatingFilterProxy() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
@@ -65,15 +66,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyAndCustomContextAttribute() throws ServletException, IOException {
+	void testDelegatingFilterProxyAndCustomContextAttribute() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
@@ -94,15 +95,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithFilterDelegateInstance() throws ServletException, IOException {
+	void testDelegatingFilterProxyWithFilterDelegateInstance() throws ServletException, IOException {
 		MockFilter targetFilter = new MockFilter();
 
 		DelegatingFilterProxy filterProxy = new DelegatingFilterProxy(targetFilter);
@@ -112,15 +113,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithTargetBeanName() throws ServletException, IOException {
+	void testDelegatingFilterProxyWithTargetBeanName() throws ServletException, IOException {
 		MockServletContext sc = new MockServletContext();
 
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
@@ -138,15 +139,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithTargetBeanNameAndNotYetRefreshedApplicationContext()
+	void testDelegatingFilterProxyWithTargetBeanNameAndNotYetRefreshedApplicationContext()
 			throws ServletException, IOException {
 
 		MockServletContext sc = new MockServletContext();
@@ -166,16 +167,16 @@ public class DelegatingFilterProxyTests {
 
 		MockFilter targetFilter = (MockFilter) wac.getBean("targetFilter");
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
-	@Test(expected = IllegalStateException.class)
-	public void testDelegatingFilterProxyWithTargetBeanNameAndNoApplicationContext()
-			throws ServletException, IOException {
+	@Test
+	void testDelegatingFilterProxyWithTargetBeanNameAndNoApplicationContext()
+			throws ServletException {
 
 		MockServletContext sc = new MockServletContext();
 
@@ -184,11 +185,12 @@ public class DelegatingFilterProxyTests {
 
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		filterProxy.doFilter(request, response, null); // throws
+		assertThatIllegalStateException().isThrownBy(() ->
+				filterProxy.doFilter(request, response, null));
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithFilterName() throws ServletException, IOException {
+	void testDelegatingFilterProxyWithFilterName() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
@@ -207,15 +209,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithLazyContextStartup() throws ServletException, IOException {
+	void testDelegatingFilterProxyWithLazyContextStartup() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 
 		MockFilterConfig proxyConfig = new MockFilterConfig(sc);
@@ -235,15 +237,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithTargetFilterLifecycle() throws ServletException, IOException {
+	void testDelegatingFilterProxyWithTargetFilterLifecycle() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
@@ -259,21 +261,21 @@ public class DelegatingFilterProxyTests {
 		proxyConfig.addInitParameter("targetFilterLifecycle", "true");
 		DelegatingFilterProxy filterProxy = new DelegatingFilterProxy();
 		filterProxy.init(proxyConfig);
-		assertEquals(proxyConfig, targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isEqualTo(proxyConfig);
 
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertEquals(proxyConfig, targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isEqualTo(proxyConfig);
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyWithFrameworkServletContext() throws ServletException, IOException {
+	void testDelegatingFilterProxyWithFrameworkServletContext() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
 		wac.setServletContext(sc);
@@ -292,15 +294,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyInjectedPreferred() throws ServletException, IOException {
+	void testDelegatingFilterProxyInjectedPreferred() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
 		wac.setServletContext(sc);
@@ -321,15 +323,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyNotInjectedWacServletAttrPreferred()
+	void testDelegatingFilterProxyNotInjectedWacServletAttrPreferred()
 			throws ServletException, IOException {
 
 		ServletContext sc = new MockServletContext();
@@ -357,15 +359,15 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 	@Test
-	public void testDelegatingFilterProxyNotInjectedWithRootPreferred() throws ServletException, IOException {
+	void testDelegatingFilterProxyNotInjectedWithRootPreferred() throws ServletException, IOException {
 		ServletContext sc = new MockServletContext();
 		StaticWebApplicationContext wac = new StaticWebApplicationContext();
 		wac.setServletContext(sc);
@@ -389,11 +391,11 @@ public class DelegatingFilterProxyTests {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filterProxy.doFilter(request, response, null);
 
-		assertNull(targetFilter.filterConfig);
-		assertEquals(Boolean.TRUE, request.getAttribute("called"));
+		assertThat(targetFilter.filterConfig).isNull();
+		assertThat(request.getAttribute("called")).isEqualTo(Boolean.TRUE);
 
 		filterProxy.destroy();
-		assertNull(targetFilter.filterConfig);
+		assertThat(targetFilter.filterConfig).isNull();
 	}
 
 
@@ -402,13 +404,13 @@ public class DelegatingFilterProxyTests {
 		public FilterConfig filterConfig;
 
 		@Override
-		public void init(FilterConfig filterConfig) throws ServletException {
+		public void init(FilterConfig filterConfig) {
 			this.filterConfig = filterConfig;
 		}
 
 		@Override
 		public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain)
-				throws IOException, ServletException {
+				throws IOException {
 
 			request.setAttribute("called", Boolean.TRUE);
 		}

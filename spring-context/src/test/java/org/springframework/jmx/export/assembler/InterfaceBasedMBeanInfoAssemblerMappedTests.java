@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,55 +17,47 @@
 package org.springframework.jmx.export.assembler;
 
 import java.util.Properties;
+
 import javax.management.MBeanAttributeInfo;
 import javax.management.modelmbean.ModelMBeanAttributeInfo;
 import javax.management.modelmbean.ModelMBeanInfo;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * @author Rob Harrop
  * @author Chris Beams
  */
-public class InterfaceBasedMBeanInfoAssemblerMappedTests extends AbstractJmxAssemblerTests {
+class InterfaceBasedMBeanInfoAssemblerMappedTests extends AbstractJmxAssemblerTests {
 
 	protected static final String OBJECT_NAME = "bean:name=testBean4";
 
 	@Test
-	public void testGetAgeIsReadOnly() throws Exception {
+	void testGetAgeIsReadOnly() throws Exception {
 		ModelMBeanInfo info = getMBeanInfoFromAssembler();
 		ModelMBeanAttributeInfo attr = info.getAttribute(AGE_ATTRIBUTE);
 
-		assertTrue("Age is not readable", attr.isReadable());
-		assertFalse("Age is not writable", attr.isWritable());
+		assertThat(attr.isReadable()).as("Age is not readable").isTrue();
+		assertThat(attr.isWritable()).as("Age is not writable").isFalse();
 	}
 
 	@Test
-	public void testWithUnknownClass() throws Exception {
-		try {
-			getWithMapping("com.foo.bar.Unknown");
-			fail("Should have thrown IllegalArgumentException");
-		}
-		catch (IllegalArgumentException ex) {
-			// expected
-		}
+	void testWithUnknownClass() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				getWithMapping("com.foo.bar.Unknown"));
 	}
 
 	@Test
-	public void testWithNonInterface() throws Exception {
-		try {
-			getWithMapping("JmxTestBean");
-			fail("Should have thrown IllegalArgumentException");
-		}
-		catch (IllegalArgumentException ex) {
-			// expected
-		}
+	void testWithNonInterface() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				getWithMapping("JmxTestBean"));
 	}
 
 	@Test
-	public void testWithFallThrough() throws Exception {
+	void testWithFallThrough() throws Exception {
 		InterfaceBasedMBeanInfoAssembler assembler =
 				getWithMapping("foobar", "org.springframework.jmx.export.assembler.ICustomJmxBean");
 		assembler.setManagedInterfaces(new Class<?>[] {IAdditionalTestMethods.class});
@@ -77,7 +69,7 @@ public class InterfaceBasedMBeanInfoAssemblerMappedTests extends AbstractJmxAsse
 	}
 
 	@Test
-	public void testNickNameIsExposed() throws Exception {
+	void testNickNameIsExposed() throws Exception {
 		ModelMBeanInfo inf = (ModelMBeanInfo) getMBeanInfo();
 		MBeanAttributeInfo attr = inf.getAttribute("NickName");
 
@@ -100,7 +92,7 @@ public class InterfaceBasedMBeanInfoAssemblerMappedTests extends AbstractJmxAsse
 	}
 
 	@Override
-	protected MBeanInfoAssembler getAssembler() throws Exception {
+	protected MBeanInfoAssembler getAssembler() {
 		return getWithMapping(
 				"org.springframework.jmx.export.assembler.IAdditionalTestMethods, " +
 				"org.springframework.jmx.export.assembler.ICustomJmxBean");
@@ -125,9 +117,9 @@ public class InterfaceBasedMBeanInfoAssemblerMappedTests extends AbstractJmxAsse
 	}
 
 	private void assertNickName(MBeanAttributeInfo attr) {
-		assertNotNull("Nick Name should not be null", attr);
-		assertTrue("Nick Name should be writable", attr.isWritable());
-		assertTrue("Nick Name should be readab;e", attr.isReadable());
+		assertThat(attr).as("Nick Name should not be null").isNotNull();
+		assertThat(attr.isWritable()).as("Nick Name should be writable").isTrue();
+		assertThat(attr.isReadable()).as("Nick Name should be readable").isTrue();
 	}
 
 }

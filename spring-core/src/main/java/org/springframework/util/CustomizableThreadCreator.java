@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,7 +44,7 @@ public class CustomizableThreadCreator implements Serializable {
 	@Nullable
 	private ThreadGroup threadGroup;
 
-	private final AtomicInteger threadCount = new AtomicInteger(0);
+	private final AtomicInteger threadCount = new AtomicInteger();
 
 
 	/**
@@ -159,7 +159,7 @@ public class CustomizableThreadCreator implements Serializable {
 	/**
 	 * Return the thread name to use for a newly created {@link Thread}.
 	 * <p>The default implementation returns the specified thread name prefix
-	 * with an increasing thread count appended: e.g. "SimpleAsyncTaskExecutor-0".
+	 * with an increasing thread count appended: for example, "SimpleAsyncTaskExecutor-0".
 	 * @see #getThreadNamePrefix()
 	 */
 	protected String nextThreadName() {

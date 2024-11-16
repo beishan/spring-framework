@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,17 @@
 
 package org.springframework.test.web.servlet.request;
 
-import java.net.URI;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import javax.servlet.ServletContext;
-import javax.servlet.http.Part;
+
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.Part;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -30,15 +35,16 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.MockMultipartHttpServletRequest;
 import org.springframework.util.Assert;
+import org.springframework.util.FileCopyUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.multipart.support.StandardMultipartHttpServletRequest;
 
 /**
  * Default builder for {@link MockMultipartHttpServletRequest}.
  *
  * @author Rossen Stoyanchev
  * @author Arjen Poutsma
+ * @author Stephane Nicoll
  * @since 3.2
  */
 public class MockMultipartHttpServletRequestBuilder extends MockHttpServletRequestBuilder {
@@ -54,31 +60,24 @@ public class MockMultipartHttpServletRequestBuilder extends MockHttpServletReque
 	 * <p>For other ways to initialize a {@code MockMultipartHttpServletRequest},
 	 * see {@link #with(RequestPostProcessor)} and the
 	 * {@link RequestPostProcessor} extension point.
-	 * @param urlTemplate a URL template; the resulting URL will be encoded
-	 * @param uriVariables zero or more URI variables
+	 * @param httpMethod the HTTP method (GET, POST, etc.)
 	 */
-	MockMultipartHttpServletRequestBuilder(String urlTemplate, Object... uriVariables) {
-		super(HttpMethod.POST, urlTemplate, uriVariables);
+	MockMultipartHttpServletRequestBuilder(HttpMethod httpMethod) {
+		super(httpMethod);
 		super.contentType(MediaType.MULTIPART_FORM_DATA);
 	}
 
 	/**
-	 * Package-private constructor. Use static factory methods in
-	 * {@link MockMvcRequestBuilders}.
-	 * <p>For other ways to initialize a {@code MockMultipartHttpServletRequest},
-	 * see {@link #with(RequestPostProcessor)} and the
-	 * {@link RequestPostProcessor} extension point.
-	 * @param uri the URL
-	 * @since 4.0.3
+	 * Variant of {@link #MockMultipartHttpServletRequestBuilder(HttpMethod)}
+	 * that defaults to {@link HttpMethod#POST}.
 	 */
-	MockMultipartHttpServletRequestBuilder(URI uri) {
-		super(HttpMethod.POST, uri);
-		super.contentType(MediaType.MULTIPART_FORM_DATA);
+	MockMultipartHttpServletRequestBuilder() {
+		this(HttpMethod.POST);
 	}
 
 
 	/**
-	 * Create a new MockMultipartFile with the given content.
+	 * Add a new {@link MockMultipartFile} with the given content.
 	 * @param name the name of the file
 	 * @param content the content of the file
 	 */
@@ -88,7 +87,7 @@ public class MockMultipartHttpServletRequestBuilder extends MockHttpServletReque
 	}
 
 	/**
-	 * Add the given MockMultipartFile.
+	 * Add the given {@link MockMultipartFile}.
 	 * @param file the multipart file
 	 */
 	public MockMultipartHttpServletRequestBuilder file(MockMultipartFile file) {
@@ -116,13 +115,11 @@ public class MockMultipartHttpServletRequestBuilder extends MockHttpServletReque
 		}
 		if (parent instanceof MockHttpServletRequestBuilder) {
 			super.merge(parent);
-			if (parent instanceof MockMultipartHttpServletRequestBuilder) {
-				MockMultipartHttpServletRequestBuilder parentBuilder = (MockMultipartHttpServletRequestBuilder) parent;
+			if (parent instanceof MockMultipartHttpServletRequestBuilder parentBuilder) {
 				this.files.addAll(parentBuilder.files);
-				parentBuilder.parts.keySet().stream().forEach(name ->
+				parentBuilder.parts.keySet().forEach(name ->
 						this.parts.putIfAbsent(name, parentBuilder.parts.get(name)));
 			}
-
 		}
 		else {
 			throw new IllegalArgumentException("Cannot merge with [" + parent.getClass().getName() + "]");
@@ -137,18 +134,42 @@ public class MockMultipartHttpServletRequestBuilder extends MockHttpServletReque
 	 */
 	@Override
 	protected final MockHttpServletRequest createServletRequest(ServletContext servletContext) {
-
 		MockMultipartHttpServletRequest request = new MockMultipartHttpServletRequest(servletContext);
-		this.files.stream().forEach(request::addFile);
-		this.parts.values().stream().flatMap(Collection::stream).forEach(request::addPart);
+		Charset defaultCharset = (request.getCharacterEncoding() != null ?
+				Charset.forName(request.getCharacterEncoding()) : StandardCharsets.UTF_8);
 
-		if (!this.parts.isEmpty()) {
-			new StandardMultipartHttpServletRequest(request)
-					.getMultiFileMap().values().stream().flatMap(Collection::stream)
-					.forEach(request::addFile);
-		}
+		this.files.forEach(request::addFile);
+		this.parts.values().stream().flatMap(Collection::stream).forEach(part -> {
+			request.addPart(part);
+			try {
+				String name = part.getName();
+				String filename = part.getSubmittedFileName();
+				InputStream is = part.getInputStream();
+				if (filename != null) {
+					request.addFile(new MockMultipartFile(name, filename, part.getContentType(), is));
+				}
+				else {
+					InputStreamReader reader = new InputStreamReader(is, getCharsetOrDefault(part, defaultCharset));
+					String value = FileCopyUtils.copyToString(reader);
+					request.addParameter(part.getName(), value);
+				}
+			}
+			catch (IOException ex) {
+				throw new IllegalStateException("Failed to read content for part " + part.getName(), ex);
+			}
+		});
 
 		return request;
+	}
+
+	private Charset getCharsetOrDefault(Part part, Charset defaultCharset) {
+		if (part.getContentType() != null) {
+			MediaType mediaType = MediaType.parseMediaType(part.getContentType());
+			if (mediaType.getCharset() != null) {
+				return mediaType.getCharset();
+			}
+		}
+		return defaultCharset;
 	}
 
 }

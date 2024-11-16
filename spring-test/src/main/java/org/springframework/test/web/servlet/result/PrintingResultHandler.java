@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,9 +20,10 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.stream.Collectors;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.springframework.core.style.ToStringCreator;
 import org.springframework.http.HttpHeaders;
@@ -71,7 +72,8 @@ public class PrintingResultHandler implements ResultHandler {
 	}
 
 	/**
-	 * @return the result value printer
+	 * Return the result value printer.
+	 * @return the printer
 	 */
 	protected ResultValuePrinter getPrinter() {
 		return this.printer;
@@ -121,13 +123,10 @@ public class PrintingResultHandler implements ResultHandler {
 
 	protected final HttpHeaders getRequestHeaders(MockHttpServletRequest request) {
 		HttpHeaders headers = new HttpHeaders();
-		Enumeration<?> names = request.getHeaderNames();
+		Enumeration<String> names = request.getHeaderNames();
 		while (names.hasMoreElements()) {
-			String name = (String) names.nextElement();
-			Enumeration<String> values = request.getHeaders(name);
-			while (values.hasMoreElements()) {
-				headers.add(name, values.nextElement());
-			}
+			String name = names.nextElement();
+			headers.put(name, Collections.list(request.getHeaders(name)));
 		}
 		return headers;
 	}
@@ -135,13 +134,13 @@ public class PrintingResultHandler implements ResultHandler {
 	protected final MultiValueMap<String, String> getParamsMultiValueMap(MockHttpServletRequest request) {
 		Map<String, String[]> params = request.getParameterMap();
 		MultiValueMap<String, String> multiValueMap = new LinkedMultiValueMap<>();
-		for (String name : params.keySet()) {
+		params.forEach((name, values) -> {
 			if (params.get(name) != null) {
-				for (String value : params.get(name)) {
+				for (String value : values) {
 					multiValueMap.add(name, value);
 				}
 			}
-		}
+		});
 		return multiValueMap;
 	}
 
@@ -180,8 +179,7 @@ public class PrintingResultHandler implements ResultHandler {
 			this.printer.printValue("Type", null);
 		}
 		else {
-			if (handler instanceof HandlerMethod) {
-				HandlerMethod handlerMethod = (HandlerMethod) handler;
+			if (handler instanceof HandlerMethod handlerMethod) {
 				this.printer.printValue("Type", handlerMethod.getBeanType().getName());
 				this.printer.printValue("Method", handlerMethod);
 			}
@@ -209,7 +207,7 @@ public class PrintingResultHandler implements ResultHandler {
 	protected void printModelAndView(@Nullable ModelAndView mav) throws Exception {
 		this.printer.printValue("View name", (mav != null) ? mav.getViewName() : null);
 		this.printer.printValue("View", (mav != null) ? mav.getView() : null);
-		if (mav == null || mav.getModel().size() == 0) {
+		if (mav == null || mav.getModel().isEmpty()) {
 			this.printer.printValue("Model", null);
 		}
 		else {
@@ -235,10 +233,10 @@ public class PrintingResultHandler implements ResultHandler {
 			this.printer.printValue("Attributes", null);
 		}
 		else {
-			for (String name : flashMap.keySet()) {
+			flashMap.forEach((name, value) -> {
 				this.printer.printValue("Attribute", name);
-				this.printer.printValue("value", flashMap.get(name));
-			}
+				this.printer.printValue("value", value);
+			});
 		}
 	}
 
@@ -246,14 +244,11 @@ public class PrintingResultHandler implements ResultHandler {
 	 * Print the response.
 	 */
 	protected void printResponse(MockHttpServletResponse response) throws Exception {
-		String body = (response.getCharacterEncoding() != null ?
-				response.getContentAsString() : MISSING_CHARACTER_ENCODING);
-
 		this.printer.printValue("Status", response.getStatus());
 		this.printer.printValue("Error message", response.getErrorMessage());
 		this.printer.printValue("Headers", getResponseHeaders(response));
 		this.printer.printValue("Content type", response.getContentType());
-		this.printer.printValue("Body", body);
+		this.printer.printValue("Body", response.getContentAsString());
 		this.printer.printValue("Forwarded URL", response.getForwardedUrl());
 		this.printer.printValue("Redirected URL", response.getRedirectedUrl());
 		printCookies(response.getCookies());
@@ -264,6 +259,7 @@ public class PrintingResultHandler implements ResultHandler {
 	 * {@link Cookie} implementation does not provide its own {@code toString()}.
 	 * @since 4.2
 	 */
+	@SuppressWarnings("removal")
 	private void printCookies(Cookie[] cookies) {
 		String[] cookieStrings = new String[cookies.length];
 		for (int i = 0; i < cookies.length; i++) {

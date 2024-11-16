@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.reactive.accept;
 
 import java.util.ArrayList;
@@ -30,7 +31,7 @@ import org.springframework.web.server.NotAcceptableStatusException;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * Resolver that checks a query parameter and uses it to lookup a matching
+ * Resolver that checks a query parameter and uses it to look up a matching
  * MediaType. Lookup keys can be registered or as a fallback
  * {@link MediaTypeFactory} can be used to perform a lookup.
  *
@@ -39,7 +40,7 @@ import org.springframework.web.server.ServerWebExchange;
  */
 public class ParameterContentTypeResolver implements RequestedContentTypeResolver {
 
-	/** Primary lookup for media types by key (e.g. "json" -> "application/json") */
+	/** Primary lookup for media types by key (for example, "json" -> "application/json"). */
 	private final Map<String, MediaType> mediaTypes = new ConcurrentHashMap<>(64);
 
 	private String parameterName = "format";
@@ -50,7 +51,7 @@ public class ParameterContentTypeResolver implements RequestedContentTypeResolve
 	}
 
 	private static String formatKey(String key) {
-		return key.toLowerCase(Locale.ENGLISH);
+		return key.toLowerCase(Locale.ROOT);
 	}
 
 
@@ -72,7 +73,7 @@ public class ParameterContentTypeResolver implements RequestedContentTypeResolve
 	public List<MediaType> resolveMediaTypes(ServerWebExchange exchange) throws NotAcceptableStatusException {
 		String key = exchange.getRequest().getQueryParams().getFirst(getParameterName());
 		if (!StringUtils.hasText(key)) {
-			return Collections.emptyList();
+			return MEDIA_TYPE_ALL_LIST;
 		}
 		key = formatKey(key);
 		MediaType match = this.mediaTypes.get(key);

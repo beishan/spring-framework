@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,14 @@
 
 package org.springframework.jms.listener.endpoint;
 
-import javax.jms.Session;
+import java.util.Map;
 
-import org.springframework.core.Constants;
+import jakarta.jms.Session;
+
 import org.springframework.jms.support.QosSettings;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 
 /**
  * Common configuration object for activating a JMS message endpoint.
@@ -33,15 +35,24 @@ import org.springframework.lang.Nullable;
  *
  * @author Juergen Hoeller
  * @author Stephane Nicoll
+ * @author Sam Brannen
  * @since 2.5
  * @see JmsActivationSpecFactory
  * @see JmsMessageEndpointManager#setActivationSpecConfig
- * @see javax.resource.spi.ResourceAdapter#endpointActivation
+ * @see jakarta.resource.spi.ResourceAdapter#endpointActivation
  */
 public class JmsActivationSpecConfig {
 
-	/** Constants instance for javax.jms.Session */
-	private static final Constants sessionConstants = new Constants(Session.class);
+	/**
+	 * Map of constant names to constant values for the constants defined in
+	 * {@link jakarta.jms.Session}.
+	 */
+	private static final Map<String, Integer> sessionConstants = Map.of(
+			"AUTO_ACKNOWLEDGE", Session.AUTO_ACKNOWLEDGE,
+			"CLIENT_ACKNOWLEDGE", Session.CLIENT_ACKNOWLEDGE,
+			"DUPS_OK_ACKNOWLEDGE", Session.DUPS_OK_ACKNOWLEDGE,
+			"SESSION_TRANSACTED", Session.SESSION_TRANSACTED
+		);
 
 
 	@Nullable
@@ -177,32 +188,37 @@ public class JmsActivationSpecConfig {
 	}
 
 	/**
-	 * Set the JMS acknowledgement mode by the name of the corresponding constant
-	 * in the JMS {@link Session} interface, e.g. "CLIENT_ACKNOWLEDGE".
+	 * Set the JMS acknowledgement mode by the name of the corresponding constant in
+	 * the JMS {@link Session} interface &mdash; for example, {@code "CLIENT_ACKNOWLEDGE"}.
 	 * <p>Note that JCA resource adapters generally only support auto and dups-ok
 	 * (see Spring's {@link StandardJmsActivationSpecFactory}). ActiveMQ also
 	 * supports "SESSION_TRANSACTED" in the form of RA-managed transactions
-	 * (automatically translated by Spring's {@link DefaultJmsActivationSpecFactory}.
+	 * (automatically translated by Spring's {@link DefaultJmsActivationSpecFactory}).
 	 * @param constantName the name of the {@link Session} acknowledge mode constant
-	 * @see javax.jms.Session#AUTO_ACKNOWLEDGE
-	 * @see javax.jms.Session#CLIENT_ACKNOWLEDGE
-	 * @see javax.jms.Session#DUPS_OK_ACKNOWLEDGE
-	 * @see javax.jms.Session#SESSION_TRANSACTED
+	 * @see jakarta.jms.Session#AUTO_ACKNOWLEDGE
+	 * @see jakarta.jms.Session#CLIENT_ACKNOWLEDGE
+	 * @see jakarta.jms.Session#DUPS_OK_ACKNOWLEDGE
+	 * @see jakarta.jms.Session#SESSION_TRANSACTED
 	 * @see StandardJmsActivationSpecFactory
 	 * @see DefaultJmsActivationSpecFactory
 	 */
 	public void setAcknowledgeModeName(String constantName) {
-		setAcknowledgeMode(sessionConstants.asNumber(constantName).intValue());
+		Assert.hasText(constantName, "'constantName' must not be null or blank");
+		Integer acknowledgeMode = sessionConstants.get(constantName);
+		Assert.notNull(acknowledgeMode, "Only acknowledge mode constants allowed");
+		this.acknowledgeMode = acknowledgeMode;
 	}
 
 	/**
 	 * Set the JMS acknowledgement mode to use.
-	 * @see javax.jms.Session#AUTO_ACKNOWLEDGE
-	 * @see javax.jms.Session#CLIENT_ACKNOWLEDGE
-	 * @see javax.jms.Session#DUPS_OK_ACKNOWLEDGE
-	 * @see javax.jms.Session#SESSION_TRANSACTED
+	 * @see jakarta.jms.Session#AUTO_ACKNOWLEDGE
+	 * @see jakarta.jms.Session#CLIENT_ACKNOWLEDGE
+	 * @see jakarta.jms.Session#DUPS_OK_ACKNOWLEDGE
+	 * @see jakarta.jms.Session#SESSION_TRANSACTED
 	 */
 	public void setAcknowledgeMode(int acknowledgeMode) {
+		Assert.isTrue(sessionConstants.containsValue(acknowledgeMode),
+				"Only values of acknowledge mode constants allowed");
 		this.acknowledgeMode = acknowledgeMode;
 	}
 
@@ -214,8 +230,8 @@ public class JmsActivationSpecConfig {
 	}
 
 	/**
-	 * Specify concurrency limits via a "lower-upper" String, e.g. "5-10", or a simple
-	 * upper limit String, e.g. "10".
+	 * Specify concurrency limits via a "lower-upper" String, for example, "5-10", or a simple
+	 * upper limit String, for example, "10".
 	 * <p>JCA listener containers will always scale from zero to the given upper limit.
 	 * A specified lower limit will effectively be ignored.
 	 * <p>This property is primarily supported for configuration compatibility with
@@ -226,7 +242,7 @@ public class JmsActivationSpecConfig {
 		try {
 			int separatorIndex = concurrency.indexOf('-');
 			if (separatorIndex != -1) {
-				setMaxConcurrency(Integer.parseInt(concurrency.substring(separatorIndex + 1, concurrency.length())));
+				setMaxConcurrency(Integer.parseInt(concurrency, separatorIndex + 1, concurrency.length(), 10));
 			}
 			else {
 				setMaxConcurrency(Integer.parseInt(concurrency));
@@ -234,7 +250,7 @@ public class JmsActivationSpecConfig {
 		}
 		catch (NumberFormatException ex) {
 			throw new IllegalArgumentException("Invalid concurrency value [" + concurrency + "]: only " +
-					"single maximum integer (e.g. \"5\") and minimum-maximum combo (e.g. \"3-5\") supported. " +
+					"single maximum integer (for example, \"5\") and minimum-maximum combo (for example, \"3-5\") supported. " +
 					"Note that JmsActivationSpecConfig will effectively ignore the minimum value and " +
 					"scale from zero up to the number of consumers according to the maximum value.");
 		}

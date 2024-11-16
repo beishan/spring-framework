@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,20 +25,24 @@ import java.util.Set;
 
 import org.springframework.lang.Nullable;
 import org.springframework.transaction.interceptor.AbstractFallbackTransactionAttributeSource;
+import org.springframework.transaction.interceptor.RollbackRuleAttribute;
+import org.springframework.transaction.interceptor.RuleBasedTransactionAttribute;
 import org.springframework.transaction.interceptor.TransactionAttribute;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.CollectionUtils;
 
 /**
  * Implementation of the
  * {@link org.springframework.transaction.interceptor.TransactionAttributeSource}
- * interface for working with transaction metadata in JDK 1.5+ annotation format.
+ * interface for working with transaction metadata from annotations.
  *
- * <p>This class reads Spring's JDK 1.5+ {@link Transactional} annotation and
+ * <p>This class reads Spring's {@link Transactional @Transactional} annotation and
  * exposes corresponding transaction attributes to Spring's transaction infrastructure.
- * Also supports JTA 1.2's {@link javax.transaction.Transactional} and EJB3's
- * {@link javax.ejb.TransactionAttribute} annotation (if present).
- * This class may also serve as base class for a custom TransactionAttributeSource,
+ * Also supports JTA's {@link jakarta.transaction.Transactional} and EJB's
+ * {@link jakarta.ejb.TransactionAttribute} annotation (if present).
+ *
+ * <p>This class may also serve as base class for a custom TransactionAttributeSource,
  * or get customized through {@link TransactionAnnotationParser} strategies.
  *
  * @author Colin Sampaleanu
@@ -55,45 +59,58 @@ import org.springframework.util.ClassUtils;
 public class AnnotationTransactionAttributeSource extends AbstractFallbackTransactionAttributeSource
 		implements Serializable {
 
-	private static final boolean jta12Present = ClassUtils.isPresent(
-			"javax.transaction.Transactional", AnnotationTransactionAttributeSource.class.getClassLoader());
+	private static final boolean jtaPresent;
 
-	private static final boolean ejb3Present = ClassUtils.isPresent(
-			"javax.ejb.TransactionAttribute", AnnotationTransactionAttributeSource.class.getClassLoader());
+	private static final boolean ejb3Present;
 
-	private final boolean publicMethodsOnly;
+	static {
+		ClassLoader classLoader = AnnotationTransactionAttributeSource.class.getClassLoader();
+		jtaPresent = ClassUtils.isPresent("jakarta.transaction.Transactional", classLoader);
+		ejb3Present = ClassUtils.isPresent("jakarta.ejb.TransactionAttribute", classLoader);
+	}
 
 	private final Set<TransactionAnnotationParser> annotationParsers;
+
+	private boolean publicMethodsOnly = true;
+
+	@Nullable
+	private Set<RollbackRuleAttribute> defaultRollbackRules;
 
 
 	/**
 	 * Create a default AnnotationTransactionAttributeSource, supporting
 	 * public methods that carry the {@code Transactional} annotation
-	 * or the EJB3 {@link javax.ejb.TransactionAttribute} annotation.
+	 * or the EJB3 {@link jakarta.ejb.TransactionAttribute} annotation.
 	 */
 	public AnnotationTransactionAttributeSource() {
-		this(true);
+		if (jtaPresent || ejb3Present) {
+			this.annotationParsers = CollectionUtils.newLinkedHashSet(3);
+			this.annotationParsers.add(new SpringTransactionAnnotationParser());
+			if (jtaPresent) {
+				this.annotationParsers.add(new JtaTransactionAnnotationParser());
+			}
+			if (ejb3Present) {
+				this.annotationParsers.add(new Ejb3TransactionAnnotationParser());
+			}
+		}
+		else {
+			this.annotationParsers = Collections.singleton(new SpringTransactionAnnotationParser());
+		}
 	}
 
 	/**
 	 * Create a custom AnnotationTransactionAttributeSource, supporting
 	 * public methods that carry the {@code Transactional} annotation
-	 * or the EJB3 {@link javax.ejb.TransactionAttribute} annotation.
+	 * or the EJB3 {@link jakarta.ejb.TransactionAttribute} annotation.
 	 * @param publicMethodsOnly whether to support public methods that carry
 	 * the {@code Transactional} annotation only (typically for use
 	 * with proxy-based AOP), or protected/private methods as well
 	 * (typically used with AspectJ class weaving)
+	 * @see #setPublicMethodsOnly
 	 */
 	public AnnotationTransactionAttributeSource(boolean publicMethodsOnly) {
+		this();
 		this.publicMethodsOnly = publicMethodsOnly;
-		this.annotationParsers = new LinkedHashSet<>(2);
-		this.annotationParsers.add(new SpringTransactionAnnotationParser());
-		if (jta12Present) {
-			this.annotationParsers.add(new JtaTransactionAnnotationParser());
-		}
-		if (ejb3Present) {
-			this.annotationParsers.add(new Ejb3TransactionAnnotationParser());
-		}
 	}
 
 	/**
@@ -101,7 +118,6 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 	 * @param annotationParser the TransactionAnnotationParser to use
 	 */
 	public AnnotationTransactionAttributeSource(TransactionAnnotationParser annotationParser) {
-		this.publicMethodsOnly = true;
 		Assert.notNull(annotationParser, "TransactionAnnotationParser must not be null");
 		this.annotationParsers = Collections.singleton(annotationParser);
 	}
@@ -111,34 +127,63 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 	 * @param annotationParsers the TransactionAnnotationParsers to use
 	 */
 	public AnnotationTransactionAttributeSource(TransactionAnnotationParser... annotationParsers) {
-		this.publicMethodsOnly = true;
 		Assert.notEmpty(annotationParsers, "At least one TransactionAnnotationParser needs to be specified");
-		Set<TransactionAnnotationParser> parsers = new LinkedHashSet<>(annotationParsers.length);
-		Collections.addAll(parsers, annotationParsers);
-		this.annotationParsers = parsers;
+		this.annotationParsers = Set.of(annotationParsers);
+	}
+
+
+	/**
+	 * Set whether transactional methods are expected to be public.
+	 * <p>The default is {@code true}.
+	 * @since 6.2
+	 * @see #AnnotationTransactionAttributeSource(boolean)
+	 */
+	public void setPublicMethodsOnly(boolean publicMethodsOnly) {
+		this.publicMethodsOnly = publicMethodsOnly;
 	}
 
 	/**
-	 * Create a custom AnnotationTransactionAttributeSource.
-	 * @param annotationParsers the TransactionAnnotationParsers to use
+	 * Add a default rollback rule, to be applied to all rule-based
+	 * transaction attributes returned by this source.
+	 * <p>By default, a rollback will be triggered on unchecked exceptions
+	 * but not on checked exceptions. A default rule may override this
+	 * while still respecting any custom rules in the transaction attribute.
+	 * @param rollbackRule a rollback rule overriding the default behavior,
+	 * for example, {@link RollbackRuleAttribute#ROLLBACK_ON_ALL_EXCEPTIONS}
+	 * @since 6.2
+	 * @see RuleBasedTransactionAttribute#getRollbackRules()
+	 * @see EnableTransactionManagement#rollbackOn()
+	 * @see Transactional#rollbackFor()
+	 * @see Transactional#noRollbackFor()
 	 */
-	public AnnotationTransactionAttributeSource(Set<TransactionAnnotationParser> annotationParsers) {
-		this.publicMethodsOnly = true;
-		Assert.notEmpty(annotationParsers, "At least one TransactionAnnotationParser needs to be specified");
-		this.annotationParsers = annotationParsers;
+	public void addDefaultRollbackRule(RollbackRuleAttribute rollbackRule) {
+		if (this.defaultRollbackRules == null) {
+			this.defaultRollbackRules = new LinkedHashSet<>();
+		}
+		this.defaultRollbackRules.add(rollbackRule);
 	}
 
 
 	@Override
-	@Nullable
-	protected TransactionAttribute findTransactionAttribute(Method method) {
-		return determineTransactionAttribute(method);
+	public boolean isCandidateClass(Class<?> targetClass) {
+		for (TransactionAnnotationParser parser : this.annotationParsers) {
+			if (parser.isCandidateClass(targetClass)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
 	@Nullable
 	protected TransactionAttribute findTransactionAttribute(Class<?> clazz) {
 		return determineTransactionAttribute(clazz);
+	}
+
+	@Override
+	@Nullable
+	protected TransactionAttribute findTransactionAttribute(Method method) {
+		return determineTransactionAttribute(method);
 	}
 
 	/**
@@ -148,15 +193,17 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 	 * for parsing known annotations into Spring's metadata attribute class.
 	 * Returns {@code null} if it's not transactional.
 	 * <p>Can be overridden to support custom annotations that carry transaction metadata.
-	 * @param ae the annotated method or class
-	 * @return TransactionAttribute the configured transaction attribute,
-	 * or {@code null} if none was found
+	 * @param element the annotated method or class
+	 * @return the configured transaction attribute, or {@code null} if none was found
 	 */
 	@Nullable
-	protected TransactionAttribute determineTransactionAttribute(AnnotatedElement ae) {
-		for (TransactionAnnotationParser annotationParser : this.annotationParsers) {
-			TransactionAttribute attr = annotationParser.parseTransactionAnnotation(ae);
+	protected TransactionAttribute determineTransactionAttribute(AnnotatedElement element) {
+		for (TransactionAnnotationParser parser : this.annotationParsers) {
+			TransactionAttribute attr = parser.parseTransactionAnnotation(element);
 			if (attr != null) {
+				if (this.defaultRollbackRules != null && attr instanceof RuleBasedTransactionAttribute ruleAttr) {
+					ruleAttr.getRollbackRules().addAll(this.defaultRollbackRules);
+				}
 				return attr;
 			}
 		}
@@ -165,6 +212,7 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 
 	/**
 	 * By default, only public methods can be made transactional.
+	 * @see #setPublicMethodsOnly
 	 */
 	@Override
 	protected boolean allowPublicMethodsOnly() {
@@ -173,16 +221,10 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof AnnotationTransactionAttributeSource)) {
-			return false;
-		}
-		AnnotationTransactionAttributeSource otherTas = (AnnotationTransactionAttributeSource) other;
-		return (this.annotationParsers.equals(otherTas.annotationParsers) &&
-				this.publicMethodsOnly == otherTas.publicMethodsOnly);
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof AnnotationTransactionAttributeSource otherTas &&
+				this.annotationParsers.equals(otherTas.annotationParsers) &&
+				this.publicMethodsOnly == otherTas.publicMethodsOnly));
 	}
 
 	@Override

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,22 +25,28 @@ import org.springframework.util.StringUtils;
  * {@link CommandLinePropertySource} implementation backed by a simple String array.
  *
  * <h3>Purpose</h3>
- * This {@code CommandLinePropertySource} implementation aims to provide the simplest
- * possible approach to parsing command line arguments.  As with all {@code
+ * <p>This {@code CommandLinePropertySource} implementation aims to provide the simplest
+ * possible approach to parsing command line arguments. As with all {@code
  * CommandLinePropertySource} implementations, command line arguments are broken into two
  * distinct groups: <em>option arguments</em> and <em>non-option arguments</em>, as
- * described below <em>(some sections copied from Javadoc for {@link SimpleCommandLineArgsParser})</em>:
+ * described below <em>(some sections copied from Javadoc for
+ * {@link SimpleCommandLineArgsParser})</em>:
  *
  * <h3>Working with option arguments</h3>
- * Option arguments must adhere to the exact syntax:
+ * <p>Option arguments must adhere to the exact syntax:
+ *
  * <pre class="code">--optName[=optValue]</pre>
- * That is, options must be prefixed with "{@code --}", and may or may not specify a value.
- * If a value is specified, the name and value must be separated <em>without spaces</em>
- * by an equals sign ("=").
+ *
+ * <p>That is, options must be prefixed with "{@code --}" and may or may not
+ * specify a value. If a value is specified, the name and value must be separated
+ * <em>without spaces</em> by an equals sign ("="). The value may optionally be
+ * an empty string.
  *
  * <h4>Valid examples of option arguments</h4>
  * <pre class="code">
  * --foo
+ * --foo=
+ * --foo=""
  * --foo=bar
  * --foo="bar then baz"
  * --foo=bar,baz,biz</pre>
@@ -52,15 +58,25 @@ import org.springframework.util.StringUtils;
  * --foo = bar
  * --foo=bar --foo=baz --foo=biz</pre>
  *
- * <h3>Working with non-option arguments</h3>
- * Any and all arguments specified at the command line without the "{@code --}" option
- * prefix will be considered as "non-option arguments" and made available through the
- * {@link #getNonOptionArgs()} method.
+ * <h3>End of option arguments</h3>
+ * <p>The underlying parser supports the POSIX "end of options" delimiter, meaning
+ * that any {@code "--"} (empty option name) in the command line signals that all
+ * remaining arguments are non-option arguments. For example, {@code "--opt1=ignored"},
+ * {@code "--opt2"}, and {@code "filename"} in the following command line are
+ * considered non-option arguments.
+ * <pre class="code">
+ * --foo=bar -- --opt1=ignored -opt2 filename</pre>
  *
- * <h2>Typical usage</h2>
+ * <h3>Working with non-option arguments</h3>
+ * <p>Any arguments following the "end of options" delimiter ({@code --}) or
+ * specified without the "{@code --}" option prefix will be considered as
+ * "non-option arguments" and made available through the
+ * {@link CommandLineArgs#getNonOptionArgs()} method.
+ *
+ * <h3>Typical usage</h3>
  * <pre class="code">
  * public static void main(String[] args) {
- *     PropertySource<?> ps = new SimpleCommandLinePropertySource(args);
+ *     PropertySource&lt;?&gt; ps = new SimpleCommandLinePropertySource(args);
  *     // ...
  * }</pre>
  *
@@ -68,15 +84,13 @@ import org.springframework.util.StringUtils;
  *
  * <h3>Beyond the basics</h3>
  *
- * <p>When more fully-featured command line parsing is necessary, consider using
- * the provided {@link JOptCommandLinePropertySource}, or implement your own
- * {@code CommandLinePropertySource} against the command line parsing library of your
- * choice!
+ * <p>When more fully-featured command line parsing is necessary, consider
+ * implementing your own {@code CommandLinePropertySource} against the command line
+ * parsing library of your choice.
  *
  * @author Chris Beams
  * @since 3.1
  * @see CommandLinePropertySource
- * @see JOptCommandLinePropertySource
  */
 public class SimpleCommandLinePropertySource extends CommandLinePropertySource<CommandLineArgs> {
 

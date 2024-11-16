@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import java.util.Map;
 import org.springframework.asm.MethodVisitor;
 import org.springframework.expression.AccessException;
 import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.PropertyAccessor;
 import org.springframework.expression.TypedValue;
 import org.springframework.expression.spel.CodeFlow;
 import org.springframework.expression.spel.CompilablePropertyAccessor;
@@ -28,14 +29,36 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * EL property accessor that knows how to traverse the keys
- * of a standard {@link java.util.Map}.
+ * SpEL {@link PropertyAccessor} that knows how to access the keys of a standard
+ * {@link java.util.Map}.
  *
  * @author Juergen Hoeller
  * @author Andy Clement
  * @since 3.0
  */
 public class MapAccessor implements CompilablePropertyAccessor {
+
+	private final boolean allowWrite;
+
+
+	/**
+	 * Create a new {@code MapAccessor} for reading as well as writing.
+	 * @see #MapAccessor(boolean)
+	 */
+	public MapAccessor() {
+		this(true);
+	}
+
+	/**
+	 * Create a new {@code MapAccessor} for reading and possibly also writing.
+	 * @param allowWrite whether to allow write operations on a target instance
+	 * @since 6.2
+	 * @see #canWrite
+	 */
+	public MapAccessor(boolean allowWrite) {
+		this.allowWrite = allowWrite;
+	}
+
 
 	@Override
 	public Class<?>[] getSpecificTargetClasses() {
@@ -44,7 +67,7 @@ public class MapAccessor implements CompilablePropertyAccessor {
 
 	@Override
 	public boolean canRead(EvaluationContext context, @Nullable Object target, String name) throws AccessException {
-		return (target instanceof Map && ((Map<?, ?>) target).containsKey(name));
+		return (target instanceof Map<?, ?> map && map.containsKey(name));
 	}
 
 	@Override
@@ -60,7 +83,7 @@ public class MapAccessor implements CompilablePropertyAccessor {
 
 	@Override
 	public boolean canWrite(EvaluationContext context, @Nullable Object target, String name) throws AccessException {
-		return true;
+		return (this.allowWrite && target instanceof Map);
 	}
 
 	@Override
@@ -68,7 +91,7 @@ public class MapAccessor implements CompilablePropertyAccessor {
 	public void write(EvaluationContext context, @Nullable Object target, String name, @Nullable Object newValue)
 			throws AccessException {
 
-		Assert.state(target instanceof Map, "Target must be a Map");
+		Assert.state(target instanceof Map, "Target must be of type Map");
 		Map<Object, Object> map = (Map<Object, Object>) target;
 		map.put(name, newValue);
 	}
@@ -93,7 +116,7 @@ public class MapAccessor implements CompilablePropertyAccessor {
 			CodeFlow.insertCheckCast(mv, "Ljava/util/Map");
 		}
 		mv.visitLdcInsn(propertyName);
-		mv.visitMethodInsn(INVOKEINTERFACE, "java/util/Map", "get","(Ljava/lang/Object;)Ljava/lang/Object;",true);
+		mv.visitMethodInsn(INVOKEINTERFACE, "java/util/Map", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
 	}
 
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *	  http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -84,16 +84,22 @@ public class PropertySourcesPropertyResolver extends AbstractPropertyResolver {
 				}
 				Object value = propertySource.getProperty(key);
 				if (value != null) {
-					if (resolveNestedPlaceholders && value instanceof String) {
-						value = resolveNestedPlaceholders((String) value);
+					if (resolveNestedPlaceholders) {
+						if (value instanceof String string) {
+							value = resolveNestedPlaceholders(string);
+						}
+						else if ((value instanceof CharSequence cs) && (String.class.equals(targetValueType) ||
+								CharSequence.class.equals(targetValueType))) {
+							value = resolveNestedPlaceholders(cs.toString());
+						}
 					}
 					logKeyFound(key, propertySource, value);
 					return convertValueIfNecessary(value, targetValueType);
 				}
 			}
 		}
-		if (logger.isDebugEnabled()) {
-			logger.debug("Could not find key '" + key + "' in any property source");
+		if (logger.isTraceEnabled()) {
+			logger.trace("Could not find key '" + key + "' in any property source");
 		}
 		return null;
 	}

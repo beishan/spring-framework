@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,6 +24,7 @@ import org.springframework.messaging.Message;
  *
  * @author Rossen Stoyanchev
  * @since 4.2
+ * @param <P> the message payload type
  */
 public interface SubProtocolErrorHandler<P> {
 
@@ -33,7 +34,7 @@ public interface SubProtocolErrorHandler<P> {
 	 * <p>Note that the STOMP protocol requires a server to close the connection
 	 * after sending an ERROR frame. To prevent an ERROR frame from being sent,
 	 * a handler could return {@code null} and send a notification message
-	 * through the broker instead, e.g. via a user destination.
+	 * through the broker instead, for example, via a user destination.
 	 * @param clientMessage the client message related to the error, possibly
 	 * {@code null} if error occurred while parsing a WebSocket message
 	 * @param ex the cause for the error, never {@code null}
@@ -44,7 +45,7 @@ public interface SubProtocolErrorHandler<P> {
 	Message<P> handleClientMessageProcessingError(@Nullable Message<P> clientMessage, Throwable ex);
 
 	/**
-	 * Handle errors sent from the server side to clients, e.g. errors from the
+	 * Handle errors sent from the server side to clients, for example, errors from the
 	 * {@link org.springframework.messaging.simp.stomp.StompBrokerRelayMessageHandler
 	 * "broke relay"} because connectivity failed or the external broker sent an
 	 * error message, etc.

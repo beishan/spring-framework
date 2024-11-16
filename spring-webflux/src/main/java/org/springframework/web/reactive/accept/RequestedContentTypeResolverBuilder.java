@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
@@ -31,7 +30,7 @@ import org.springframework.lang.Nullable;
 /**
  * Builder for a composite {@link RequestedContentTypeResolver} that delegates
  * to other resolvers each implementing a different strategy to determine the
- * requested content type -- e.g. Accept header, query parameter, or other.
+ * requested content type -- for example, Accept header, query parameter, or other.
  *
  * <p>Use builder methods to add resolvers in the desired order. For a given
  * request he first resolver to return a list that is not empty and does not
@@ -87,22 +86,25 @@ public class RequestedContentTypeResolverBuilder {
 	 * of resolvers configured through this builder.
 	 */
 	public RequestedContentTypeResolver build() {
-
-		List<RequestedContentTypeResolver> resolvers =
-				this.candidates.isEmpty() ?
-						Collections.singletonList(new HeaderContentTypeResolver()) :
-						this.candidates.stream().map(Supplier::get).collect(Collectors.toList());
+		List<RequestedContentTypeResolver> resolvers = (!this.candidates.isEmpty() ?
+				this.candidates.stream().map(Supplier::get).toList() :
+				Collections.singletonList(new HeaderContentTypeResolver()));
 
 		return exchange -> {
 			for (RequestedContentTypeResolver resolver : resolvers) {
-				List<MediaType> type = resolver.resolveMediaTypes(exchange);
-				if (type.isEmpty() || (type.size() == 1 && type.contains(MediaType.ALL))) {
+				List<MediaType> mediaTypes = resolver.resolveMediaTypes(exchange);
+				if (isMediaTypeAll(mediaTypes)) {
 					continue;
 				}
-				return type;
+				return mediaTypes;
 			}
-			return Collections.emptyList();
+			return RequestedContentTypeResolver.MEDIA_TYPE_ALL_LIST;
 		};
+	}
+
+	private boolean isMediaTypeAll(List<MediaType> mediaTypes) {
+		return mediaTypes.size() == 1
+			&& mediaTypes.get(0).removeQualityValue().equals(MediaType.ALL);
 	}
 
 

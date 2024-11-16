@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * Process the {@link HandlerResult}, usually returned by an {@link HandlerAdapter}.
+ * Process the {@link HandlerResult}, usually returned by a {@link HandlerAdapter}.
  *
  * @author Rossen Stoyanchev
  * @author Sebastien Deleuze
@@ -31,8 +31,8 @@ public interface HandlerResultHandler {
 
 	/**
 	 * Whether this handler supports the given {@link HandlerResult}.
-	 * @param result result object to check
-	 * @return whether or not this object can use the given result
+	 * @param result the result object to check
+	 * @return whether this object can use the given result
 	 */
 	boolean supports(HandlerResult result);
 

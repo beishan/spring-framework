@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,19 +18,21 @@ package org.springframework.cache.jcache;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.cache.Cache;
 import javax.cache.CacheManager;
 
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 
 import org.springframework.cache.transaction.AbstractTransactionSupportingCacheManagerTests;
 
-import static org.mockito.BDDMockito.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author Stephane Nicoll
  */
-public class JCacheCacheManagerTests extends AbstractTransactionSupportingCacheManagerTests<JCacheCacheManager> {
+class JCacheCacheManagerTests extends AbstractTransactionSupportingCacheManagerTests<JCacheCacheManager> {
 
 	private CacheManagerMock cacheManagerMock;
 
@@ -39,8 +41,8 @@ public class JCacheCacheManagerTests extends AbstractTransactionSupportingCacheM
 	private JCacheCacheManager transactionalCacheManager;
 
 
-	@Before
-	public void setupOnce() {
+	@BeforeEach
+	void setupOnce() {
 		cacheManagerMock = new CacheManagerMock();
 		cacheManagerMock.addCache(CACHE_NAME);
 
@@ -84,11 +86,10 @@ public class JCacheCacheManagerTests extends AbstractTransactionSupportingCacheM
 
 		private final List<String> cacheNames;
 
-		private final CacheManager cacheManager;
+		private final CacheManager cacheManager = mock();
 
 		private CacheManagerMock() {
 			this.cacheNames = new ArrayList<>();
-			this.cacheManager = mock(CacheManager.class);
 			given(cacheManager.getCacheNames()).willReturn(cacheNames);
 		}
 
@@ -96,10 +97,10 @@ public class JCacheCacheManagerTests extends AbstractTransactionSupportingCacheM
 			return cacheManager;
 		}
 
-		@SuppressWarnings("unchecked")
+		@SuppressWarnings({ "unchecked", "rawtypes" })
 		public void addCache(String name) {
 			cacheNames.add(name);
-			Cache cache = mock(Cache.class);
+			Cache cache = mock();
 			given(cache.getName()).willReturn(name);
 			given(cacheManager.getCache(name)).willReturn(cache);
 		}

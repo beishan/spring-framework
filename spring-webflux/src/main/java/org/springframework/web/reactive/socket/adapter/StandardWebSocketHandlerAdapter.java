@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,11 +19,12 @@ package org.springframework.web.reactive.socket.adapter;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Function;
-import javax.websocket.CloseReason;
-import javax.websocket.Endpoint;
-import javax.websocket.EndpointConfig;
-import javax.websocket.PongMessage;
-import javax.websocket.Session;
+
+import jakarta.websocket.CloseReason;
+import jakarta.websocket.Endpoint;
+import jakarta.websocket.EndpointConfig;
+import jakarta.websocket.PongMessage;
+import jakarta.websocket.Session;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.lang.Nullable;
@@ -35,18 +36,19 @@ import org.springframework.web.reactive.socket.WebSocketMessage.Type;
 import org.springframework.web.reactive.socket.WebSocketSession;
 
 /**
- * Adapter for Java WebSocket API (JSR-356) that delegates events to a reactive
- * {@link WebSocketHandler} and its session.
- * 
+ * Adapter for the Jakarta WebSocket API (JSR-356) that delegates events to a
+ * reactive {@link WebSocketHandler} and its session.
+ *
  * @author Violeta Georgieva
  * @author Rossen Stoyanchev
+ * @author Sam Brannen
  * @since 5.0
  */
 public class StandardWebSocketHandlerAdapter extends Endpoint {
 
 	private final WebSocketHandler delegateHandler;
 
-	private Function<Session, StandardWebSocketSession> sessionFactory;
+	private final Function<Session, StandardWebSocketSession> sessionFactory;
 
 	@Nullable
 	private StandardWebSocketSession delegateSession;
@@ -63,6 +65,7 @@ public class StandardWebSocketHandlerAdapter extends Endpoint {
 
 
 	@Override
+	@SuppressWarnings("NullAway")
 	public void onOpen(Session session, EndpointConfig config) {
 		this.delegateSession = this.sessionFactory.apply(session);
 		Assert.state(this.delegateSession != null, "No delegate session");
@@ -80,22 +83,24 @@ public class StandardWebSocketHandlerAdapter extends Endpoint {
 			this.delegateSession.handleMessage(webSocketMessage.getType(), webSocketMessage);
 		});
 
-		this.delegateHandler.handle(this.delegateSession).subscribe(this.delegateSession);
+		this.delegateHandler.handle(this.delegateSession)
+				.checkpoint(session.getRequestURI() + " [StandardWebSocketHandlerAdapter]")
+				.subscribe(this.delegateSession);
 	}
 
 	private <T> WebSocketMessage toMessage(T message) {
 		WebSocketSession session = this.delegateSession;
 		Assert.state(session != null, "Cannot create message without a session");
-		if (message instanceof String) {
-			byte[] bytes = ((String) message).getBytes(StandardCharsets.UTF_8);
+		if (message instanceof String text) {
+			byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
 			return new WebSocketMessage(Type.TEXT, session.bufferFactory().wrap(bytes));
 		}
-		else if (message instanceof ByteBuffer) {
-			DataBuffer buffer = session.bufferFactory().wrap((ByteBuffer) message);
+		else if (message instanceof ByteBuffer byteBuffer) {
+			DataBuffer buffer = session.bufferFactory().wrap(byteBuffer);
 			return new WebSocketMessage(Type.BINARY, buffer);
 		}
-		else if (message instanceof PongMessage) {
-			DataBuffer buffer = session.bufferFactory().wrap(((PongMessage) message).getApplicationData());
+		else if (message instanceof PongMessage pongMessage) {
+			DataBuffer buffer = session.bufferFactory().wrap(pongMessage.getApplicationData());
 			return new WebSocketMessage(Type.PONG, buffer);
 		}
 		else {
@@ -107,7 +112,7 @@ public class StandardWebSocketHandlerAdapter extends Endpoint {
 	public void onClose(Session session, CloseReason reason) {
 		if (this.delegateSession != null) {
 			int code = reason.getCloseCode().getCode();
-			this.delegateSession.handleClose(new CloseStatus(code, reason.getReasonPhrase()));
+			this.delegateSession.handleClose(CloseStatus.create(code, reason.getReasonPhrase()));
 		}
 	}
 

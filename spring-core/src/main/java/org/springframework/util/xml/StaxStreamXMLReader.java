@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,12 +23,12 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.ext.Locator2;
 import org.xml.sax.helpers.AttributesImpl;
 
 import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
@@ -63,7 +63,6 @@ class StaxStreamXMLReader extends AbstractStaxXMLReader {
 	 * @throws IllegalStateException if the reader is not at the start of a document or element
 	 */
 	StaxStreamXMLReader(XMLStreamReader reader) {
-		Assert.notNull(reader, "XMLStreamReader must not be null");
 		int event = reader.getEventType();
 		if (!(event == XMLStreamConstants.START_DOCUMENT || event == XMLStreamConstants.START_ELEMENT)) {
 			throw new IllegalStateException("XMLEventReader not at start of document or element");
@@ -85,41 +84,29 @@ class StaxStreamXMLReader extends AbstractStaxXMLReader {
 				documentStarted = true;
 			}
 			switch (eventType) {
-				case XMLStreamConstants.START_ELEMENT:
+				case XMLStreamConstants.START_ELEMENT -> {
 					elementDepth++;
 					handleStartElement();
-					break;
-				case XMLStreamConstants.END_ELEMENT:
+				}
+				case XMLStreamConstants.END_ELEMENT -> {
 					elementDepth--;
 					if (elementDepth >= 0) {
 						handleEndElement();
 					}
-					break;
-				case XMLStreamConstants.PROCESSING_INSTRUCTION:
-					handleProcessingInstruction();
-					break;
-				case XMLStreamConstants.CHARACTERS:
-				case XMLStreamConstants.SPACE:
-				case XMLStreamConstants.CDATA:
-					handleCharacters();
-					break;
-				case XMLStreamConstants.START_DOCUMENT:
+				}
+				case XMLStreamConstants.PROCESSING_INSTRUCTION -> handleProcessingInstruction();
+				case XMLStreamConstants.CHARACTERS, XMLStreamConstants.SPACE, XMLStreamConstants.CDATA -> handleCharacters();
+				case XMLStreamConstants.START_DOCUMENT -> {
 					handleStartDocument();
 					documentStarted = true;
-					break;
-				case XMLStreamConstants.END_DOCUMENT:
+				}
+				case XMLStreamConstants.END_DOCUMENT -> {
 					handleEndDocument();
 					documentEnded = true;
-					break;
-				case XMLStreamConstants.COMMENT:
-					handleComment();
-					break;
-				case XMLStreamConstants.DTD:
-					handleDtd();
-					break;
-				case XMLStreamConstants.ENTITY_REFERENCE:
-					handleEntityReference();
-					break;
+				}
+				case XMLStreamConstants.COMMENT -> handleComment();
+				case XMLStreamConstants.DTD -> handleDtd();
+				case XMLStreamConstants.ENTITY_REFERENCE -> handleEntityReference();
 			}
 			if (this.reader.hasNext() && elementDepth >= 0) {
 				eventType = this.reader.next();
@@ -141,9 +128,11 @@ class StaxStreamXMLReader extends AbstractStaxXMLReader {
 			}
 			this.encoding = this.reader.getCharacterEncodingScheme();
 		}
-		if (getContentHandler() != null) {
+
+		ContentHandler contentHandler = getContentHandler();
+		if (contentHandler != null) {
 			final Location location = this.reader.getLocation();
-			getContentHandler().setDocumentLocator(new Locator2() {
+			contentHandler.setDocumentLocator(new Locator2() {
 				@Override
 				public int getColumnNumber() {
 					return (location != null ? location.getColumnNumber() : -1);
@@ -172,7 +161,7 @@ class StaxStreamXMLReader extends AbstractStaxXMLReader {
 					return encoding;
 				}
 			});
-			getContentHandler().startDocument();
+			contentHandler.startDocument();
 			if (this.reader.standaloneSet()) {
 				setStandalone(this.reader.isStandalone());
 			}
@@ -243,7 +232,7 @@ class StaxStreamXMLReader extends AbstractStaxXMLReader {
 
 	private void handleDtd() throws SAXException {
 		if (getLexicalHandler() != null) {
-			javax.xml.stream.Location location = this.reader.getLocation();
+			Location location = this.reader.getLocation();
 			getLexicalHandler().startDTD(null, location.getPublicId(), location.getSystemId());
 		}
 		if (getLexicalHandler() != null) {

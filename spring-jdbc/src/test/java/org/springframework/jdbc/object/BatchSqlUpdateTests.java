@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,28 +20,32 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.Types;
+
 import javax.sql.DataSource;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.jdbc.core.SqlParameter;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author Juergen Hoeller
  * @since 22.02.2005
  */
-public class BatchSqlUpdateTests {
+class BatchSqlUpdateTests {
 
 	@Test
-	public void testBatchUpdateWithExplicitFlush() throws Exception {
+	void testBatchUpdateWithExplicitFlush() throws Exception {
 		doTestBatchUpdate(false);
 	}
 
 	@Test
-	public void testBatchUpdateWithFlushThroughBatchSize() throws Exception {
+	void testBatchUpdateWithFlushThroughBatchSize() throws Exception {
 		doTestBatchUpdate(true);
 	}
 
@@ -50,14 +54,14 @@ public class BatchSqlUpdateTests {
 		final int[] ids = new int[] { 100, 200 };
 		final int[] rowsAffected = new int[] { 1, 2 };
 
-		Connection connection = mock(Connection.class);
-		DataSource dataSource = mock(DataSource.class);
+		Connection connection = mock();
+		DataSource dataSource = mock();
 		given(dataSource.getConnection()).willReturn(connection);
-		PreparedStatement preparedStatement = mock(PreparedStatement.class);
+		PreparedStatement preparedStatement = mock();
 		given(preparedStatement.getConnection()).willReturn(connection);
 		given(preparedStatement.executeBatch()).willReturn(rowsAffected);
 
-		DatabaseMetaData mockDatabaseMetaData = mock(DatabaseMetaData.class);
+		DatabaseMetaData mockDatabaseMetaData = mock();
 		given(mockDatabaseMetaData.supportsBatchUpdates()).willReturn(true);
 		given(connection.prepareStatement(sql)).willReturn(preparedStatement);
 		given(connection.getMetaData()).willReturn(mockDatabaseMetaData);
@@ -72,33 +76,33 @@ public class BatchSqlUpdateTests {
 		update.update(ids[1]);
 
 		if (flushThroughBatchSize) {
-			assertEquals(0, update.getQueueCount());
-			assertEquals(2, update.getRowsAffected().length);
+			assertThat(update.getQueueCount()).isEqualTo(0);
+			assertThat(update.getRowsAffected()).hasSize(2);
 		}
 		else {
-			assertEquals(2, update.getQueueCount());
-			assertEquals(0, update.getRowsAffected().length);
+			assertThat(update.getQueueCount()).isEqualTo(2);
+			assertThat(update.getRowsAffected()).isEmpty();
 		}
 
 		int[] actualRowsAffected = update.flush();
-		assertEquals(0, update.getQueueCount());
+		assertThat(update.getQueueCount()).isEqualTo(0);
 
 		if (flushThroughBatchSize) {
-			assertTrue("flush did not execute updates", actualRowsAffected.length == 0);
+			assertThat(actualRowsAffected).as("flush did not execute updates").isEmpty();
 		}
 		else {
-			assertTrue("executed 2 updates", actualRowsAffected.length == 2);
-			assertEquals(rowsAffected[0], actualRowsAffected[0]);
-			assertEquals(rowsAffected[1], actualRowsAffected[1]);
+			assertThat(actualRowsAffected).as("executed 2 updates").hasSize(2);
+			assertThat(actualRowsAffected[0]).isEqualTo(rowsAffected[0]);
+			assertThat(actualRowsAffected[1]).isEqualTo(rowsAffected[1]);
 		}
 
 		actualRowsAffected = update.getRowsAffected();
-		assertTrue("executed 2 updates", actualRowsAffected.length == 2);
-		assertEquals(rowsAffected[0], actualRowsAffected[0]);
-		assertEquals(rowsAffected[1], actualRowsAffected[1]);
+		assertThat(actualRowsAffected).as("executed 2 updates").hasSize(2);
+		assertThat(actualRowsAffected[0]).isEqualTo(rowsAffected[0]);
+		assertThat(actualRowsAffected[1]).isEqualTo(rowsAffected[1]);
 
 		update.reset();
-		assertEquals(0, update.getRowsAffected().length);
+		assertThat(update.getRowsAffected()).isEmpty();
 
 		verify(preparedStatement).setObject(1, ids[0], Types.INTEGER);
 		verify(preparedStatement).setObject(1, ids[1], Types.INTEGER);

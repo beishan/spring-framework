@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN" "http://www.springframework.org/dtd/spring-beans-2.0.dtd">
-
 <!--
 	- Default SQL error codes for well-known databases.
 	- Can be overridden by definitions in a "sql-error-codes.xml" file
@@ -12,7 +10,10 @@
 	- If this property is present, then it will be used instead of the id for
 	- looking up the error codes based on the current database.
 	-->
-<beans>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   https://www.springframework.org/schema/beans/spring-beans.xsd">
 
 	<bean id="DB2" name="Db2" class="org.springframework.jdbc.support.SQLErrorCodes">
 		<property name="databaseProductName">
@@ -83,7 +84,7 @@
 		</property>
 	</bean>
 
-	<!-- http://help.sap.com/saphelp_hanaplatform/helpdata/en/20/a78d3275191014b41bae7c4a46d835/content.htm -->
+	<!-- https://help.sap.com/saphelp_hanaplatform/helpdata/en/20/a78d3275191014b41bae7c4a46d835/content.htm -->
 	<bean id="HDB" name="Hana" class="org.springframework.jdbc.support.SQLErrorCodes">
 		<property name="databaseProductNames">
 			<list>
@@ -172,7 +173,7 @@
 			<value>2601,2627</value>
 		</property>
 		<property name="dataIntegrityViolationCodes">
-			<value>544,8114,8115</value>
+			<value>544,2628,8114,8115</value>
 		</property>
 		<property name="dataAccessResourceFailureCodes">
 			<value>4060</value>
@@ -186,6 +187,12 @@
 	</bean>
 
 	<bean id="MySQL" class="org.springframework.jdbc.support.SQLErrorCodes">
+		<property name="databaseProductNames">
+			<list>
+				<value>MySQL</value>
+				<value>MariaDB</value>
+			</list>
+		</property>
 		<property name="badSqlGrammarCodes">
 			<value>1054,1064,1146</value>
 		</property>
@@ -199,7 +206,7 @@
 			<value>1</value>
 		</property>
 		<property name="cannotAcquireLockCodes">
-			<value>1205</value>
+			<value>1205,3572</value>
 		</property>
 		<property name="deadlockLoserCodes">
 			<value>1213</value>
@@ -241,7 +248,7 @@
 			<value>03000,42000,42601,42602,42622,42804,42P01</value>
 		</property>
 		<property name="duplicateKeyCodes">
-			<value>23505</value>
+			<value>21000,23505</value>
 		</property>
 		<property name="dataIntegrityViolationCodes">
 			<value>23000,23502,23503,23514</value>

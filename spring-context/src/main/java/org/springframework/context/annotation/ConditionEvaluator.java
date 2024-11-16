@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -83,27 +83,18 @@ class ConditionEvaluator {
 		}
 
 		if (phase == null) {
-			if (metadata instanceof AnnotationMetadata &&
-					ConfigurationClassUtils.isConfigurationCandidate((AnnotationMetadata) metadata)) {
+			if (metadata instanceof AnnotationMetadata annotationMetadata &&
+					ConfigurationClassUtils.isConfigurationCandidate(annotationMetadata)) {
 				return shouldSkip(metadata, ConfigurationPhase.PARSE_CONFIGURATION);
 			}
 			return shouldSkip(metadata, ConfigurationPhase.REGISTER_BEAN);
 		}
 
-		List<Condition> conditions = new ArrayList<>();
-		for (String[] conditionClasses : getConditionClasses(metadata)) {
-			for (String conditionClass : conditionClasses) {
-				Condition condition = getCondition(conditionClass, this.context.getClassLoader());
-				conditions.add(condition);
-			}
-		}
-
-		AnnotationAwareOrderComparator.sort(conditions);
-
+		List<Condition> conditions = collectConditions(metadata);
 		for (Condition condition : conditions) {
 			ConfigurationPhase requiredPhase = null;
-			if (condition instanceof ConfigurationCondition) {
-				requiredPhase = ((ConfigurationCondition) condition).getConfigurationPhase();
+			if (condition instanceof ConfigurationCondition configurationCondition) {
+				requiredPhase = configurationCondition.getConfigurationPhase();
 			}
 			if ((requiredPhase == null || requiredPhase == phase) && !condition.matches(this.context, metadata)) {
 				return true;
@@ -113,6 +104,28 @@ class ConditionEvaluator {
 		return false;
 	}
 
+	/**
+	 * Return the {@linkplain Condition conditions} that should be applied when
+	 * considering the given annotated type.
+	 * @param metadata the metadata of the annotated type
+	 * @return the ordered list of conditions for that type
+	 */
+	List<Condition> collectConditions(@Nullable AnnotatedTypeMetadata metadata) {
+		if (metadata == null || !metadata.isAnnotated(Conditional.class.getName())) {
+			return Collections.emptyList();
+		}
+
+		List<Condition> conditions = new ArrayList<>();
+		for (String[] conditionClasses : getConditionClasses(metadata)) {
+			for (String conditionClass : conditionClasses) {
+				Condition condition = getCondition(conditionClass, this.context.getClassLoader());
+				conditions.add(condition);
+			}
+		}
+		AnnotationAwareOrderComparator.sort(conditions);
+		return conditions;
+	}
+
 	@SuppressWarnings("unchecked")
 	private List<String[]> getConditionClasses(AnnotatedTypeMetadata metadata) {
 		MultiValueMap<String, Object> attributes = metadata.getAllAnnotationAttributes(Conditional.class.getName(), true);
@@ -120,7 +133,7 @@ class ConditionEvaluator {
 		return (List<String[]>) (values != null ? values : Collections.emptyList());
 	}
 
-	private Condition getCondition(String conditionClassName, ClassLoader classloader) {
+	private Condition getCondition(String conditionClassName, @Nullable ClassLoader classloader) {
 		Class<?> conditionClass = ClassUtils.resolveClassName(conditionClassName, classloader);
 		return (Condition) BeanUtils.instantiateClass(conditionClass);
 	}
@@ -155,32 +168,32 @@ class ConditionEvaluator {
 		}
 
 		@Nullable
-		private ConfigurableListableBeanFactory deduceBeanFactory(@Nullable BeanDefinitionRegistry source) {
-			if (source instanceof ConfigurableListableBeanFactory) {
-				return (ConfigurableListableBeanFactory) source;
+		private static ConfigurableListableBeanFactory deduceBeanFactory(@Nullable BeanDefinitionRegistry source) {
+			if (source instanceof ConfigurableListableBeanFactory configurableListableBeanFactory) {
+				return configurableListableBeanFactory;
 			}
-			if (source instanceof ConfigurableApplicationContext) {
-				return (((ConfigurableApplicationContext) source).getBeanFactory());
+			if (source instanceof ConfigurableApplicationContext configurableApplicationContext) {
+				return configurableApplicationContext.getBeanFactory();
 			}
 			return null;
 		}
 
-		private Environment deduceEnvironment(@Nullable BeanDefinitionRegistry source) {
-			if (source instanceof EnvironmentCapable) {
-				return ((EnvironmentCapable) source).getEnvironment();
+		private static Environment deduceEnvironment(@Nullable BeanDefinitionRegistry source) {
+			if (source instanceof EnvironmentCapable environmentCapable) {
+				return environmentCapable.getEnvironment();
 			}
 			return new StandardEnvironment();
 		}
 
-		private ResourceLoader deduceResourceLoader(@Nullable BeanDefinitionRegistry source) {
-			if (source instanceof ResourceLoader) {
-				return (ResourceLoader) source;
+		private static ResourceLoader deduceResourceLoader(@Nullable BeanDefinitionRegistry source) {
+			if (source instanceof ResourceLoader resourceLoader) {
+				return resourceLoader;
 			}
 			return new DefaultResourceLoader();
 		}
 
 		@Nullable
-		private ClassLoader deduceClassLoader(@Nullable ResourceLoader resourceLoader,
+		private static ClassLoader deduceClassLoader(@Nullable ResourceLoader resourceLoader,
 				@Nullable ConfigurableListableBeanFactory beanFactory) {
 
 			if (resourceLoader != null) {
@@ -202,8 +215,8 @@ class ConditionEvaluator {
 		}
 
 		@Override
+		@Nullable
 		public ConfigurableListableBeanFactory getBeanFactory() {
-			Assert.state(this.beanFactory != null, "No ConfigurableListableBeanFactory available");
 			return this.beanFactory;
 		}
 
@@ -218,8 +231,8 @@ class ConditionEvaluator {
 		}
 
 		@Override
+		@Nullable
 		public ClassLoader getClassLoader() {
-			Assert.state(this.classLoader != null, "No ClassLoader available");
 			return this.classLoader;
 		}
 	}

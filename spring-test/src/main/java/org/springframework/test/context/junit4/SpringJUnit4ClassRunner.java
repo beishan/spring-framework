@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -59,7 +59,7 @@ import org.springframework.util.ReflectionUtils;
  * <em>Spring TestContext Framework</em> to standard JUnit tests by means of the
  * {@link TestContextManager} and associated support classes and annotations.
  *
- * <p>To use this class, simply annotate a JUnit 4 based test class with
+ * <p>To use this class, annotate a JUnit 4 based test class with
  * {@code @RunWith(SpringJUnit4ClassRunner.class)} or {@code @RunWith(SpringRunner.class)}.
  *
  * <p>The following list constitutes all annotations currently supported directly
@@ -82,7 +82,7 @@ import org.springframework.util.ReflectionUtils;
  * <p>If you would like to use the Spring TestContext Framework with a runner
  * other than this one, use {@link SpringClassRule} and {@link SpringMethodRule}.
  *
- * <p><strong>NOTE:</strong> As of Spring Framework 4.3, this class requires JUnit 4.12 or higher.
+ * <p><strong>NOTE:</strong> This class requires JUnit 4.12 or higher.
  *
  * @author Sam Brannen
  * @author Juergen Hoeller
@@ -135,8 +135,9 @@ public class SpringJUnit4ClassRunner extends BlockJUnit4ClassRunner {
 	 */
 	public SpringJUnit4ClassRunner(Class<?> clazz) throws InitializationError {
 		super(clazz);
-		if (logger.isDebugEnabled()) {
-			logger.debug("SpringJUnit4ClassRunner constructor called with [" + clazz + "]");
+		if (logger.isTraceEnabled()) {
+			logger.trace("SpringJUnit4ClassRunner constructor called with [%s]"
+					.formatted((clazz != null ? clazz.getName() : null)));
 		}
 		ensureSpringRulesAreNotPresent(clazz);
 		this.testContextManager = createTestContextManager(clazz);
@@ -267,8 +268,7 @@ public class SpringJUnit4ClassRunner extends BlockJUnit4ClassRunner {
 	 * JUnit-specified timeouts will work fine in combination with Spring
 	 * transactions. However, JUnit-specific timeouts still differ from
 	 * Spring-specific timeouts in that the former execute in a separate
-	 * thread while the latter simply execute in the main thread (like regular
-	 * tests).
+	 * thread while the latter execute in the main thread (like regular tests).
 	 * @see #methodInvoker(FrameworkMethod, Object)
 	 * @see #withBeforeTestExecutionCallbacks(FrameworkMethod, Object, Statement)
 	 * @see #withAfterTestExecutionCallbacks(FrameworkMethod, Object, Statement)
@@ -365,9 +365,12 @@ public class SpringJUnit4ClassRunner extends BlockJUnit4ClassRunner {
 	 * @see #getJUnitTimeout(FrameworkMethod)
 	 */
 	@Override
+	// Retain the following warning suppression for deprecation (even if Eclipse
+	// states it is unnecessary) since withPotentialTimeout(FrameworkMethod,Object,Statement)
+	// in BlockJUnit4ClassRunner has been deprecated.
 	@SuppressWarnings("deprecation")
 	protected Statement withPotentialTimeout(FrameworkMethod frameworkMethod, Object testInstance, Statement next) {
-		Statement statement = null;
+		Statement statement;
 		long springTimeout = getSpringTimeout(frameworkMethod);
 		long junitTimeout = getJUnitTimeout(frameworkMethod);
 		if (springTimeout > 0 && junitTimeout > 0) {
@@ -397,7 +400,7 @@ public class SpringJUnit4ClassRunner extends BlockJUnit4ClassRunner {
 	 */
 	protected long getJUnitTimeout(FrameworkMethod frameworkMethod) {
 		Test test = frameworkMethod.getAnnotation(Test.class);
-		return (test != null && test.timeout() > 0 ? test.timeout() : 0);
+		return (test == null ? 0 : Math.max(0, test.timeout()));
 	}
 
 	/**

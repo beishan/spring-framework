@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,8 @@
 package org.springframework.web.reactive.result.view;
 
 import java.util.Locale;
+
+import reactor.core.publisher.Mono;
 
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.lang.Nullable;
@@ -77,9 +79,21 @@ public abstract class AbstractUrlBasedView extends AbstractView implements Initi
 	 * @param locale the desired Locale that we're looking for
 	 * @return {@code false} if the resource exists
 	 * {@code false} if we know that it does not exist
-	 * @throws Exception if the resource exists but is invalid (e.g. could not be parsed)
+	 * @throws Exception if the resource exists but is invalid (for example, could not be parsed)
 	 */
 	public abstract boolean checkResourceExists(Locale locale) throws Exception;
+
+	/**
+	 * Deferred check whether the resource for the configured URL actually exists.
+	 * <p>The default implementation calls {@link #checkResourceExists(Locale)}.
+	 * @param locale the desired Locale that we're looking for
+	 * @return {@code false} if the resource exists
+	 * {@code false} if we know that it does not exist
+	 * @since 6.1
+	 */
+	public Mono<Boolean> resourceExists(Locale locale) {
+		return Mono.fromCallable(() -> checkResourceExists(locale));
+	}
 
 
 	@Override

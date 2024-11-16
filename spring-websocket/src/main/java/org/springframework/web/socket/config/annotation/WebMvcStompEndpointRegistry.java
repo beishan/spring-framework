@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -77,6 +77,9 @@ public class WebMvcStompEndpointRegistry implements StompEndpointRegistry {
 		if (transportRegistration.getSendBufferSizeLimit() != null) {
 			this.subProtocolWebSocketHandler.setSendBufferSizeLimit(transportRegistration.getSendBufferSizeLimit());
 		}
+		if (transportRegistration.getTimeToFirstMessage() != null) {
+			this.subProtocolWebSocketHandler.setTimeToFirstMessage(transportRegistration.getTimeToFirstMessage());
+		}
 
 		this.stompHandler = new StompSubProtocolHandler();
 		if (transportRegistration.getMessageSizeLimit() != null) {
@@ -88,10 +91,10 @@ public class WebMvcStompEndpointRegistry implements StompEndpointRegistry {
 
 	private static SubProtocolWebSocketHandler unwrapSubProtocolWebSocketHandler(WebSocketHandler handler) {
 		WebSocketHandler actual = WebSocketHandlerDecorator.unwrap(handler);
-		if (!(actual instanceof SubProtocolWebSocketHandler)) {
+		if (!(actual instanceof SubProtocolWebSocketHandler subProtocolWebSocketHandler)) {
 			throw new IllegalArgumentException("No SubProtocolWebSocketHandler in " + handler);
 		}
-		return (SubProtocolWebSocketHandler) actual;
+		return subProtocolWebSocketHandler;
 	}
 
 
@@ -139,6 +142,16 @@ public class WebMvcStompEndpointRegistry implements StompEndpointRegistry {
 		return this;
 	}
 
+	@Override
+	public WebMvcStompEndpointRegistry setPreserveReceiveOrder(boolean preserveReceiveOrder) {
+		this.stompHandler.setPreserveReceiveOrder(preserveReceiveOrder);
+		return this;
+	}
+
+	protected boolean isPreserveReceiveOrder() {
+		return this.stompHandler.isPreserveReceiveOrder();
+	}
+
 	protected void setApplicationContext(ApplicationContext applicationContext) {
 		this.stompHandler.setApplicationEventPublisher(applicationContext);
 	}
@@ -150,11 +163,11 @@ public class WebMvcStompEndpointRegistry implements StompEndpointRegistry {
 		Map<String, Object> urlMap = new LinkedHashMap<>();
 		for (WebMvcStompWebSocketEndpointRegistration registration : this.registrations) {
 			MultiValueMap<HttpRequestHandler, String> mappings = registration.getMappings();
-			for (HttpRequestHandler httpHandler : mappings.keySet()) {
-				for (String pattern : mappings.get(httpHandler)) {
+			mappings.forEach((httpHandler, patterns) -> {
+				for (String pattern : patterns) {
 					urlMap.put(pattern, httpHandler);
 				}
-			}
+			});
 		}
 		WebSocketHandlerMapping hm = new WebSocketHandlerMapping();
 		hm.setUrlMap(urlMap);

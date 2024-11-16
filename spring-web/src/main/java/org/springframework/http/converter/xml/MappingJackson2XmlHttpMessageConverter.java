@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,10 @@
  */
 
 package org.springframework.http.converter.xml;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
@@ -35,12 +39,14 @@ import org.springframework.util.Assert;
  *
  * <p>The default constructor uses the default configuration provided by {@link Jackson2ObjectMapperBuilder}.
  *
- * <p>Compatible with Jackson 2.9 and higher, as of Spring 5.0.
- *
  * @author Sebastien Deleuze
  * @since 4.1
  */
 public class MappingJackson2XmlHttpMessageConverter extends AbstractJackson2HttpMessageConverter {
+
+	private static final List<MediaType> problemDetailMediaTypes =
+			Collections.singletonList(MediaType.APPLICATION_PROBLEM_XML);
+
 
 	/**
 	 * Construct a new {@code MappingJackson2XmlHttpMessageConverter} using default configuration
@@ -57,21 +63,26 @@ public class MappingJackson2XmlHttpMessageConverter extends AbstractJackson2Http
 	 * @see Jackson2ObjectMapperBuilder#xml()
 	 */
 	public MappingJackson2XmlHttpMessageConverter(ObjectMapper objectMapper) {
-		super(objectMapper, new MediaType("application", "xml"),
-				new MediaType("text", "xml"),
-				new MediaType("application", "*+xml"));
+		super(objectMapper, new MediaType("application", "xml", StandardCharsets.UTF_8),
+				new MediaType("text", "xml", StandardCharsets.UTF_8),
+				new MediaType("application", "*+xml", StandardCharsets.UTF_8));
 		Assert.isInstanceOf(XmlMapper.class, objectMapper, "XmlMapper required");
 	}
 
 
 	/**
 	 * {@inheritDoc}
-	 * The {@code ObjectMapper} parameter must be a {@link XmlMapper} instance.
+	 * <p>The {@code ObjectMapper} parameter must be an {@link XmlMapper} instance.
 	 */
 	@Override
 	public void setObjectMapper(ObjectMapper objectMapper) {
 		Assert.isInstanceOf(XmlMapper.class, objectMapper, "XmlMapper required");
 		super.setObjectMapper(objectMapper);
+	}
+
+	@Override
+	protected List<MediaType> getMediaTypesForProblemDetail() {
+		return problemDetailMediaTypes;
 	}
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,9 @@
 
 package org.springframework.web.servlet.tags.form;
 
-import javax.servlet.jsp.JspException;
+import jakarta.servlet.jsp.JspException;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
@@ -30,152 +31,151 @@ import org.springframework.web.util.TagUtils;
  *
  * <p><i>Must</i> be used within a {@link SelectTag 'select' tag}.
  *
- * <p>
+ * <h3>Attribute Summary</h3>
  * <table>
- * <caption>Attribute Summary</caption>
  * <thead>
  * <tr>
- * <th class="colFirst">Attribute</th>
- * <th class="colOne">Required?</th>
- * <th class="colOne">Runtime Expression?</th>
- * <th class="colLast">Description</th>
+ * <th class="table-header col-first">Attribute</th>
+ * <th class="table-header col-second">Required?</th>
+ * <th class="table-header col-second">Runtime Expression?</th>
+ * <th class="table-header col-last">Description</th>
  * </tr>
  * </thead>
  * <tbody>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>cssClass</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Optional Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>cssErrorClass</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Optional Attribute. Used when the bound field has errors.</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>cssStyle</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Optional Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>dir</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Standard Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>disabled</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Optional Attribute. Setting the value of this attribute
  * to 'true' will disable the HTML element.</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>htmlEscape</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>Enable/disable HTML escaping of rendered values.</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>id</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Standard Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>itemLabel</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>Name of the property mapped to the inner text of the 'option' tag</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>items</p></td>
  * <td><p>true</p></td>
  * <td><p>true</p></td>
  * <td><p>The Collection, Map or array of objects used to generate the inner 'option' tags</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>itemValue</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>Name of the property mapped to 'value' attribute of the 'option' tag</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>lang</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Standard Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>onclick</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>ondblclick</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>onkeydown</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>onkeypress</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>onkeyup</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>onmousedown</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>onmousemove</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>onmouseout</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>onmouseover</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>onmouseup</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Event Attribute</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>tabindex</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Standard Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>title</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
@@ -196,18 +196,21 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 * The {@link java.util.Collection}, {@link java.util.Map} or array of
 	 * objects used to generate the inner '{@code option}' tags.
 	 */
+	@Nullable
 	private Object items;
 
 	/**
 	 * The name of the property mapped to the '{@code value}' attribute
 	 * of the '{@code option}' tag.
 	 */
+	@Nullable
 	private String itemValue;
 
 	/**
 	 * The name of the property mapped to the inner text of the
 	 * '{@code option}' tag.
 	 */
+	@Nullable
 	private String itemLabel;
 
 	private boolean disabled;
@@ -229,6 +232,7 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 * of objects used to generate the inner '{@code option}' tags.
 	 * <p>Typically a runtime expression.
 	 */
+	@Nullable
 	protected Object getItems() {
 		return this.items;
 	}
@@ -248,6 +252,7 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 * Return the name of the property mapped to the '{@code value}'
 	 * attribute of the '{@code option}' tag.
 	 */
+	@Nullable
 	protected String getItemValue() {
 		return this.itemValue;
 	}
@@ -265,6 +270,7 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 * Get the name of the property mapped to the label (inner text) of the
 	 * '{@code option}' tag.
 	 */
+	@Nullable
 	protected String getItemLabel() {
 		return this.itemLabel;
 	}
@@ -317,6 +323,7 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 * since we're dealing with multiple HTML elements.
 	 */
 	@Override
+	@Nullable
 	protected String resolveId() throws JspException {
 		Object id = evaluate("id", getId());
 		if (id != null) {
@@ -342,9 +349,12 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 */
 	private class OptionsWriter extends OptionWriter {
 
+		@Nullable
 		private final String selectName;
 
-		public OptionsWriter(String selectName, Object optionSource, String valueProperty, String labelProperty) {
+		public OptionsWriter(@Nullable String selectName, Object optionSource,
+				@Nullable String valueProperty, @Nullable String labelProperty) {
+
 			super(optionSource, getBindStatus(), valueProperty, labelProperty, isHtmlEscape());
 			this.selectName = selectName;
 		}
@@ -364,7 +374,6 @@ public class OptionsTag extends AbstractHtmlElementTag {
 		protected String processOptionValue(String value) {
 			return processFieldValue(this.selectName, value, "option");
 		}
-
 	}
 
 }

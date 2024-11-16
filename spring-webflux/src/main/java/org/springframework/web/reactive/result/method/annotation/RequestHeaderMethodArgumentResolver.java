@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,8 +26,8 @@ import org.springframework.core.convert.ConversionService;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.server.MissingRequestValueException;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.ServerWebInputException;
 
 /**
  * Resolves method arguments annotated with {@code @RequestHeader} except for
@@ -48,8 +48,9 @@ import org.springframework.web.server.ServerWebInputException;
 public class RequestHeaderMethodArgumentResolver extends AbstractNamedValueSyncArgumentResolver {
 
 	/**
-	 * @param factory a bean factory to use for resolving  ${...}
-	 * placeholder and #{...} SpEL expressions in default values;
+	 * Create a new {@link RequestHeaderMethodArgumentResolver} instance.
+	 * @param factory a bean factory to use for resolving {@code ${...}}
+	 * placeholder and {@code #{...}} SpEL expressions in default values;
 	 * or {@code null} if default values are not expected to have expressions
 	 * @param registry for checking reactive type wrappers
 	 */
@@ -77,6 +78,7 @@ public class RequestHeaderMethodArgumentResolver extends AbstractNamedValueSyncA
 	}
 
 	@Override
+	@Nullable
 	protected Object resolveNamedValue(String name, MethodParameter parameter, ServerWebExchange exchange) {
 		List<String> headerValues = exchange.getRequest().getHeaders().get(name);
 		Object result = null;
@@ -88,13 +90,12 @@ public class RequestHeaderMethodArgumentResolver extends AbstractNamedValueSyncA
 
 	@Override
 	protected void handleMissingValue(String name, MethodParameter parameter) {
-		String type = parameter.getNestedParameterType().getSimpleName();
-		throw new ServerWebInputException("Missing request header '" + name +
-				"' for method parameter of type " + type);
+		throw new MissingRequestValueException(
+				name, parameter.getNestedParameterType(), "header", parameter);
 	}
 
 
-	private static class RequestHeaderNamedValueInfo extends NamedValueInfo {
+	private static final class RequestHeaderNamedValueInfo extends NamedValueInfo {
 
 		private RequestHeaderNamedValueInfo(RequestHeader annotation) {
 			super(annotation.name(), annotation.required(), annotation.defaultValue());

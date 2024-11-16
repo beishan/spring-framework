@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,8 @@ package org.springframework.web.servlet.mvc.method.annotation;
 
 import java.util.Collections;
 import java.util.Map;
-import javax.servlet.ServletRequest;
+
+import jakarta.servlet.ServletRequest;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.convert.ConversionService;
@@ -69,6 +70,7 @@ public class ServletModelAttributeMethodProcessor extends ModelAttributeMethodPr
 	 * @see #createAttributeFromRequestValue
 	 */
 	@Override
+	@Nullable
 	protected final Object createAttribute(String attributeName, MethodParameter parameter,
 			WebDataBinderFactory binderFactory, NativeWebRequest request) throws Exception {
 
@@ -107,17 +109,17 @@ public class ServletModelAttributeMethodProcessor extends ModelAttributeMethodPr
 		return null;
 	}
 
-	@SuppressWarnings("unchecked")
 	protected final Map<String, String> getUriTemplateVariables(NativeWebRequest request) {
+		@SuppressWarnings("unchecked")
 		Map<String, String> variables = (Map<String, String>) request.getAttribute(
 				HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
 		return (variables != null ? variables : Collections.emptyMap());
 	}
 
 	/**
-	 * Create a model attribute from a String request value (e.g. URI template
+	 * Create a model attribute from a String request value (for example, URI template
 	 * variable, request parameter) using type conversion.
-	 * <p>The default implementation converts only if there a registered
+	 * <p>The default implementation converts only if there is a registered
 	 * {@link Converter} that can perform the conversion.
 	 * @param sourceValue the source value to create the model attribute from
 	 * @param attributeName the name of the attribute (never {@code null})
@@ -145,9 +147,18 @@ public class ServletModelAttributeMethodProcessor extends ModelAttributeMethodPr
 	}
 
 	/**
-	 * This implementation downcasts {@link WebDataBinder} to
-	 * {@link ServletRequestDataBinder} before binding.
-	 * @see ServletRequestDataBinderFactory
+	 * Downcast to {@link ServletRequestDataBinder} to invoke {@code constructTarget(ServletRequest)}.
+	 */
+	@Override
+	protected void constructAttribute(WebDataBinder binder, NativeWebRequest request) {
+		ServletRequest servletRequest = request.getNativeRequest(ServletRequest.class);
+		Assert.state(servletRequest != null, "No ServletRequest");
+		ServletRequestDataBinder servletBinder = (ServletRequestDataBinder) binder;
+		servletBinder.construct(servletRequest);
+	}
+
+	/**
+	 * Downcast to {@link ServletRequestDataBinder} to invoke {@code bind(ServletRequest)}.
 	 */
 	@Override
 	protected void bindRequestParameters(WebDataBinder binder, NativeWebRequest request) {

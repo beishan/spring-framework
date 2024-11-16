@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,7 +35,11 @@ import org.springframework.util.Assert;
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
  * @since 4.1
+ * @param <T> the result type returned by this Future's {@code get} method
+ * @deprecated as of 6.0, in favor of {@link CompletableFuture}
  */
+@Deprecated(since = "6.0", forRemoval = true)
+@SuppressWarnings("removal")
 public class SettableListenableFuture<T> implements ListenableFuture<T> {
 
 	private static final Callable<Object> DUMMY_CALLABLE = () -> {
@@ -113,6 +117,7 @@ public class SettableListenableFuture<T> implements ListenableFuture<T> {
 	 * {@link java.util.concurrent.CancellationException} if the future has been cancelled.
 	 * @return the value associated with this future
 	 */
+	@Nullable
 	@Override
 	public T get() throws InterruptedException, ExecutionException {
 		return this.settableTask.get();
@@ -128,6 +133,7 @@ public class SettableListenableFuture<T> implements ListenableFuture<T> {
 	 * @param unit the unit of the timeout argument
 	 * @return the value associated with this future
 	 */
+	@Nullable
 	@Override
 	public T get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
 		return this.settableTask.get(timeout, unit);

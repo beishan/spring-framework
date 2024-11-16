@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,14 +16,19 @@
 
 package org.springframework.web.reactive.result.method.annotation;
 
+import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.codec.HttpMessageWriter;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.reactive.HandlerResult;
 import org.springframework.web.reactive.HandlerResultHandler;
@@ -50,41 +55,61 @@ public class ResponseBodyResultHandler extends AbstractMessageWriterResultHandle
 
 	/**
 	 * Basic constructor with a default {@link ReactiveAdapterRegistry}.
-	 * @param writers writers for serializing to the response body
+	 * @param writers the writers for serializing to the response body
 	 * @param resolver to determine the requested content type
 	 */
-	public ResponseBodyResultHandler(List<HttpMessageWriter<?>> writers,
-			RequestedContentTypeResolver resolver) {
-
+	public ResponseBodyResultHandler(List<HttpMessageWriter<?>> writers, RequestedContentTypeResolver resolver) {
 		this(writers, resolver, ReactiveAdapterRegistry.getSharedInstance());
 	}
 
 	/**
 	 * Constructor with an {@link ReactiveAdapterRegistry} instance.
-	 * @param writers writers for serializing to the response body
+	 * @param writers the writers for serializing to the response body
 	 * @param resolver to determine the requested content type
 	 * @param registry for adaptation to reactive types
 	 */
 	public ResponseBodyResultHandler(List<HttpMessageWriter<?>> writers,
 			RequestedContentTypeResolver resolver, ReactiveAdapterRegistry registry) {
 
-		super(writers, resolver, registry);
+		this(writers, resolver, registry, Collections.emptyList());
+	}
+
+	/**
+	 * Variant of
+	 * {@link #ResponseBodyResultHandler(List, RequestedContentTypeResolver, ReactiveAdapterRegistry)}
+	 * with additional list of {@link ErrorResponse.Interceptor}s for return
+	 * value handling.
+	 * @since 6.2
+	 */
+	public ResponseBodyResultHandler(List<HttpMessageWriter<?>> writers,
+			RequestedContentTypeResolver resolver, ReactiveAdapterRegistry registry,
+			List<ErrorResponse.Interceptor> interceptors) {
+
+		super(writers, resolver, registry, interceptors);
 		setOrder(100);
 	}
 
 
 	@Override
 	public boolean supports(HandlerResult result) {
-		MethodParameter parameter = result.getReturnTypeSource();
-		Class<?> containingClass = parameter.getContainingClass();
-		return (AnnotationUtils.findAnnotation(containingClass, ResponseBody.class) != null ||
-				parameter.getMethodAnnotation(ResponseBody.class) != null);
+		MethodParameter returnType = result.getReturnTypeSource();
+		Class<?> containingClass = returnType.getContainingClass();
+		return (AnnotatedElementUtils.hasAnnotation(containingClass, ResponseBody.class) ||
+				returnType.hasMethodAnnotation(ResponseBody.class));
 	}
 
 	@Override
 	public Mono<Void> handleResult(ServerWebExchange exchange, HandlerResult result) {
 		Object body = result.getReturnValue();
 		MethodParameter bodyTypeParameter = result.getReturnTypeSource();
+		if (body instanceof ProblemDetail detail) {
+			exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(detail.getStatus()));
+			if (detail.getInstance() == null) {
+				URI path = URI.create(exchange.getRequest().getPath().value());
+				detail.setInstance(path);
+			}
+			invokeErrorResponseInterceptors(detail, null);
+		}
 		return writeBody(body, bodyTypeParameter, exchange);
 	}
 

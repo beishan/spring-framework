@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,8 @@ import org.apache.commons.logging.LogFactory;
 
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.core.annotation.AnnotationAttributes;
+import org.springframework.core.style.DefaultToStringStyler;
+import org.springframework.core.style.SimpleValueStyler;
 import org.springframework.core.style.ToStringCreator;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -73,7 +75,7 @@ public class ContextConfigurationAttributes {
 	 * either explicitly or implicitly
 	 * @since 4.3
 	 */
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public ContextConfigurationAttributes(Class<?> declaringClass) {
 		this(declaringClass, EMPTY_LOCATIONS, EMPTY_CLASSES, false, (Class[]) EMPTY_CLASSES, true, ContextLoader.class);
 	}
@@ -300,8 +302,8 @@ public class ContextConfigurationAttributes {
 	 * Get the name of the context hierarchy level that was declared via
 	 * {@link ContextConfiguration @ContextConfiguration}.
 	 * @return the name of the context hierarchy level or {@code null} if not applicable
-	 * @see ContextConfiguration#name()
 	 * @since 3.2.2
+	 * @see ContextConfiguration#name()
 	 */
 	@Nullable
 	public String getName() {
@@ -331,22 +333,16 @@ public class ContextConfigurationAttributes {
 	 * {@link #getContextLoaderClass() ContextLoader class}.
 	 */
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof ContextConfigurationAttributes)) {
-			return false;
-		}
-		ContextConfigurationAttributes otherAttr = (ContextConfigurationAttributes) other;
-		return (ObjectUtils.nullSafeEquals(this.declaringClass, otherAttr.declaringClass) &&
-				Arrays.equals(this.classes, otherAttr.classes)) &&
-				Arrays.equals(this.locations, otherAttr.locations) &&
-				this.inheritLocations == otherAttr.inheritLocations &&
-				Arrays.equals(this.initializers, otherAttr.initializers) &&
-				this.inheritInitializers == otherAttr.inheritInitializers &&
-				ObjectUtils.nullSafeEquals(this.name, otherAttr.name) &&
-				ObjectUtils.nullSafeEquals(this.contextLoaderClass, otherAttr.contextLoaderClass);
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof ContextConfigurationAttributes that &&
+				ObjectUtils.nullSafeEquals(this.declaringClass, that.declaringClass) &&
+				Arrays.equals(this.classes, that.classes)) &&
+				Arrays.equals(this.locations, that.locations) &&
+				this.inheritLocations == that.inheritLocations &&
+				Arrays.equals(this.initializers, that.initializers) &&
+				this.inheritInitializers == that.inheritInitializers &&
+				ObjectUtils.nullSafeEquals(this.name, that.name) &&
+				ObjectUtils.nullSafeEquals(this.contextLoaderClass, that.contextLoaderClass));
 	}
 
 	/**
@@ -369,15 +365,15 @@ public class ContextConfigurationAttributes {
 	 */
 	@Override
 	public String toString() {
-		return new ToStringCreator(this)
-				.append("declaringClass", this.declaringClass.getName())
-				.append("classes", ObjectUtils.nullSafeToString(this.classes))
-				.append("locations", ObjectUtils.nullSafeToString(this.locations))
+		return new ToStringCreator(this, new DefaultToStringStyler(new SimpleValueStyler()))
+				.append("declaringClass", this.declaringClass)
+				.append("classes", this.classes)
+				.append("locations", this.locations)
 				.append("inheritLocations", this.inheritLocations)
-				.append("initializers", ObjectUtils.nullSafeToString(this.initializers))
+				.append("initializers", this.initializers)
 				.append("inheritInitializers", this.inheritInitializers)
 				.append("name", this.name)
-				.append("contextLoaderClass", this.contextLoaderClass.getName())
+				.append("contextLoaderClass", this.contextLoaderClass)
 				.toString();
 	}
 

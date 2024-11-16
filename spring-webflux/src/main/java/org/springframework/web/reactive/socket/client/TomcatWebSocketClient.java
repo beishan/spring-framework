@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,24 +16,24 @@
 
 package org.springframework.web.reactive.socket.client;
 
-import javax.websocket.Session;
-import javax.websocket.WebSocketContainer;
+import jakarta.websocket.Session;
+import jakarta.websocket.WebSocketContainer;
+import org.apache.tomcat.websocket.WsWebSocketContainer;
+import reactor.core.publisher.Sinks;
 
 import org.springframework.web.reactive.socket.HandshakeInfo;
 import org.springframework.web.reactive.socket.adapter.StandardWebSocketSession;
 import org.springframework.web.reactive.socket.adapter.TomcatWebSocketSession;
 
-import org.apache.tomcat.websocket.WsWebSocketContainer;
-import reactor.core.publisher.MonoProcessor;
-
 /**
- * {@link WebSocketClient} implementation for use with the Java WebSocket API.
- * 
+ * {@link WebSocketClient} implementation for use with Tomcat,
+ * based on the Jakarta WebSocket API.
+ *
  * @author Violeta Georgieva
  * @since 5.0
+ * @see StandardWebSocketClient
  */
 public class TomcatWebSocketClient extends StandardWebSocketClient {
-
 
 	public TomcatWebSocketClient() {
 		this(new WsWebSocketContainer());
@@ -45,10 +45,10 @@ public class TomcatWebSocketClient extends StandardWebSocketClient {
 
 
 	@Override
-	protected StandardWebSocketSession createWebSocketSession(Session session,
-			HandshakeInfo info, MonoProcessor<Void> completion) {
+	protected StandardWebSocketSession createWebSocketSession(
+			Session session, HandshakeInfo info, Sinks.Empty<Void> completionSink) {
 
-			return new TomcatWebSocketSession(session, info, bufferFactory(), completion);
+		return new TomcatWebSocketSession(session, info, bufferFactory(), completionSink);
 	}
 
 }

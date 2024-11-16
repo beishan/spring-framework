@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,7 +32,7 @@ import org.springframework.util.ReflectionUtils;
  * in public static final members. The {@code asXXXX} methods of this class
  * allow these constant values to be accessed via their string names.
  *
- * <p>Consider class Foo containing {@code public final static int CONSTANT1 = 66;}
+ * <p>Consider class Foo containing {@code public static final int CONSTANT1 = 66;}
  * An instance of this class wrapping {@code Foo.class} will return the constant value
  * of 66 from its {@code asNumber} method given the argument {@code "CONSTANT1"}.
  *
@@ -43,13 +43,16 @@ import org.springframework.util.ReflectionUtils;
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @since 16.03.2003
+ * @deprecated since 6.1 with no replacement; use an enum, map, or similar custom
+ * solution instead
  */
+@Deprecated(since = "6.1")
 public class Constants {
 
-	/** The name of the introspected class */
+	/** The name of the introspected class. */
 	private final String className;
 
-	/** Map from String field name to object value */
+	/** Map from String field name to object value. */
 	private final Map<String, Object> fieldCache = new HashMap<>();
 
 
@@ -105,16 +108,16 @@ public class Constants {
 	 * Return a constant value cast to a Number.
 	 * @param code the name of the field (never {@code null})
 	 * @return the Number value
-	 * @see #asObject
 	 * @throws ConstantException if the field name wasn't found
 	 * or if the type wasn't compatible with Number
+	 * @see #asObject
 	 */
 	public Number asNumber(String code) throws ConstantException {
 		Object obj = asObject(code);
-		if (!(obj instanceof Number)) {
+		if (!(obj instanceof Number number)) {
 			throw new ConstantException(this.className, code, "not a Number");
 		}
-		return (Number) obj;
+		return number;
 	}
 
 	/**
@@ -122,8 +125,8 @@ public class Constants {
 	 * @param code the name of the field (never {@code null})
 	 * @return the String value
 	 * Works even if it's not a string (invokes {@code toString()}).
-	 * @see #asObject
 	 * @throws ConstantException if the field name wasn't found
+	 * @see #asObject
 	 */
 	public String asString(String code) throws ConstantException {
 		return asObject(code).toString();
@@ -132,7 +135,7 @@ public class Constants {
 	/**
 	 * Parse the given String (upper or lower case accepted) and return
 	 * the appropriate value if it's the name of a constant field in the
-	 * class that we're analysing.
+	 * class that we're analyzing.
 	 * @param code the name of the field (never {@code null})
 	 * @return the Object value
 	 * @throws ConstantException if there's no such field
@@ -215,11 +218,11 @@ public class Constants {
 	public Set<Object> getValues(@Nullable String namePrefix) {
 		String prefixToUse = (namePrefix != null ? namePrefix.trim().toUpperCase(Locale.ENGLISH) : "");
 		Set<Object> values = new HashSet<>();
-		for (String code : this.fieldCache.keySet()) {
+		this.fieldCache.forEach((code, value) -> {
 			if (code.startsWith(prefixToUse)) {
-				values.add(this.fieldCache.get(code));
+				values.add(value);
 			}
-		}
+		});
 		return values;
 	}
 
@@ -247,11 +250,11 @@ public class Constants {
 	public Set<Object> getValuesForSuffix(@Nullable String nameSuffix) {
 		String suffixToUse = (nameSuffix != null ? nameSuffix.trim().toUpperCase(Locale.ENGLISH) : "");
 		Set<Object> values = new HashSet<>();
-		for (String code : this.fieldCache.keySet()) {
+		this.fieldCache.forEach((code, value) -> {
 			if (code.endsWith(suffixToUse)) {
-				values.add(this.fieldCache.get(code));
+				values.add(value);
 			}
-		}
+		});
 		return values;
 	}
 
@@ -310,10 +313,10 @@ public class Constants {
 	 * Convert the given bean property name to a constant name prefix.
 	 * <p>Uses a common naming idiom: turning all lower case characters to
 	 * upper case, and prepending upper case characters with an underscore.
-	 * <p>Example: "imageSize" -> "IMAGE_SIZE"<br>
-	 * Example: "imagesize" -> "IMAGESIZE".<br>
-	 * Example: "ImageSize" -> "_IMAGE_SIZE".<br>
-	 * Example: "IMAGESIZE" -> "_I_M_A_G_E_S_I_Z_E"
+	 * <p>Example: "imageSize" &rarr; "IMAGE_SIZE"<br>
+	 * Example: "imagesize" &rarr; "IMAGESIZE".<br>
+	 * Example: "ImageSize" &rarr; "_IMAGE_SIZE".<br>
+	 * Example: "IMAGESIZE" &rarr; "_I_M_A_G_E_S_I_Z_E"
 	 * @param propertyName the name of the bean property
 	 * @return the corresponding constant name prefix
 	 * @see #getValuesForProperty
@@ -324,7 +327,7 @@ public class Constants {
 		for (int i = 0; i < propertyName.length(); i++) {
 			char c = propertyName.charAt(i);
 			if (Character.isUpperCase(c)) {
-				parsedPrefix.append("_");
+				parsedPrefix.append('_');
 				parsedPrefix.append(c);
 			}
 			else {

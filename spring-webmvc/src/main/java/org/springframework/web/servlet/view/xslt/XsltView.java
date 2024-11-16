@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,10 +20,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+
 import javax.xml.transform.ErrorListener;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Result;
@@ -38,6 +38,8 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
@@ -214,6 +216,9 @@ public class XsltView extends AbstractUrlBasedView {
 			}
 		}
 		else {
+			// This transformer is used for local XSLT views only.
+			// As a result, attackers would need complete write access to application configuration
+			// to leverage XXE attacks. This does not qualify as privilege escalation.
 			return TransformerFactory.newInstance();
 		}
 	}
@@ -301,32 +306,31 @@ public class XsltView extends AbstractUrlBasedView {
 	/**
 	 * Convert the supplied {@link Object} into an XSLT {@link Source} if the
 	 * {@link Object} type is {@link #getSourceTypes() supported}.
-	 * @param source the original source object
+	 * @param sourceObject the original source object
 	 * @return the adapted XSLT Source
 	 * @throws IllegalArgumentException if the given Object is not of a supported type
 	 */
-	protected Source convertSource(Object source) throws Exception {
-		if (source instanceof Source) {
-			return (Source) source;
+	protected Source convertSource(@Nullable Object sourceObject) throws Exception {
+		if (sourceObject instanceof Source source) {
+			return source;
 		}
-		else if (source instanceof Document) {
-			return new DOMSource(((Document) source).getDocumentElement());
+		else if (sourceObject instanceof Document document) {
+			return new DOMSource(document.getDocumentElement());
 		}
-		else if (source instanceof Node) {
-			return new DOMSource((Node) source);
+		else if (sourceObject instanceof Node node) {
+			return new DOMSource(node);
 		}
-		else if (source instanceof Reader) {
-			return new StreamSource((Reader) source);
+		else if (sourceObject instanceof Reader reader) {
+			return new StreamSource(reader);
 		}
-		else if (source instanceof InputStream) {
-			return new StreamSource((InputStream) source);
+		else if (sourceObject instanceof InputStream inputStream) {
+			return new StreamSource(inputStream);
 		}
-		else if (source instanceof Resource) {
-			Resource resource = (Resource) source;
+		else if (sourceObject instanceof Resource resource) {
 			return new StreamSource(resource.getInputStream(), resource.getURI().toASCIIString());
 		}
 		else {
-			throw new IllegalArgumentException("Value '" + source + "' cannot be converted to XSLT Source");
+			throw new IllegalArgumentException("Value '" + sourceObject + "' cannot be converted to XSLT Source");
 		}
 	}
 
@@ -414,7 +418,7 @@ public class XsltView extends AbstractUrlBasedView {
 		}
 		if (StringUtils.hasText(encoding)) {
 			// Only apply encoding if content type is specified but does not contain charset clause already.
-			if (contentType != null && !contentType.toLowerCase().contains(WebUtils.CONTENT_TYPE_CHARSET_PREFIX)) {
+			if (contentType != null && !contentType.toLowerCase(Locale.ROOT).contains(WebUtils.CONTENT_TYPE_CHARSET_PREFIX)) {
 				contentType = contentType + WebUtils.CONTENT_TYPE_CHARSET_PREFIX + encoding;
 			}
 		}
@@ -428,9 +432,6 @@ public class XsltView extends AbstractUrlBasedView {
 		Source stylesheetSource = getStylesheetSource();
 		try {
 			Templates templates = getTransformerFactory().newTemplates(stylesheetSource);
-			if (logger.isDebugEnabled()) {
-				logger.debug("Loading templates '" + templates + "'");
-			}
 			return templates;
 		}
 		catch (TransformerConfigurationException ex) {
@@ -466,7 +467,7 @@ public class XsltView extends AbstractUrlBasedView {
 		Assert.state(url != null, "'url' not set");
 
 		if (logger.isDebugEnabled()) {
-			logger.debug("Loading XSLT stylesheet from '" + url + "'");
+			logger.debug("Applying stylesheet [" + url + "]");
 		}
 		try {
 			Resource resource = obtainApplicationContext().getResource(url);
@@ -483,8 +484,7 @@ public class XsltView extends AbstractUrlBasedView {
 	 * @param source the XSLT Source to close (may be {@code null})
 	 */
 	private void closeSourceIfNecessary(@Nullable Source source) {
-		if (source instanceof StreamSource) {
-			StreamSource streamSource = (StreamSource) source;
+		if (source instanceof StreamSource streamSource) {
 			if (streamSource.getReader() != null) {
 				try {
 					streamSource.getReader().close();

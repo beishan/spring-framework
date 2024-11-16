@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,25 +16,30 @@
 
 package org.springframework.http.server.reactive;
 
-import java.io.File;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.Path;
+import java.util.Objects;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.cookie.Cookie;
+import io.netty.channel.ChannelId;
+import io.netty.handler.codec.http.cookie.CookieHeaderNames;
 import io.netty.handler.codec.http.cookie.DefaultCookie;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.http.server.HttpServerResponse;
+import reactor.netty.ChannelOperationsId;
+import reactor.netty.http.server.HttpServerResponse;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ZeroCopyHttpOutputMessage;
-import org.springframework.util.Assert;
+import org.springframework.http.support.Netty4HeadersAdapter;
 
 /**
  * Adapt {@link ServerHttpResponse} to the {@link HttpServerResponse}.
@@ -45,12 +50,15 @@ import org.springframework.util.Assert;
  */
 class ReactorServerHttpResponse extends AbstractServerHttpResponse implements ZeroCopyHttpOutputMessage {
 
+	private static final Log logger = LogFactory.getLog(ReactorServerHttpResponse.class);
+
+
 	private final HttpServerResponse response;
 
 
 	public ReactorServerHttpResponse(HttpServerResponse response, DataBufferFactory bufferFactory) {
-		super(bufferFactory);
-		Assert.notNull(response, "HttpServerResponse must not be null");
+		super(bufferFactory, new HttpHeaders(new Netty4HeadersAdapter(Objects.requireNonNull(response,
+				"HttpServerResponse must not be null").responseHeaders())));
 		this.response = response;
 	}
 
@@ -61,42 +69,47 @@ class ReactorServerHttpResponse extends AbstractServerHttpResponse implements Ze
 		return (T) this.response;
 	}
 
+	@Override
+	public HttpStatusCode getStatusCode() {
+		HttpStatusCode status = super.getStatusCode();
+		return (status != null ? status : HttpStatusCode.valueOf(this.response.status().code()));
+	}
+
+	@Override
+	@Deprecated
+	@SuppressWarnings("removal")
+	public Integer getRawStatusCode() {
+		Integer status = super.getRawStatusCode();
+		return (status != null ? status : this.response.status().code());
+	}
 
 	@Override
 	protected void applyStatusCode() {
-		Integer statusCode = getStatusCodeValue();
-		if (statusCode != null) {
-			this.response.status(HttpResponseStatus.valueOf(statusCode));
+		HttpStatusCode status = super.getStatusCode();
+		if (status != null) {
+			this.response.status(status.value());
 		}
 	}
 
 	@Override
 	protected Mono<Void> writeWithInternal(Publisher<? extends DataBuffer> publisher) {
-		Publisher<ByteBuf> body = toByteBufs(publisher);
-		return this.response.send(body).then();
+		return this.response.send(toByteBufs(publisher)).then();
 	}
 
 	@Override
 	protected Mono<Void> writeAndFlushWithInternal(Publisher<? extends Publisher<? extends DataBuffer>> publisher) {
-		Publisher<Publisher<ByteBuf>> body = Flux.from(publisher)
-				.map(ReactorServerHttpResponse::toByteBufs);
-		return this.response.sendGroups(body).then();
+		return this.response.sendGroups(Flux.from(publisher).map(this::toByteBufs)).then();
 	}
 
 	@Override
 	protected void applyHeaders() {
-		for (Map.Entry<String, List<String>> entry : getHeaders().entrySet()) {
-			for (String value : entry.getValue()) {
-				this.response.responseHeaders().add(entry.getKey(), value);
-			}
-		}
 	}
 
 	@Override
 	protected void applyCookies() {
 		for (String name : getCookies().keySet()) {
 			for (ResponseCookie httpCookie : getCookies().get(name)) {
-				Cookie cookie = new DefaultCookie(name, httpCookie.getValue());
+				DefaultCookie cookie = new DefaultCookie(name, httpCookie.getValue());
 				if (!httpCookie.getMaxAge().isNegative()) {
 					cookie.setMaxAge(httpCookie.getMaxAge().getSeconds());
 				}
@@ -108,18 +121,39 @@ class ReactorServerHttpResponse extends AbstractServerHttpResponse implements Ze
 				}
 				cookie.setSecure(httpCookie.isSecure());
 				cookie.setHttpOnly(httpCookie.isHttpOnly());
+				cookie.setPartitioned(httpCookie.isPartitioned());
+				if (httpCookie.getSameSite() != null) {
+					cookie.setSameSite(CookieHeaderNames.SameSite.valueOf(httpCookie.getSameSite()));
+				}
 				this.response.addCookie(cookie);
 			}
 		}
 	}
 
 	@Override
-	public Mono<Void> writeWith(File file, long position, long count) {
-		return doCommit(() -> this.response.sendFile(file.toPath(), position, count).then());
+	public Mono<Void> writeWith(Path file, long position, long count) {
+		return doCommit(() -> this.response.sendFile(file, position, count).then());
 	}
 
-	private static Publisher<ByteBuf> toByteBufs(Publisher<? extends DataBuffer> dataBuffers) {
-		return Flux.from(dataBuffers).map(NettyDataBufferFactory::toByteBuf);
+	private Publisher<ByteBuf> toByteBufs(Publisher<? extends DataBuffer> dataBuffers) {
+		return dataBuffers instanceof Mono ?
+				Mono.from(dataBuffers).map(NettyDataBufferFactory::toByteBuf) :
+				Flux.from(dataBuffers).map(NettyDataBufferFactory::toByteBuf);
+	}
+
+	@Override
+	protected void touchDataBuffer(DataBuffer buffer) {
+		if (logger.isDebugEnabled()) {
+			if (this.response instanceof ChannelOperationsId operationsId) {
+				DataBufferUtils.touch(buffer, "Channel id: " + operationsId.asLongText());
+			}
+			else {
+				this.response.withConnection(connection -> {
+					ChannelId id = connection.channel().id();
+					DataBufferUtils.touch(buffer, "Channel id: " + id.asShortText());
+				});
+			}
+		}
 	}
 
 }

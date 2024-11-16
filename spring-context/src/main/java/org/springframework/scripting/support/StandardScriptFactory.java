@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.springframework.scripting.support;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -35,8 +36,8 @@ import org.springframework.util.StringUtils;
 
 /**
  * {@link org.springframework.scripting.ScriptFactory} implementation based
- * on the JSR-223 script engine abstraction (as included in Java 6+).
- * Supports JavaScript, Groovy, JRuby and other JSR-223 compliant engines.
+ * on the JSR-223 script engine abstraction (as included in Java).
+ * Supports JavaScript, Groovy, JRuby, and other JSR-223 compliant engines.
  *
  * <p>Typically used in combination with a
  * {@link org.springframework.scripting.support.ScriptFactoryPostProcessor};
@@ -148,9 +149,10 @@ public class StandardScriptFactory implements ScriptFactory, BeanClassLoaderAwar
 		if (!ObjectUtils.isEmpty(actualInterfaces)) {
 			boolean adaptationRequired = false;
 			for (Class<?> requestedIfc : actualInterfaces) {
-				if (script instanceof Class ? !requestedIfc.isAssignableFrom((Class<?>) script) :
+				if (script instanceof Class<?> clazz ? !requestedIfc.isAssignableFrom(clazz) :
 						!requestedIfc.isInstance(script)) {
 					adaptationRequired = true;
+					break;
 				}
 			}
 			if (adaptationRequired) {
@@ -158,8 +160,7 @@ public class StandardScriptFactory implements ScriptFactory, BeanClassLoaderAwar
 			}
 		}
 
-		if (script instanceof Class) {
-			Class<?> scriptClass = (Class<?>) script;
+		if (script instanceof Class<?> scriptClass) {
 			try {
 				return ReflectionUtils.accessibleConstructor(scriptClass).newInstance();
 			}
@@ -209,8 +210,8 @@ public class StandardScriptFactory implements ScriptFactory, BeanClassLoaderAwar
 			return StandardScriptUtils.retrieveEngineByName(scriptEngineManager, this.scriptEngineName);
 		}
 
-		if (scriptSource instanceof ResourceScriptSource) {
-			String filename = ((ResourceScriptSource) scriptSource).getResource().getFilename();
+		if (scriptSource instanceof ResourceScriptSource resourceScriptSource) {
+			String filename = resourceScriptSource.getResource().getFilename();
 			if (filename != null) {
 				String extension = StringUtils.getFilenameExtension(filename);
 				if (extension != null) {
@@ -239,11 +240,10 @@ public class StandardScriptFactory implements ScriptFactory, BeanClassLoaderAwar
 
 		if (adaptedIfc != null) {
 			ScriptEngine scriptEngine = this.scriptEngine;
-			if (!(scriptEngine instanceof Invocable)) {
+			if (!(scriptEngine instanceof Invocable invocable)) {
 				throw new ScriptCompilationException(scriptSource,
 						"ScriptEngine must implement Invocable in order to adapt it to an interface: " + scriptEngine);
 			}
-			Invocable invocable = (Invocable) scriptEngine;
 			if (script != null) {
 				script = invocable.getInterface(script, adaptedIfc);
 			}

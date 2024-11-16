@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,9 @@ import reactor.core.publisher.Mono;
  * Contract for interception-style, chained processing of Web requests that may
  * be used to implement cross-cutting, application-agnostic requirements such
  * as security, timeouts, and others.
+ *
+ * <p>Consider using {@code org.springframework.web.server.CoWebFilter} with
+ * Kotlin Coroutines.
  *
  * @author Rossen Stoyanchev
  * @since 5.0

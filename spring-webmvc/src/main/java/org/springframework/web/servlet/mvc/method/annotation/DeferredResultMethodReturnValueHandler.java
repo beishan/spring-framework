@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,13 +16,11 @@
 
 package org.springframework.web.servlet.mvc.method.annotation;
 
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.lang.Nullable;
-import org.springframework.util.concurrent.ListenableFuture;
-import org.springframework.util.concurrent.ListenableFutureCallback;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.web.context.request.async.WebAsyncUtils;
@@ -31,21 +29,24 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
  * Handler for return values of type {@link DeferredResult},
- * {@link ListenableFuture}, and {@link CompletionStage}.
+ * {@link org.springframework.util.concurrent.ListenableFuture}, and
+ * {@link CompletionStage}.
  *
  * @author Rossen Stoyanchev
  * @since 3.2
  */
 public class DeferredResultMethodReturnValueHandler implements HandlerMethodReturnValueHandler {
 
+	@SuppressWarnings({"deprecation", "removal"})
 	@Override
 	public boolean supportsReturnType(MethodParameter returnType) {
 		Class<?> type = returnType.getParameterType();
 		return (DeferredResult.class.isAssignableFrom(type) ||
-				ListenableFuture.class.isAssignableFrom(type) ||
+				org.springframework.util.concurrent.ListenableFuture.class.isAssignableFrom(type) ||
 				CompletionStage.class.isAssignableFrom(type));
 	}
 
+	@SuppressWarnings({"deprecation", "removal"})
 	@Override
 	public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
 			ModelAndViewContainer mavContainer, NativeWebRequest webRequest) throws Exception {
@@ -57,14 +58,14 @@ public class DeferredResultMethodReturnValueHandler implements HandlerMethodRetu
 
 		DeferredResult<?> result;
 
-		if (returnValue instanceof DeferredResult) {
-			result = (DeferredResult<?>) returnValue;
+		if (returnValue instanceof DeferredResult<?> deferredResult) {
+			result = deferredResult;
 		}
-		else if (returnValue instanceof ListenableFuture) {
-			result = adaptListenableFuture((ListenableFuture<?>) returnValue);
+		else if (returnValue instanceof org.springframework.util.concurrent.ListenableFuture<?> listenableFuture) {
+			result = adaptListenableFuture(listenableFuture);
 		}
-		else if (returnValue instanceof CompletionStage) {
-			result = adaptCompletionStage((CompletionStage<?>) returnValue);
+		else if (returnValue instanceof CompletionStage<?> completionStage) {
+			result = adaptCompletionStage(completionStage);
 		}
 		else {
 			// Should not happen...
@@ -74,9 +75,10 @@ public class DeferredResultMethodReturnValueHandler implements HandlerMethodRetu
 		WebAsyncUtils.getAsyncManager(webRequest).startDeferredResultProcessing(result, mavContainer);
 	}
 
-	private DeferredResult<Object> adaptListenableFuture(ListenableFuture<?> future) {
+	@SuppressWarnings({"deprecation", "removal"})
+	private DeferredResult<Object> adaptListenableFuture(org.springframework.util.concurrent.ListenableFuture<?> future) {
 		DeferredResult<Object> result = new DeferredResult<>();
-		future.addCallback(new ListenableFutureCallback<Object>() {
+		future.addCallback(new org.springframework.util.concurrent.ListenableFutureCallback<Object>() {
 			@Override
 			public void onSuccess(@Nullable Object value) {
 				result.setResult(value);
@@ -91,14 +93,16 @@ public class DeferredResultMethodReturnValueHandler implements HandlerMethodRetu
 
 	private DeferredResult<Object> adaptCompletionStage(CompletionStage<?> future) {
 		DeferredResult<Object> result = new DeferredResult<>();
-		future.handle((BiFunction<Object, Throwable, Object>) (value, ex) -> {
+		future.whenComplete((value, ex) -> {
 			if (ex != null) {
+				if (ex instanceof CompletionException && ex.getCause() != null) {
+					ex = ex.getCause();
+				}
 				result.setErrorResult(ex);
 			}
 			else {
 				result.setResult(value);
 			}
-			return null;
 		});
 		return result;
 	}

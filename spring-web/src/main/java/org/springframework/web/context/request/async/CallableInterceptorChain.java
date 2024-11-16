@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,7 @@ import java.util.concurrent.Future;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.web.context.request.NativeWebRequest;
 
 /**
@@ -40,6 +41,7 @@ class CallableInterceptorChain {
 
 	private int preProcessIndex = -1;
 
+	@Nullable
 	private volatile Future<?> taskFuture;
 
 
@@ -66,23 +68,26 @@ class CallableInterceptorChain {
 		}
 	}
 
-	public Object applyPostProcess(NativeWebRequest request, Callable<?> task, Object concurrentResult) {
+	@Nullable
+	public Object applyPostProcess(NativeWebRequest request, Callable<?> task, @Nullable Object concurrentResult) {
 		Throwable exceptionResult = null;
 		for (int i = this.preProcessIndex; i >= 0; i--) {
 			try {
 				this.interceptors.get(i).postProcess(request, task, concurrentResult);
 			}
-			catch (Throwable t) {
+			catch (Throwable ex) {
 				// Save the first exception but invoke all interceptors
 				if (exceptionResult != null) {
-					logger.error("postProcess error", t);
+					if (logger.isTraceEnabled()) {
+						logger.trace("Ignoring failure in postProcess method", ex);
+					}
 				}
 				else {
-					exceptionResult = t;
+					exceptionResult = ex;
 				}
 			}
 		}
-		return (exceptionResult != null) ? exceptionResult : concurrentResult;
+		return (exceptionResult != null ? exceptionResult : concurrentResult);
 	}
 
 	public Object triggerAfterTimeout(NativeWebRequest request, Callable<?> task) {
@@ -97,8 +102,8 @@ class CallableInterceptorChain {
 					return result;
 				}
 			}
-			catch (Throwable t) {
-				return t;
+			catch (Throwable ex) {
+				return ex;
 			}
 		}
 		return CallableProcessingInterceptor.RESULT_NONE;
@@ -128,8 +133,8 @@ class CallableInterceptorChain {
 					return result;
 				}
 			}
-			catch (Throwable t) {
-				return t;
+			catch (Throwable ex) {
+				return ex;
 			}
 		}
 		return CallableProcessingInterceptor.RESULT_NONE;
@@ -140,8 +145,10 @@ class CallableInterceptorChain {
 			try {
 				this.interceptors.get(i).afterCompletion(request, task);
 			}
-			catch (Throwable t) {
-				logger.error("afterCompletion error", t);
+			catch (Throwable ex) {
+				if (logger.isTraceEnabled()) {
+					logger.trace("Ignoring failure in afterCompletion method", ex);
+				}
 			}
 		}
 	}

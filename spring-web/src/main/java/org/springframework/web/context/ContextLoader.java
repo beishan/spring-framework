@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.servlet.ServletContext;
 
+import jakarta.servlet.ServletContext;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -54,9 +54,9 @@ import org.springframework.util.StringUtils;
  *
  * <p>Processes a {@link #CONFIG_LOCATION_PARAM "contextConfigLocation"} context-param
  * and passes its value to the context instance, parsing it into potentially multiple
- * file paths which can be separated by any number of commas and spaces, e.g.
+ * file paths which can be separated by any number of commas and spaces, for example,
  * "WEB-INF/applicationContext1.xml, WEB-INF/applicationContext2.xml".
- * Ant-style path patterns are supported as well, e.g.
+ * Ant-style path patterns are supported as well, for example,
  * "WEB-INF/*Context.xml,WEB-INF/spring*.xml" or "WEB-INF/&#42;&#42;/*Context.xml".
  * If not explicitly specified, the context implementation is supposed to use a
  * default location (with XmlWebApplicationContext: "/WEB-INF/applicationContext.xml").
@@ -70,10 +70,10 @@ import org.springframework.util.StringUtils;
  * load or obtain and hook up a shared parent context to the root application context.
  * See the {@link #loadParentContext(ServletContext)} method for more information.
  *
- * <p>As of Spring 3.1, {@code ContextLoader} supports injecting the root web
- * application context via the {@link #ContextLoader(WebApplicationContext)}
- * constructor, allowing for programmatic configuration in Servlet 3.0+ environments.
- * See {@link org.springframework.web.WebApplicationInitializer} for usage examples.
+ * <p>{@code ContextLoader} supports injecting the root web application context
+ * via the {@link #ContextLoader(WebApplicationContext)} constructor, allowing for
+ * programmatic configuration in Servlet initializers. See
+ * {@link org.springframework.web.WebApplicationInitializer} for usage examples.
  *
  * @author Juergen Hoeller
  * @author Colin Sampaleanu
@@ -87,7 +87,7 @@ public class ContextLoader {
 
 	/**
 	 * Config param for the root WebApplicationContext id,
-	 * to be used as serialization id for the underlying BeanFactory: {@value}
+	 * to be used as serialization id for the underlying BeanFactory: {@value}.
 	 */
 	public static final String CONTEXT_ID_PARAM = "contextId";
 
@@ -100,21 +100,21 @@ public class ContextLoader {
 	public static final String CONFIG_LOCATION_PARAM = "contextConfigLocation";
 
 	/**
-	 * Config param for the root WebApplicationContext implementation class to use: {@value}
+	 * Config param for the root WebApplicationContext implementation class to use: {@value}.
 	 * @see #determineContextClass(ServletContext)
 	 */
 	public static final String CONTEXT_CLASS_PARAM = "contextClass";
 
 	/**
 	 * Config param for {@link ApplicationContextInitializer} classes to use
-	 * for initializing the root web application context: {@value}
+	 * for initializing the root web application context: {@value}.
 	 * @see #customizeContext(ServletContext, ConfigurableWebApplicationContext)
 	 */
 	public static final String CONTEXT_INITIALIZER_CLASSES_PARAM = "contextInitializerClasses";
 
 	/**
 	 * Config param for global {@link ApplicationContextInitializer} classes to use
-	 * for initializing all web application contexts in the current application: {@value}
+	 * for initializing all web application contexts in the current application: {@value}.
 	 * @see #customizeContext(ServletContext, ConfigurableWebApplicationContext)
 	 */
 	public static final String GLOBAL_INITIALIZER_CLASSES_PARAM = "globalInitializerClasses";
@@ -132,22 +132,6 @@ public class ContextLoader {
 	private static final String DEFAULT_STRATEGIES_PATH = "ContextLoader.properties";
 
 
-	private static final Properties defaultStrategies;
-
-	static {
-		// Load default strategy implementations from properties file.
-		// This is currently strictly internal and not meant to be customized
-		// by application developers.
-		try {
-			ClassPathResource resource = new ClassPathResource(DEFAULT_STRATEGIES_PATH, ContextLoader.class);
-			defaultStrategies = PropertiesLoaderUtils.loadProperties(resource);
-		}
-		catch (IOException ex) {
-			throw new IllegalStateException("Could not load 'ContextLoader.properties': " + ex.getMessage());
-		}
-	}
-
-
 	/**
 	 * Map from (thread context) ClassLoader to corresponding 'current' WebApplicationContext.
 	 */
@@ -161,14 +145,16 @@ public class ContextLoader {
 	@Nullable
 	private static volatile WebApplicationContext currentContext;
 
+	@Nullable
+	private static Properties defaultStrategies;
 
 	/**
 	 * The root WebApplicationContext instance that this loader manages.
 	 */
 	@Nullable
-	private WebApplicationContext context;
+	private WebApplicationContext rootContext;
 
-	/** Actual ApplicationContextInitializer instances to apply to the context */
+	/** Actual ApplicationContextInitializer instances to apply to the context. */
 	private final List<ApplicationContextInitializer<ConfigurableApplicationContext>> contextInitializers =
 			new ArrayList<>();
 
@@ -193,9 +179,8 @@ public class ContextLoader {
 
 	/**
 	 * Create a new {@code ContextLoader} with the given application context. This
-	 * constructor is useful in Servlet 3.0+ environments where instance-based
-	 * registration of listeners is possible through the {@link ServletContext#addListener}
-	 * API.
+	 * constructor is useful in Servlet initializers where instance-based registration
+	 * of listeners is possible through the {@link ServletContext#addListener} API.
 	 * <p>The context may or may not yet be {@linkplain
 	 * ConfigurableApplicationContext#refresh() refreshed}. If it (a) is an implementation
 	 * of {@link ConfigurableWebApplicationContext} and (b) has <strong>not</strong>
@@ -206,7 +191,7 @@ public class ContextLoader {
 	 * <li>{@code ServletContext} and {@code ServletConfig} objects will be delegated to
 	 * the application context</li>
 	 * <li>{@link #customizeContext} will be called</li>
-	 * <li>Any {@link ApplicationContextInitializer}s specified through the
+	 * <li>Any {@link ApplicationContextInitializer ApplicationContextInitializers} specified through the
 	 * "contextInitializerClasses" init-param will be applied.</li>
 	 * <li>{@link ConfigurableApplicationContext#refresh refresh()} will be called</li>
 	 * </ul>
@@ -220,12 +205,12 @@ public class ContextLoader {
 	 * WebApplicationContext#ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE} and subclasses are
 	 * free to call the {@link #closeWebApplicationContext} method on container shutdown
 	 * to close the application context.
-	 * @param context the application context to manage
+	 * @param rootContext the application context to manage
 	 * @see #initWebApplicationContext(ServletContext)
 	 * @see #closeWebApplicationContext(ServletContext)
 	 */
-	public ContextLoader(WebApplicationContext context) {
-		this.context = context;
+	public ContextLoader(WebApplicationContext rootContext) {
+		this.rootContext = rootContext;
 	}
 
 
@@ -264,8 +249,8 @@ public class ContextLoader {
 					"check whether you have multiple ContextLoader* definitions in your web.xml!");
 		}
 
-		Log logger = LogFactory.getLog(ContextLoader.class);
 		servletContext.log("Initializing Spring root WebApplicationContext");
+		Log logger = LogFactory.getLog(ContextLoader.class);
 		if (logger.isInfoEnabled()) {
 			logger.info("Root WebApplicationContext: initialization started");
 		}
@@ -274,53 +259,41 @@ public class ContextLoader {
 		try {
 			// Store context in local instance variable, to guarantee that
 			// it is available on ServletContext shutdown.
-			if (this.context == null) {
-				this.context = createWebApplicationContext(servletContext);
+			if (this.rootContext == null) {
+				this.rootContext = createWebApplicationContext(servletContext);
 			}
-			if (this.context instanceof ConfigurableWebApplicationContext) {
-				ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext) this.context;
-				if (!cwac.isActive()) {
-					// The context has not yet been refreshed -> provide services such as
-					// setting the parent context, setting the application context id, etc
-					if (cwac.getParent() == null) {
-						// The context instance was injected without an explicit parent ->
-						// determine parent for root web application context, if any.
-						ApplicationContext parent = loadParentContext(servletContext);
-						cwac.setParent(parent);
-					}
-					configureAndRefreshWebApplicationContext(cwac, servletContext);
+			if (this.rootContext instanceof ConfigurableWebApplicationContext cwac && !cwac.isActive()) {
+				// The context has not yet been refreshed -> provide services such as
+				// setting the parent context, setting the application context id, etc
+				if (cwac.getParent() == null) {
+					// The context instance was injected without an explicit parent ->
+					// determine parent for root web application context, if any.
+					ApplicationContext parent = loadParentContext(servletContext);
+					cwac.setParent(parent);
 				}
+				configureAndRefreshWebApplicationContext(cwac, servletContext);
 			}
-			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.context);
+			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.rootContext);
 
 			ClassLoader ccl = Thread.currentThread().getContextClassLoader();
 			if (ccl == ContextLoader.class.getClassLoader()) {
-				currentContext = this.context;
+				currentContext = this.rootContext;
 			}
 			else if (ccl != null) {
-				currentContextPerThread.put(ccl, this.context);
+				currentContextPerThread.put(ccl, this.rootContext);
 			}
 
-			if (logger.isDebugEnabled()) {
-				logger.debug("Published root WebApplicationContext as ServletContext attribute with name [" +
-						WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE + "]");
-			}
 			if (logger.isInfoEnabled()) {
 				long elapsedTime = System.currentTimeMillis() - startTime;
-				logger.info("Root WebApplicationContext: initialization completed in " + elapsedTime + " ms");
+				logger.info("Root WebApplicationContext initialized in " + elapsedTime + " ms");
 			}
 
-			return this.context;
+			return this.rootContext;
 		}
-		catch (RuntimeException ex) {
+		catch (RuntimeException | Error ex) {
 			logger.error("Context initialization failed", ex);
 			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, ex);
 			throw ex;
-		}
-		catch (Error err) {
-			logger.error("Context initialization failed", err);
-			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, err);
-			throw err;
 		}
 	}
 
@@ -365,6 +338,18 @@ public class ContextLoader {
 			}
 		}
 		else {
+			if (defaultStrategies == null) {
+				// Load default strategy implementations from properties file.
+				// This is currently strictly internal and not meant to be customized
+				// by application developers.
+				try {
+					ClassPathResource resource = new ClassPathResource(DEFAULT_STRATEGIES_PATH, ContextLoader.class);
+					defaultStrategies = PropertiesLoaderUtils.loadProperties(resource);
+				}
+				catch (IOException ex) {
+					throw new IllegalStateException("Could not load 'ContextLoader.properties': " + ex.getMessage());
+				}
+			}
 			contextClassName = defaultStrategies.getProperty(WebApplicationContext.class.getName());
 			try {
 				return ClassUtils.forName(contextClassName, ContextLoader.class.getClassLoader());
@@ -401,8 +386,8 @@ public class ContextLoader {
 		// is refreshed; do it eagerly here to ensure servlet property sources are in place for
 		// use in any post-processing or initialization that occurs below prior to #refresh
 		ConfigurableEnvironment env = wac.getEnvironment();
-		if (env instanceof ConfigurableWebEnvironment) {
-			((ConfigurableWebEnvironment) env).initPropertySources(sc, null);
+		if (env instanceof ConfigurableWebEnvironment cwe) {
+			cwe.initPropertySources(sc, null);
 		}
 
 		customizeContext(sc, wac);
@@ -521,8 +506,8 @@ public class ContextLoader {
 	public void closeWebApplicationContext(ServletContext servletContext) {
 		servletContext.log("Closing Spring root WebApplicationContext");
 		try {
-			if (this.context instanceof ConfigurableWebApplicationContext) {
-				((ConfigurableWebApplicationContext) this.context).close();
+			if (this.rootContext instanceof ConfigurableWebApplicationContext cwac) {
+				cwac.close();
 			}
 		}
 		finally {

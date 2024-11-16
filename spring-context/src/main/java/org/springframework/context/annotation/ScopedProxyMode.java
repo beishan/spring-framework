@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,8 +20,8 @@ package org.springframework.context.annotation;
  * Enumerates the various scoped-proxy options.
  *
  * <p>For a more complete discussion of exactly what a scoped proxy is, see the
- * section of the Spring reference documentation entitled '<em>Scoped beans as
- * dependencies</em>'.
+ * <a href="https://docs.spring.io/spring-framework/reference/core/beans/factory-scopes.html#beans-factory-scopes-other-injection"
+ * >Scoped Beans as Dependencies</a> section of the Spring reference documentation.
  *
  * @author Mark Fisher
  * @since 2.5
@@ -53,6 +53,6 @@ public enum ScopedProxyMode {
 	/**
 	 * Create a class-based proxy (uses CGLIB).
 	 */
-	TARGET_CLASS;
+	TARGET_CLASS
 
 }

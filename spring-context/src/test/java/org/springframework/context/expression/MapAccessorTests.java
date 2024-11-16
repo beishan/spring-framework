@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,25 +17,27 @@
 package org.springframework.context.expression;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelCompiler;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for compilation of {@link MapAccessor}.
+ * Tests for {@link MapAccessor}.
  *
  * @author Andy Clement
  */
-public class MapAccessorTests {
+class MapAccessorTests {
 
 	@Test
-	public void mapAccessorCompilable() {
+	void compilationSupport() {
 		Map<String, Object> testMap = getSimpleTestMap();
 		StandardEvaluationContext sec = new StandardEvaluationContext();
 		sec.addPropertyAccessor(new MapAccessor());
@@ -43,51 +45,95 @@ public class MapAccessorTests {
 
 		// basic
 		Expression ex = sep.parseExpression("foo");
-		assertEquals("bar",ex.getValue(sec,testMap));
-		assertTrue(SpelCompiler.compile(ex));
-		assertEquals("bar",ex.getValue(sec,testMap));
+		assertThat(ex.getValue(sec, testMap)).isEqualTo("bar");
+		assertThat(SpelCompiler.compile(ex)).isTrue();
+		assertThat(ex.getValue(sec, testMap)).isEqualTo("bar");
 
 		// compound expression
 		ex = sep.parseExpression("foo.toUpperCase()");
-		assertEquals("BAR",ex.getValue(sec,testMap));
-		assertTrue(SpelCompiler.compile(ex));
-		assertEquals("BAR",ex.getValue(sec,testMap));
+		assertThat(ex.getValue(sec, testMap)).isEqualTo("BAR");
+		assertThat(SpelCompiler.compile(ex)).isTrue();
+		assertThat(ex.getValue(sec, testMap)).isEqualTo("BAR");
 
 		// nested map
-		Map<String,Map<String,Object>> nestedMap = getNestedTestMap();
+		Map<String, Map<String, Object>> nestedMap = getNestedTestMap();
 		ex = sep.parseExpression("aaa.foo.toUpperCase()");
-		assertEquals("BAR",ex.getValue(sec,nestedMap));
-		assertTrue(SpelCompiler.compile(ex));
-		assertEquals("BAR",ex.getValue(sec,nestedMap));
+		assertThat(ex.getValue(sec, nestedMap)).isEqualTo("BAR");
+		assertThat(SpelCompiler.compile(ex)).isTrue();
+		assertThat(ex.getValue(sec, nestedMap)).isEqualTo("BAR");
 
 		// avoiding inserting checkcast because first part of expression returns a Map
 		ex = sep.parseExpression("getMap().foo");
 		MapGetter mapGetter = new MapGetter();
-		assertEquals("bar",ex.getValue(sec,mapGetter));
-		assertTrue(SpelCompiler.compile(ex));
-		assertEquals("bar",ex.getValue(sec,mapGetter));
+		assertThat(ex.getValue(sec, mapGetter)).isEqualTo("bar");
+		assertThat(SpelCompiler.compile(ex)).isTrue();
+		assertThat(ex.getValue(sec, mapGetter)).isEqualTo("bar");
+
+		// basic isWritable
+		ex = sep.parseExpression("foo");
+		assertThat(ex.isWritable(sec, testMap)).isTrue();
+
+		// basic write
+		ex = sep.parseExpression("foo2");
+		ex.setValue(sec, testMap, "bar2");
+		assertThat(ex.getValue(sec, testMap)).isEqualTo("bar2");
+		assertThat(SpelCompiler.compile(ex)).isTrue();
+		assertThat(ex.getValue(sec, testMap)).isEqualTo("bar2");
 	}
 
+	@Test
+	void canWrite() throws Exception {
+		StandardEvaluationContext context = new StandardEvaluationContext();
+		Map<String, Object> testMap = getSimpleTestMap();
+
+		MapAccessor mapAccessor = new MapAccessor();
+		assertThat(mapAccessor.canWrite(context, new Object(), "foo")).isFalse();
+		assertThat(mapAccessor.canWrite(context, testMap, "foo")).isTrue();
+		// Cannot actually write to an immutable Map, but MapAccessor cannot easily check for that.
+		assertThat(mapAccessor.canWrite(context, Map.of(), "x")).isTrue();
+
+		mapAccessor = new MapAccessor(false);
+		assertThat(mapAccessor.canWrite(context, new Object(), "foo")).isFalse();
+		assertThat(mapAccessor.canWrite(context, testMap, "foo")).isFalse();
+	}
+
+	@Test
+	void isWritable() {
+		Map<String, Object> testMap = getSimpleTestMap();
+		StandardEvaluationContext sec = new StandardEvaluationContext();
+		SpelExpressionParser sep = new SpelExpressionParser();
+		Expression ex = sep.parseExpression("foo");
+
+		assertThat(ex.isWritable(sec, testMap)).isFalse();
+
+		sec.setPropertyAccessors(List.of(new MapAccessor(true)));
+		assertThat(ex.isWritable(sec, testMap)).isTrue();
+
+		sec.setPropertyAccessors(List.of(new MapAccessor(false)));
+		assertThat(ex.isWritable(sec, testMap)).isFalse();
+	}
+
+
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	public static class MapGetter {
-		Map<String,Object> map = new HashMap<>();
+		Map map = new HashMap<>();
 
 		public MapGetter() {
-			map.put("foo", "bar");
+			this.map.put("foo", "bar");
 		}
 
-		@SuppressWarnings("rawtypes")
 		public Map getMap() {
-			return map;
+			return this.map;
 		}
 	}
 
-	public Map<String,Object> getSimpleTestMap() {
+	private static Map<String,Object> getSimpleTestMap() {
 		Map<String,Object> map = new HashMap<>();
 		map.put("foo","bar");
 		return map;
 	}
 
-	public Map<String,Map<String,Object>> getNestedTestMap() {
+	private static Map<String,Map<String,Object>> getNestedTestMap() {
 		Map<String,Object> map = new HashMap<>();
 		map.put("foo","bar");
 		Map<String,Map<String,Object>> map2 = new HashMap<>();

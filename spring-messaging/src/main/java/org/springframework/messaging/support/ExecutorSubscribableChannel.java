@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.messaging.support;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
@@ -70,18 +71,24 @@ public class ExecutorSubscribableChannel extends AbstractSubscribableChannel {
 	public void setInterceptors(List<ChannelInterceptor> interceptors) {
 		super.setInterceptors(interceptors);
 		this.executorInterceptors.clear();
-		for (ChannelInterceptor interceptor : interceptors) {
-			if (interceptor instanceof ExecutorChannelInterceptor) {
-				this.executorInterceptors.add((ExecutorChannelInterceptor) interceptor);
-			}
-		}
+		interceptors.forEach(this::updateExecutorInterceptorsFor);
 	}
 
 	@Override
 	public void addInterceptor(ChannelInterceptor interceptor) {
 		super.addInterceptor(interceptor);
-		if (interceptor instanceof ExecutorChannelInterceptor) {
-			this.executorInterceptors.add((ExecutorChannelInterceptor) interceptor);
+		updateExecutorInterceptorsFor(interceptor);
+	}
+
+	@Override
+	public void addInterceptor(int index, ChannelInterceptor interceptor) {
+		super.addInterceptor(index, interceptor);
+		updateExecutorInterceptorsFor(interceptor);
+	}
+
+	private void updateExecutorInterceptorsFor(ChannelInterceptor interceptor) {
+		if (interceptor instanceof ExecutorChannelInterceptor executorChannelInterceptor) {
+			this.executorInterceptors.add(executorChannelInterceptor);
 		}
 	}
 
@@ -90,11 +97,18 @@ public class ExecutorSubscribableChannel extends AbstractSubscribableChannel {
 	public boolean sendInternal(Message<?> message, long timeout) {
 		for (MessageHandler handler : getSubscribers()) {
 			SendTask sendTask = new SendTask(message, handler);
-			if (this.executor == null) {
-				sendTask.run();
+			if (this.executor != null) {
+				try {
+					this.executor.execute(sendTask);
+				}
+				catch (RejectedExecutionException ex) {
+					// Probably on shutdown -> run send task locally instead
+					sendTask.run();
+				}
 			}
 			else {
-				this.executor.execute(sendTask);
+				// No executor configured -> always run send tasks locally
+				sendTask.run();
 			}
 		}
 		return true;
@@ -140,8 +154,8 @@ public class ExecutorSubscribableChannel extends AbstractSubscribableChannel {
 			}
 			catch (Exception ex) {
 				triggerAfterMessageHandled(message, ex);
-				if (ex instanceof MessagingException) {
-					throw (MessagingException) ex;
+				if (ex instanceof MessagingException messagingException) {
+					throw messagingException;
 				}
 				String description = "Failed to handle " + message + " to " + this + " in " + this.messageHandler;
 				throw new MessageDeliveryException(message, description, ex);

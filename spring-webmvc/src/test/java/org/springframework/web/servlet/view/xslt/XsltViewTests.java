@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -31,26 +32,26 @@ import javax.xml.transform.stream.StreamSource;
 import org.dom4j.Document;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.xml.sax.SAXException;
 
 import org.springframework.context.support.StaticApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 
-import org.xml.sax.SAXException;
-
-import static java.util.Collections.*;
-import static org.junit.Assert.*;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.singletonMap;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * @author Rob Harrop
  * @author Juergen Hoeller
  * @author Sam Brannen
  */
-public class XsltViewTests {
+class XsltViewTests {
 
 	private static final String HTML_OUTPUT = "/org/springframework/web/servlet/view/xslt/products.xsl";
 
@@ -59,53 +60,55 @@ public class XsltViewTests {
 	private final MockHttpServletResponse response = new MockHttpServletResponse();
 
 
-	@Test(expected = IllegalArgumentException.class)
-	public void withNoSource() throws Exception {
+	@Test
+	void withNoSource() {
 		final XsltView view = getXsltView(HTML_OUTPUT);
-		view.render(emptyMap(), request, response);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void withoutUrl() throws Exception {
-		final XsltView view = new XsltView();
-		view.afterPropertiesSet();
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				view.render(emptyMap(), request, response));
 	}
 
 	@Test
-	public void simpleTransformWithSource() throws Exception {
+	void withoutUrl() {
+		final XsltView view = new XsltView();
+		assertThatIllegalArgumentException().isThrownBy(
+				view::afterPropertiesSet);
+	}
+
+	@Test
+	void simpleTransformWithSource() throws Exception {
 		Source source = new StreamSource(getProductDataResource().getInputStream());
 		doTestWithModel(singletonMap("someKey", source));
 	}
 
 	@Test
-	public void testSimpleTransformWithDocument() throws Exception {
+	void testSimpleTransformWithDocument() throws Exception {
 		org.w3c.dom.Document document = getDomDocument();
 		doTestWithModel(singletonMap("someKey", document));
 	}
 
 	@Test
-	public void testSimpleTransformWithNode() throws Exception {
+	void testSimpleTransformWithNode() throws Exception {
 		org.w3c.dom.Document document = getDomDocument();
 		doTestWithModel(singletonMap("someKey", document.getDocumentElement()));
 	}
 
 	@Test
-	public void testSimpleTransformWithInputStream() throws Exception {
+	void testSimpleTransformWithInputStream() throws Exception {
 		doTestWithModel(singletonMap("someKey", getProductDataResource().getInputStream()));
 	}
 
 	@Test
-	public void testSimpleTransformWithReader() throws Exception {
+	void testSimpleTransformWithReader() throws Exception {
 		doTestWithModel(singletonMap("someKey", new InputStreamReader(getProductDataResource().getInputStream())));
 	}
 
 	@Test
-	public void testSimpleTransformWithResource() throws Exception {
+	void testSimpleTransformWithResource() throws Exception {
 		doTestWithModel(singletonMap("someKey", getProductDataResource()));
 	}
 
 	@Test
-	public void testWithSourceKey() throws Exception {
+	void testWithSourceKey() throws Exception {
 		XsltView view = getXsltView(HTML_OUTPUT);
 		view.setSourceKey("actualData");
 
@@ -118,26 +121,26 @@ public class XsltViewTests {
 	}
 
 	@Test
-	public void testContentTypeCarriedFromTemplate() throws Exception {
+	void testContentTypeCarriedFromTemplate() throws Exception {
 		XsltView view = getXsltView(HTML_OUTPUT);
 
 		Source source = new StreamSource(getProductDataResource().getInputStream());
 		view.render(singletonMap("someKey", source), this.request, this.response);
-		assertTrue(this.response.getContentType().startsWith("text/html"));
-		assertEquals("UTF-8", this.response.getCharacterEncoding());
+		assertThat(this.response.getContentType()).startsWith("text/html");
+		assertThat(this.response.getCharacterEncoding()).isEqualTo("UTF-8");
 	}
 
 	@Test
-	public void testModelParametersCarriedAcross() throws Exception {
+	void testModelParametersCarriedAcross() throws Exception {
 		Map<String, Object> model = new HashMap<>();
 		model.put("someKey", getProductDataResource());
 		model.put("title", "Product List");
 		doTestWithModel(model);
-		assertTrue(this.response.getContentAsString().indexOf("Product List") > -1);
+		assertThat(this.response.getContentAsString()).contains("Product List");
 	}
 
 	@Test
-	public void testStaticAttributesCarriedAcross() throws Exception {
+	void testStaticAttributesCarriedAcross() throws Exception {
 		XsltView view = getXsltView(HTML_OUTPUT);
 		view.setSourceKey("actualData");
 		view.addStaticAttribute("title", "Product List");
@@ -148,15 +151,14 @@ public class XsltViewTests {
 
 		view.render(model, this.request, this.response);
 		assertHtmlOutput(this.response.getContentAsString());
-		assertTrue(this.response.getContentAsString().indexOf("Product List") > -1);
+		assertThat(this.response.getContentAsString()).contains("Product List");
 
 	}
 
 	private org.w3c.dom.Document getDomDocument() throws ParserConfigurationException, SAXException, IOException {
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		DocumentBuilder builder = dbf.newDocumentBuilder();
-		org.w3c.dom.Document document = builder.parse(getProductDataResource().getInputStream());
-		return document;
+		return builder.parse(getProductDataResource().getInputStream());
 	}
 
 	private void doTestWithModel(Map<String, Object> model) throws Exception {
@@ -182,13 +184,13 @@ public class XsltViewTests {
 	}
 
 	private void assertRowElement(Element elem, String id, String name, String price) {
-		Element idElem = (Element) elem.elements().get(0);
-		Element nameElem = (Element) elem.elements().get(1);
-		Element priceElem = (Element) elem.elements().get(2);
+		Element idElem = elem.elements().get(0);
+		Element nameElem = elem.elements().get(1);
+		Element priceElem = elem.elements().get(2);
 
-		assertEquals("ID incorrect.", id, idElem.getText());
-		assertEquals("Name incorrect.", name, nameElem.getText());
-		assertEquals("Price incorrect.", price, priceElem.getText());
+		assertThat(idElem.getText()).as("ID incorrect.").isEqualTo(id);
+		assertThat(nameElem.getText()).as("Name incorrect.").isEqualTo(name);
+		assertThat(priceElem.getText()).as("Price incorrect.").isEqualTo(price);
 	}
 
 	private XsltView getXsltView(String templatePath) {

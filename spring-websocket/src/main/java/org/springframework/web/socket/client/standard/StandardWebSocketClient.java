@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,22 +26,24 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import javax.websocket.ClientEndpointConfig;
-import javax.websocket.ClientEndpointConfig.Configurator;
-import javax.websocket.ContainerProvider;
-import javax.websocket.Endpoint;
-import javax.websocket.Extension;
-import javax.websocket.HandshakeResponse;
-import javax.websocket.WebSocketContainer;
+import java.util.concurrent.CompletableFuture;
 
-import org.springframework.core.task.AsyncListenableTaskExecutor;
+import javax.net.ssl.SSLContext;
+
+import jakarta.websocket.ClientEndpointConfig;
+import jakarta.websocket.ClientEndpointConfig.Configurator;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.Endpoint;
+import jakarta.websocket.Extension;
+import jakarta.websocket.HandshakeResponse;
+import jakarta.websocket.WebSocketContainer;
+
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
-import org.springframework.util.concurrent.ListenableFuture;
-import org.springframework.util.concurrent.ListenableFutureTask;
+import org.springframework.util.concurrent.FutureUtils;
 import org.springframework.web.socket.WebSocketExtension;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketSession;
@@ -51,9 +53,10 @@ import org.springframework.web.socket.adapter.standard.WebSocketToStandardExtens
 import org.springframework.web.socket.client.AbstractWebSocketClient;
 
 /**
- * A WebSocketClient based on standard Java WebSocket API.
+ * A WebSocketClient based on the standard Jakarta WebSocket API.
  *
  * @author Rossen Stoyanchev
+ * @author Juergen Hoeller
  * @since 4.0
  */
 public class StandardWebSocketClient extends AbstractWebSocketClient {
@@ -63,7 +66,10 @@ public class StandardWebSocketClient extends AbstractWebSocketClient {
 	private final Map<String,Object> userProperties = new HashMap<>();
 
 	@Nullable
-	private AsyncListenableTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
+	private SSLContext sslContext;
+
+	@Nullable
+	private AsyncTaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
 
 
 	/**
@@ -88,7 +94,7 @@ public class StandardWebSocketClient extends AbstractWebSocketClient {
 
 
 	/**
-	 * The standard Java WebSocket API allows passing "user properties" to the
+	 * The standard Jakarta WebSocket API allows passing "user properties" to the
 	 * server via {@link ClientEndpointConfig#getUserProperties() userProperties}.
 	 * Use this property to configure one or more properties to be passed on
 	 * every handshake.
@@ -100,33 +106,50 @@ public class StandardWebSocketClient extends AbstractWebSocketClient {
 	}
 
 	/**
-	 * The configured user properties.
+	 * Return the configured user properties.
 	 */
 	public Map<String, Object> getUserProperties() {
 		return this.userProperties;
 	}
 
 	/**
-	 * Set an {@link AsyncListenableTaskExecutor} to use when opening connections.
-	 * If this property is set to {@code null}, calls to any of the
+	 * Set the {@link SSLContext} to use for {@link ClientEndpointConfig#getSSLContext()}.
+	 * @since 6.1.3
+	 */
+	public void setSslContext(@Nullable SSLContext sslContext) {
+		this.sslContext = sslContext;
+	}
+
+	/**
+	 * Return the {@link SSLContext} to use.
+	 * @since 6.1.3
+	 */
+	@Nullable
+	public SSLContext getSslContext() {
+		return this.sslContext;
+	}
+
+	/**
+	 * Set an {@link AsyncTaskExecutor} to use when opening connections.
+	 * <p>If this property is set to {@code null}, calls to any of the
 	 * {@code doHandshake} methods will block until the connection is established.
 	 * <p>By default, an instance of {@code SimpleAsyncTaskExecutor} is used.
 	 */
-	public void setTaskExecutor(@Nullable AsyncListenableTaskExecutor taskExecutor) {
+	public void setTaskExecutor(@Nullable AsyncTaskExecutor taskExecutor) {
 		this.taskExecutor = taskExecutor;
 	}
 
 	/**
-	 * Return the configured {@link TaskExecutor}.
+	 * Return the configured {@link AsyncTaskExecutor}.
 	 */
 	@Nullable
-	public AsyncListenableTaskExecutor getTaskExecutor() {
+	public AsyncTaskExecutor getTaskExecutor() {
 		return this.taskExecutor;
 	}
 
 
 	@Override
-	protected ListenableFuture<WebSocketSession> doHandshakeInternal(WebSocketHandler webSocketHandler,
+	protected CompletableFuture<WebSocketSession> executeInternal(WebSocketHandler webSocketHandler,
 			HttpHeaders headers, final URI uri, List<String> protocols,
 			List<WebSocketExtension> extensions, Map<String, Object> attributes) {
 
@@ -134,30 +157,30 @@ public class StandardWebSocketClient extends AbstractWebSocketClient {
 		InetSocketAddress localAddress = new InetSocketAddress(getLocalHost(), port);
 		InetSocketAddress remoteAddress = new InetSocketAddress(uri.getHost(), port);
 
-		final StandardWebSocketSession session = new StandardWebSocketSession(headers,
+		StandardWebSocketSession session = new StandardWebSocketSession(headers,
 				attributes, localAddress, remoteAddress);
 
-		final ClientEndpointConfig endpointConfig = ClientEndpointConfig.Builder.create()
+		ClientEndpointConfig endpointConfig = ClientEndpointConfig.Builder.create()
 				.configurator(new StandardWebSocketClientConfigurator(headers))
 				.preferredSubprotocols(protocols)
-				.extensions(adaptExtensions(extensions)).build();
+				.extensions(adaptExtensions(extensions))
+				.sslContext(getSslContext())
+				.build();
 
 		endpointConfig.getUserProperties().putAll(getUserProperties());
 
-		final Endpoint endpoint = new StandardWebSocketHandlerAdapter(webSocketHandler, session);
+		Endpoint endpoint = new StandardWebSocketHandlerAdapter(webSocketHandler, session);
 
 		Callable<WebSocketSession> connectTask = () -> {
-			webSocketContainer.connectToServer(endpoint, endpointConfig, uri);
+			this.webSocketContainer.connectToServer(endpoint, endpointConfig, uri);
 			return session;
 		};
 
 		if (this.taskExecutor != null) {
-			return this.taskExecutor.submitListenable(connectTask);
+			return FutureUtils.callAsync(connectTask, this.taskExecutor);
 		}
 		else {
-			ListenableFutureTask<WebSocketSession> task = new ListenableFutureTask<>(connectTask);
-			task.run();
-			return task;
+			return FutureUtils.callAsync(connectTask);
 		}
 	}
 
@@ -169,7 +192,7 @@ public class StandardWebSocketClient extends AbstractWebSocketClient {
 		return result;
 	}
 
-	private InetAddress getLocalHost() {
+	private static InetAddress getLocalHost() {
 		try {
 			return InetAddress.getLocalHost();
 		}
@@ -178,10 +201,10 @@ public class StandardWebSocketClient extends AbstractWebSocketClient {
 		}
 	}
 
-	private int getPort(URI uri) {
+	private static int getPort(URI uri) {
 		if (uri.getPort() == -1) {
-	        String scheme = uri.getScheme().toLowerCase(Locale.ENGLISH);
-	        return ("wss".equals(scheme) ? 443 : 80);
+			String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
+			return ("wss".equals(scheme) ? 443 : 80);
 		}
 		return uri.getPort();
 	}

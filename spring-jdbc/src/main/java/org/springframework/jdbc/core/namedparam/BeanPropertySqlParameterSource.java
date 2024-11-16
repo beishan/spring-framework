@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,21 +25,23 @@ import org.springframework.beans.NotReadablePropertyException;
 import org.springframework.beans.PropertyAccessor;
 import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.jdbc.core.StatementCreatorUtils;
+import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
  * {@link SqlParameterSource} implementation that obtains parameter values
  * from bean properties of a given JavaBean object. The names of the bean
- * properties have to match the parameter names.
+ * properties have to match the parameter names. Supports components of
+ * record classes as well, with accessor methods matching parameter names.
  *
- * <p>Uses a Spring BeanWrapper for bean property access underneath.
+ * <p>Uses a Spring {@link BeanWrapper} for bean property access underneath.
  *
  * @author Thomas Risberg
  * @author Juergen Hoeller
  * @since 2.0
  * @see NamedParameterJdbcTemplate
- * @see org.springframework.beans.BeanWrapper
+ * @see SimplePropertySqlParameterSource
  */
 public class BeanPropertySqlParameterSource extends AbstractSqlParameterSource {
 
@@ -89,7 +91,7 @@ public class BeanPropertySqlParameterSource extends AbstractSqlParameterSource {
 	}
 
 	@Override
-	@Nullable
+	@NonNull
 	public String[] getParameterNames() {
 		return getReadablePropertyNames();
 	}

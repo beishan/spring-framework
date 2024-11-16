@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,14 +16,12 @@
 
 package org.springframework.jms.config;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.MessageListener;
-import javax.jms.Session;
-import javax.transaction.TransactionManager;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import io.micrometer.observation.tck.TestObservationRegistry;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.MessageListener;
+import jakarta.jms.Session;
+import jakarta.transaction.TransactionManager;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.jms.StubConnectionFactory;
@@ -42,13 +40,14 @@ import org.springframework.jms.support.destination.DynamicDestinationResolver;
 import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.FixedBackOff;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author Stephane Nicoll
  */
-public class JmsListenerContainerFactoryTests {
+class JmsListenerContainerFactoryTests {
 
 	private final ConnectionFactory connectionFactory = new StubConnectionFactory();
 
@@ -56,15 +55,11 @@ public class JmsListenerContainerFactoryTests {
 
 	private final MessageConverter messageConverter = new SimpleMessageConverter();
 
-	private final TransactionManager transactionManager = mock(TransactionManager.class);
-
-
-	@Rule
-	public final ExpectedException thrown = ExpectedException.none();
+	private final TransactionManager transactionManager = mock();
 
 
 	@Test
-	public void createSimpleContainer() {
+	void createSimpleContainer() {
 		SimpleJmsListenerContainerFactory factory = new SimpleJmsListenerContainerFactory();
 		setDefaultJmsConfig(factory);
 		SimpleJmsListenerEndpoint endpoint = new SimpleJmsListenerEndpoint();
@@ -76,17 +71,19 @@ public class JmsListenerContainerFactoryTests {
 		SimpleMessageListenerContainer container = factory.createListenerContainer(endpoint);
 
 		assertDefaultJmsConfig(container);
-		assertEquals(messageListener, container.getMessageListener());
-		assertEquals("myQueue", container.getDestinationName());
+		assertThat(container.getMessageListener()).isEqualTo(messageListener);
+		assertThat(container.getDestinationName()).isEqualTo("myQueue");
 	}
 
 	@Test
-	public void createJmsContainerFullConfig() {
+	void createJmsContainerFullConfig() {
 		DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+		TestObservationRegistry testObservationRegistry = TestObservationRegistry.create();
 		setDefaultJmsConfig(factory);
 		factory.setCacheLevel(DefaultMessageListenerContainer.CACHE_CONSUMER);
 		factory.setConcurrency("3-10");
 		factory.setMaxMessagesPerTask(5);
+		factory.setObservationRegistry(testObservationRegistry);
 
 		SimpleJmsListenerEndpoint endpoint = new SimpleJmsListenerEndpoint();
 		MessageListener messageListener = new MessageListenerAdapter();
@@ -95,17 +92,18 @@ public class JmsListenerContainerFactoryTests {
 		DefaultMessageListenerContainer container = factory.createListenerContainer(endpoint);
 
 		assertDefaultJmsConfig(container);
-		assertEquals(DefaultMessageListenerContainer.CACHE_CONSUMER, container.getCacheLevel());
-		assertEquals(3, container.getConcurrentConsumers());
-		assertEquals(10, container.getMaxConcurrentConsumers());
-		assertEquals(5, container.getMaxMessagesPerTask());
+		assertThat(container.getCacheLevel()).isEqualTo(DefaultMessageListenerContainer.CACHE_CONSUMER);
+		assertThat(container.getConcurrentConsumers()).isEqualTo(3);
+		assertThat(container.getMaxConcurrentConsumers()).isEqualTo(10);
+		assertThat(container.getMaxMessagesPerTask()).isEqualTo(5);
+		assertThat(container.getObservationRegistry()).isEqualTo(testObservationRegistry);
 
-		assertEquals(messageListener, container.getMessageListener());
-		assertEquals("myQueue", container.getDestinationName());
+		assertThat(container.getMessageListener()).isEqualTo(messageListener);
+		assertThat(container.getDestinationName()).isEqualTo("myQueue");
 	}
 
 	@Test
-	public void createJcaContainerFullConfig() {
+	void createJcaContainerFullConfig() {
 		DefaultJcaListenerContainerFactory factory = new DefaultJcaListenerContainerFactory();
 		setDefaultJcaConfig(factory);
 		factory.setConcurrency("10");
@@ -117,25 +115,25 @@ public class JmsListenerContainerFactoryTests {
 		JmsMessageEndpointManager container = factory.createListenerContainer(endpoint);
 
 		assertDefaultJcaConfig(container);
-		assertEquals(10, container.getActivationSpecConfig().getMaxConcurrency());
-		assertEquals(messageListener, container.getMessageListener());
-		assertEquals("myQueue", container.getActivationSpecConfig().getDestinationName());
+		assertThat(container.getActivationSpecConfig().getMaxConcurrency()).isEqualTo(10);
+		assertThat(container.getMessageListener()).isEqualTo(messageListener);
+		assertThat(container.getActivationSpecConfig().getDestinationName()).isEqualTo("myQueue");
 	}
 
 	@Test
-	public void jcaExclusiveProperties() {
+	void jcaExclusiveProperties() {
 		DefaultJcaListenerContainerFactory factory = new DefaultJcaListenerContainerFactory();
 		factory.setDestinationResolver(this.destinationResolver);
 		factory.setActivationSpecFactory(new StubJmsActivationSpecFactory());
 
 		SimpleJmsListenerEndpoint endpoint = new SimpleJmsListenerEndpoint();
 		endpoint.setMessageListener(new MessageListenerAdapter());
-		this.thrown.expect(IllegalStateException.class);
-		factory.createListenerContainer(endpoint);
+		assertThatIllegalStateException().isThrownBy(() ->
+				factory.createListenerContainer(endpoint));
 	}
 
 	@Test
-	public void backOffOverridesRecoveryInterval() {
+	void backOffOverridesRecoveryInterval() {
 		DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
 		BackOff backOff = new FixedBackOff();
 		factory.setBackOff(backOff);
@@ -147,11 +145,11 @@ public class JmsListenerContainerFactoryTests {
 		endpoint.setDestination("myQueue");
 		DefaultMessageListenerContainer container = factory.createListenerContainer(endpoint);
 
-		assertSame(backOff, new DirectFieldAccessor(container).getPropertyValue("backOff"));
+		assertThat(new DirectFieldAccessor(container).getPropertyValue("backOff")).isSameAs(backOff);
 	}
 
 	@Test
-	public void endpointConcurrencyTakesPrecedence() {
+	void endpointConcurrencyTakesPrecedence() {
 		DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
 		factory.setConcurrency("2-10");
 
@@ -161,8 +159,8 @@ public class JmsListenerContainerFactoryTests {
 		endpoint.setDestination("myQueue");
 		endpoint.setConcurrency("4-6");
 		DefaultMessageListenerContainer container = factory.createListenerContainer(endpoint);
-		assertEquals(4, container.getConcurrentConsumers());
-		assertEquals(6, container.getMaxConcurrentConsumers());
+		assertThat(container.getConcurrentConsumers()).isEqualTo(4);
+		assertThat(container.getMaxConcurrentConsumers()).isEqualTo(6);
 	}
 
 
@@ -181,17 +179,17 @@ public class JmsListenerContainerFactoryTests {
 	}
 
 	private void assertDefaultJmsConfig(AbstractMessageListenerContainer container) {
-		assertEquals(this.connectionFactory, container.getConnectionFactory());
-		assertEquals(this.destinationResolver, container.getDestinationResolver());
-		assertEquals(this.messageConverter, container.getMessageConverter());
-		assertEquals(true, container.isSessionTransacted());
-		assertEquals(Session.DUPS_OK_ACKNOWLEDGE, container.getSessionAcknowledgeMode());
-		assertEquals(true, container.isPubSubDomain());
-		assertEquals(true, container.isReplyPubSubDomain());
-		assertEquals(new QosSettings(1, 7, 5000), container.getReplyQosSettings());
-		assertEquals(true, container.isSubscriptionDurable());
-		assertEquals("client-1234", container.getClientId());
-		assertEquals(false, container.isAutoStartup());
+		assertThat(container.getConnectionFactory()).isEqualTo(this.connectionFactory);
+		assertThat(container.getDestinationResolver()).isEqualTo(this.destinationResolver);
+		assertThat(container.getMessageConverter()).isEqualTo(this.messageConverter);
+		assertThat(container.isSessionTransacted()).isTrue();
+		assertThat(container.getSessionAcknowledgeMode()).isEqualTo(Session.DUPS_OK_ACKNOWLEDGE);
+		assertThat(container.isPubSubDomain()).isTrue();
+		assertThat(container.isReplyPubSubDomain()).isTrue();
+		assertThat(container.getReplyQosSettings()).isEqualTo(new QosSettings(1, 7, 5000));
+		assertThat(container.isSubscriptionDurable()).isTrue();
+		assertThat(container.getClientId()).isEqualTo("client-1234");
+		assertThat(container.isAutoStartup()).isFalse();
 	}
 
 	private void setDefaultJcaConfig(DefaultJcaListenerContainerFactory factory) {
@@ -206,15 +204,15 @@ public class JmsListenerContainerFactoryTests {
 	}
 
 	private void assertDefaultJcaConfig(JmsMessageEndpointManager container) {
-		assertEquals(this.messageConverter, container.getMessageConverter());
-		assertEquals(this.destinationResolver, container.getDestinationResolver());
+		assertThat(container.getMessageConverter()).isEqualTo(this.messageConverter);
+		assertThat(container.getDestinationResolver()).isEqualTo(this.destinationResolver);
 		JmsActivationSpecConfig config = container.getActivationSpecConfig();
-		assertNotNull(config);
-		assertEquals(Session.DUPS_OK_ACKNOWLEDGE, config.getAcknowledgeMode());
-		assertEquals(true, config.isPubSubDomain());
-		assertEquals(new QosSettings(1, 7, 5000), container.getReplyQosSettings());
-		assertEquals(true, config.isSubscriptionDurable());
-		assertEquals("client-1234", config.getClientId());
+		assertThat(config).isNotNull();
+		assertThat(config.getAcknowledgeMode()).isEqualTo(Session.DUPS_OK_ACKNOWLEDGE);
+		assertThat(config.isPubSubDomain()).isTrue();
+		assertThat(container.getReplyQosSettings()).isEqualTo(new QosSettings(1, 7, 5000));
+		assertThat(config.isSubscriptionDurable()).isTrue();
+		assertThat(config.getClientId()).isEqualTo("client-1234");
 	}
 
 }

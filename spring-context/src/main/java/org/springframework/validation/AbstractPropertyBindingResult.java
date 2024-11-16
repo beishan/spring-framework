@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -70,6 +70,7 @@ public abstract class AbstractPropertyBindingResult extends AbstractBindingResul
 	 * @see #getPropertyAccessor()
 	 */
 	@Override
+	@Nullable
 	public PropertyEditorRegistry getPropertyEditorRegistry() {
 		return (getTarget() != null ? getPropertyAccessor() : null);
 	}
@@ -109,6 +110,7 @@ public abstract class AbstractPropertyBindingResult extends AbstractBindingResul
 	 * @see #getCustomEditor
 	 */
 	@Override
+	@Nullable
 	protected Object formatFieldValue(String field, @Nullable Object value) {
 		String fixedField = fixedField(field);
 		// Try custom editor...

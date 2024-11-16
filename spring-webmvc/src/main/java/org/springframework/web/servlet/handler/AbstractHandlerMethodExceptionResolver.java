@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,8 @@
 
 package org.springframework.web.servlet.handler;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.lang.Nullable;
 import org.springframework.web.method.HandlerMethod;
@@ -29,23 +29,24 @@ import org.springframework.web.servlet.ModelAndView;
  * implementations that support handling exceptions from handlers of type {@link HandlerMethod}.
  *
  * @author Rossen Stoyanchev
+ * @author Juergen Hoeller
  * @since 3.1
  */
 public abstract class AbstractHandlerMethodExceptionResolver extends AbstractHandlerExceptionResolver {
 
 	/**
-	 * Checks if the handler is a {@link HandlerMethod} and then delegates to the
-	 * base class implementation of {@code #shouldApplyTo(HttpServletRequest, Object)}
-	 * passing the bean of the {@code HandlerMethod}. Otherwise returns {@code false}.
+	 * Checks if the handler is a {@link HandlerMethod} or the resolver has global exception
+	 * handlers and then delegates to the base class implementation of {@code #shouldApplyTo}
+	 * passing the bean of the {@code HandlerMethod} if necessary. Otherwise, returns {@code false}.
+	 * @see HandlerMethod
+	 * @see #hasGlobalExceptionHandlers()
 	 */
 	@Override
 	protected boolean shouldApplyTo(HttpServletRequest request, @Nullable Object handler) {
-		if (handler == null) {
-			return super.shouldApplyTo(request, null);
+		if (handler instanceof HandlerMethod handlerMethod) {
+			return super.shouldApplyTo(request, handlerMethod.getBean());
 		}
-		else if (handler instanceof HandlerMethod) {
-			HandlerMethod handlerMethod = (HandlerMethod) handler;
-			handler = handlerMethod.getBean();
+		else if (handler == null || (hasGlobalExceptionHandlers() && hasHandlerMappings())) {
 			return super.shouldApplyTo(request, handler);
 		}
 		else {
@@ -53,12 +54,23 @@ public abstract class AbstractHandlerMethodExceptionResolver extends AbstractHan
 		}
 	}
 
+	/**
+	 * Whether this resolver has global exception handlers, for example, not declared in
+	 * the same class as the {@code HandlerMethod} that raised the exception and
+	 * therefore can apply to any handler.
+	 * @since 5.3
+	 */
+	protected boolean hasGlobalExceptionHandlers() {
+		return false;
+	}
+
 	@Override
 	@Nullable
 	protected final ModelAndView doResolveException(
 			HttpServletRequest request, HttpServletResponse response, @Nullable Object handler, Exception ex) {
 
-		return doResolveHandlerMethodException(request, response, (HandlerMethod) handler, ex);
+		HandlerMethod handlerMethod = (handler instanceof HandlerMethod hm ? hm : null);
+		return doResolveHandlerMethodException(request, response, handlerMethod, ex);
 	}
 
 	/**

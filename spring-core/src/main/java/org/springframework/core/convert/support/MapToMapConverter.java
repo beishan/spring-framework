@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +33,7 @@ import org.springframework.lang.Nullable;
  *
  * <p>First, creates a new Map of the requested targetType with a size equal to the
  * size of the source Map. Then copies each element in the source map to the target map.
- * Will perform a conversion from the source maps's parameterized K,V types to the target
+ * Will perform a conversion from the source map's parameterized K,V types to the target
  * map's parameterized types K,V if necessary.
  *
  * @author Keith Donald
@@ -61,12 +61,12 @@ final class MapToMapConverter implements ConditionalGenericConverter {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	@Nullable
 	public Object convert(@Nullable Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
 		if (source == null) {
 			return null;
 		}
+		@SuppressWarnings("unchecked")
 		Map<Object, Object> sourceMap = (Map<Object, Object>) source;
 
 		// Shortcut if possible...

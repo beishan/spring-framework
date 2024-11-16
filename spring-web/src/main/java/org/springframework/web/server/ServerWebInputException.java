@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Exception for errors that fit response status 400 (bad request) for use in
- * Spring Web applications. The exception provides additional fields (e.g.
+ * Spring Web applications. The exception provides additional fields (for example,
  * an optional {@link MethodParameter} if related to the error).
  *
  * @author Rossen Stoyanchev
@@ -53,7 +53,18 @@ public class ServerWebInputException extends ResponseStatusException {
 	 * Constructor for a 400 error with a root cause.
 	 */
 	public ServerWebInputException(String reason, @Nullable MethodParameter parameter, @Nullable Throwable cause) {
-		super(HttpStatus.BAD_REQUEST, reason, cause);
+		this(reason, parameter, cause, null, null);
+	}
+
+	/**
+	 * Constructor with a message code and arguments for resolving the error
+	 * "detail" via {@link org.springframework.context.MessageSource}.
+	 * @since 6.0
+	 */
+	protected ServerWebInputException(String reason, @Nullable MethodParameter parameter, @Nullable Throwable cause,
+			@Nullable String messageDetailCode, @Nullable Object[] messageDetailArguments) {
+
+		super(HttpStatus.BAD_REQUEST, reason, cause, messageDetailCode, messageDetailArguments);
 		this.parameter = parameter;
 	}
 

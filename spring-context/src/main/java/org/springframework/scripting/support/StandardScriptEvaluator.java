@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.springframework.scripting.support;
 
 import java.io.IOException;
 import java.util.Map;
+
 import javax.script.Bindings;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -79,7 +80,7 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 
 
 	/**
-	 * Set the name of the language meant for evaluating the scripts (e.g. "Groovy").
+	 * Set the name of the language meant for evaluating the scripts (for example, "Groovy").
 	 * <p>This is effectively an alias for {@link #setEngineName "engineName"},
 	 * potentially (but not yet) providing common abbreviations for certain languages
 	 * beyond what the JSR-223 script engine factory exposes.
@@ -90,7 +91,7 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 	}
 
 	/**
-	 * Set the name of the script engine for evaluating the scripts (e.g. "Groovy"),
+	 * Set the name of the script engine for evaluating the scripts (for example, "Groovy"),
 	 * as exposed by the JSR-223 script engine factory.
 	 * @since 4.2.2
 	 * @see #setLanguage
@@ -172,8 +173,8 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 		if (StringUtils.hasText(this.engineName)) {
 			return StandardScriptUtils.retrieveEngineByName(scriptEngineManager, this.engineName);
 		}
-		else if (script instanceof ResourceScriptSource) {
-			Resource resource = ((ResourceScriptSource) script).getResource();
+		else if (script instanceof ResourceScriptSource resourceScriptSource) {
+			Resource resource = resourceScriptSource.getResource();
 			String extension = StringUtils.getFilenameExtension(resource.getFilename());
 			if (extension == null) {
 				throw new IllegalStateException(

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,9 +40,11 @@ import org.springframework.web.socket.sockjs.transport.session.StreamingSockJsSe
 import org.springframework.web.util.JavaScriptUtils;
 
 /**
- * An HTTP {@link TransportHandler} that uses a famous browser document.domain technique:
- * <a href="http://stackoverflow.com/questions/1481251/what-does-document-domain-document-domain-do">
- * http://stackoverflow.com/questions/1481251/what-does-document-domain-document-domain-do</a>
+ * An HTTP {@link TransportHandler} that uses a famous browser
+ * {@code document.domain} technique. See <a href=
+ * "https://stackoverflow.com/questions/1481251/what-does-document-domain-document-domain-do">
+ * stackoverflow.com/questions/1481251/what-does-document-domain-document-domain-do</a>
+ * for details.
  *
  * @author Rossen Stoyanchev
  * @since 4.0
@@ -52,30 +54,30 @@ public class HtmlFileTransportHandler extends AbstractHttpSendingTransportHandle
 	private static final String PARTIAL_HTML_CONTENT;
 
 	// Safari needs at least 1024 bytes to parse the website.
-	// http://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
+	// https://code.google.com/p/browsersec/wiki/Part2#Survey_of_content_sniffing_behaviors
 	private static final int MINIMUM_PARTIAL_HTML_CONTENT_LENGTH = 1024;
 
 
 	static {
-		StringBuilder sb = new StringBuilder(
-				"<!doctype html>\n" +
-				"<html><head>\n" +
-				"  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" />\n" +
-				"  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n" +
-				"</head><body><h2>Don't panic!</h2>\n" +
-				"  <script>\n" +
-				"    document.domain = document.domain;\n" +
-				"    var c = parent.%s;\n" +
-				"    c.start();\n" +
-				"    function p(d) {c.message(d);};\n" +
-				"    window.onload = function() {c.stop();};\n" +
-				"  </script>"
-				);
+		StringBuilder sb = new StringBuilder("""
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+					<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+				</head>
+				<body>
+					<h2>Don't panic!</h2>
+					<script>
+						document.domain = document.domain;
+						var c = parent.%s;
+						c.start();
+						function p(d) {c.message(d);};
+						window.onload = function() {c.stop();};
+					</script>""");
 
-		while (sb.length() < MINIMUM_PARTIAL_HTML_CONTENT_LENGTH) {
-			sb.append(" ");
-		}
-		PARTIAL_HTML_CONTENT = sb.toString();
+		sb.append(" ".repeat(MINIMUM_PARTIAL_HTML_CONTENT_LENGTH - sb.length()));
+		PARTIAL_HTML_CONTENT = sb.append('\n').toString();
 	}
 
 
@@ -91,7 +93,7 @@ public class HtmlFileTransportHandler extends AbstractHttpSendingTransportHandle
 
 	@Override
 	public boolean checkSessionType(SockJsSession session) {
-		return session instanceof HtmlFileStreamingSockJsSession;
+		return (session instanceof HtmlFileStreamingSockJsSession);
 	}
 
 	@Override

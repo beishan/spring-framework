@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,7 +42,7 @@ import org.springframework.lang.Nullable;
  * @see org.springframework.context.support.MessageSourceAccessor
  * @see org.springframework.web.servlet.DispatcherServlet
  */
-public abstract class LocaleContextHolder {
+public final class LocaleContextHolder {
 
 	private static final ThreadLocal<LocaleContext> localeContextHolder =
 			new NamedThreadLocal<>("LocaleContext");
@@ -57,6 +57,10 @@ public abstract class LocaleContextHolder {
 	// Shared default time zone at the framework level
 	@Nullable
 	private static TimeZone defaultTimeZone;
+
+
+	private LocaleContextHolder() {
+	}
 
 
 	/**
@@ -148,8 +152,8 @@ public abstract class LocaleContextHolder {
 	 */
 	public static void setLocale(@Nullable Locale locale, boolean inheritable) {
 		LocaleContext localeContext = getLocaleContext();
-		TimeZone timeZone = (localeContext instanceof TimeZoneAwareLocaleContext ?
-				((TimeZoneAwareLocaleContext) localeContext).getTimeZone() : null);
+		TimeZone timeZone = (localeContext instanceof TimeZoneAwareLocaleContext timeZoneAware ?
+				timeZoneAware.getTimeZone() : null);
 		if (timeZone != null) {
 			localeContext = new SimpleTimeZoneAwareLocaleContext(locale, timeZone);
 		}
@@ -291,7 +295,7 @@ public abstract class LocaleContextHolder {
 	 * <p>Note: This method has a fallback to the shared default TimeZone,
 	 * either at the framework level or at the JVM-wide system level.
 	 * If you'd like to check for the raw LocaleContext content
-	 * (which may indicate no specific time zone through {@code null}, use
+	 * (which may indicate no specific time zone through {@code null}), use
 	 * {@link #getLocaleContext()} and call {@link TimeZoneAwareLocaleContext#getTimeZone()}
 	 * after downcasting to {@link TimeZoneAwareLocaleContext}.
 	 * @return the current TimeZone, or the system default TimeZone if no
@@ -320,8 +324,8 @@ public abstract class LocaleContextHolder {
 	 * @see java.util.TimeZone#getDefault()
 	 */
 	public static TimeZone getTimeZone(@Nullable LocaleContext localeContext) {
-		if (localeContext instanceof TimeZoneAwareLocaleContext) {
-			TimeZone timeZone = ((TimeZoneAwareLocaleContext) localeContext).getTimeZone();
+		if (localeContext instanceof TimeZoneAwareLocaleContext timeZoneAware) {
+			TimeZone timeZone = timeZoneAware.getTimeZone();
 			if (timeZone != null) {
 				return timeZone;
 			}

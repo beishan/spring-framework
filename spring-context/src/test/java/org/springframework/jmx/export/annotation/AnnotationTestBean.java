@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package org.springframework.jmx.export.annotation;
 
-import org.springframework.jmx.IJmxTestBean;
+import org.springframework.jmx.ITestBean;
 import org.springframework.jmx.support.MetricType;
 import org.springframework.stereotype.Service;
 
@@ -26,10 +26,10 @@ import org.springframework.stereotype.Service;
  */
 @Service("testBean")
 @ManagedResource(objectName = "bean:name=testBean4", description = "My Managed Bean", log = true,
-		logFile = "jmx.log", currencyTimeLimit = 15, persistPolicy = "OnUpdate", persistPeriod = 200,
+		logFile = "build/jmx.log", currencyTimeLimit = 15, persistPolicy = "OnUpdate", persistPeriod = 200,
 		persistLocation = "./foo", persistName = "bar.jmx")
 @ManagedNotification(name = "My Notification", notificationTypes = { "type.foo", "type.bar" })
-public class AnnotationTestBean implements IJmxTestBean {
+public class AnnotationTestBean implements ITestBean {
 
 	private String name;
 
@@ -40,21 +40,13 @@ public class AnnotationTestBean implements IJmxTestBean {
 	private boolean isSuperman;
 
 
-	@Override
-	@ManagedAttribute(description = "The Age Attribute", currencyTimeLimit = 15)
-	public int getAge() {
-		return age;
-	}
-
-	@Override
 	public void setAge(int age) {
 		this.age = age;
 	}
 
-	@Override
-	@ManagedOperation(currencyTimeLimit = 30)
-	public long myOperation() {
-		return 1L;
+	@ManagedAttribute(description = "The Age Attribute", currencyTimeLimit = 15)
+	public int getAge() {
+		return this.age;
 	}
 
 	@Override
@@ -69,7 +61,7 @@ public class AnnotationTestBean implements IJmxTestBean {
 	@Override
 	@ManagedAttribute(defaultValue = "foo", persistPeriod = 300)
 	public String getName() {
-		return name;
+		return this.name;
 	}
 
 	@ManagedAttribute(description = "The Nick Name Attribute")
@@ -90,7 +82,11 @@ public class AnnotationTestBean implements IJmxTestBean {
 		return isSuperman;
 	}
 
-	@Override
+	@ManagedOperation(currencyTimeLimit = 30)
+	public long myOperation() {
+		return 1L;
+	}
+
 	@ManagedOperation(description = "Add Two Numbers Together")
 	@ManagedOperationParameter(name="x", description="Left operand")
 	@ManagedOperationParameter(name="y", description="Right operand")
@@ -99,9 +95,8 @@ public class AnnotationTestBean implements IJmxTestBean {
 	}
 
 	/**
-	 * Test method that is not exposed by the MetadataAssembler.
+	 * Method that is not exposed by the MetadataAssembler.
 	 */
-	@Override
 	public void dontExposeMe() {
 		throw new RuntimeException();
 	}
@@ -109,7 +104,7 @@ public class AnnotationTestBean implements IJmxTestBean {
 	@ManagedMetric(description="The QueueSize metric", currencyTimeLimit = 20, persistPolicy="OnUpdate", persistPeriod=300,
 			category="utilization", metricType = MetricType.COUNTER, displayName="Queue Size", unit="messages")
 	public long getQueueSize() {
-		return 100l;
+		return 100L;
 	}
 
 	@ManagedMetric

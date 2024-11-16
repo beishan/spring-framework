@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,11 @@
 package org.springframework.context.support;
 
 import java.lang.reflect.Method;
+import java.security.ProtectionDomain;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.commons.logging.LogFactory;
 
 import org.springframework.core.DecoratingClassLoader;
 import org.springframework.core.OverridingClassLoader;
@@ -44,19 +47,31 @@ class ContextTypeMatchClassLoader extends DecoratingClassLoader implements Smart
 	}
 
 
-	private static Method findLoadedClassMethod;
+	@Nullable
+	private static final Method findLoadedClassMethod;
 
 	static {
+		// Try to enable findLoadedClass optimization which allows us to selectively
+		// override classes that have not been loaded yet. If not accessible, we will
+		// always override requested classes, even when the classes have been loaded
+		// by the parent ClassLoader already and cannot be transformed anymore anyway.
+		Method method;
 		try {
-			findLoadedClassMethod = ClassLoader.class.getDeclaredMethod("findLoadedClass", String.class);
+			method = ClassLoader.class.getDeclaredMethod("findLoadedClass", String.class);
+			ReflectionUtils.makeAccessible(method);
 		}
-		catch (NoSuchMethodException ex) {
-			throw new IllegalStateException("Invalid [java.lang.ClassLoader] class: no 'findLoadedClass' method defined!");
+		catch (Throwable ex) {
+			// Typically a JDK 9+ InaccessibleObjectException...
+			// Avoid through JVM startup with --add-opens=java.base/java.lang=ALL-UNNAMED
+			method = null;
+			LogFactory.getLog(ContextTypeMatchClassLoader.class).debug(
+					"ClassLoader.findLoadedClass not accessible -> will always override requested class", ex);
 		}
+		findLoadedClassMethod = method;
 	}
 
 
-	/** Cache for byte array per class name */
+	/** Cache for byte array per class name. */
 	private final Map<String, byte[]> bytesCache = new ConcurrentHashMap<>(256);
 
 
@@ -72,6 +87,11 @@ class ContextTypeMatchClassLoader extends DecoratingClassLoader implements Smart
 	@Override
 	public boolean isClassReloadable(Class<?> clazz) {
 		return (clazz.getClassLoader() instanceof ContextOverridingClassLoader);
+	}
+
+	@Override
+	public Class<?> publicDefineClass(String name, byte[] b, @Nullable ProtectionDomain protectionDomain) {
+		return defineClass(name, b, 0, b.length, protectionDomain);
 	}
 
 
@@ -90,18 +110,20 @@ class ContextTypeMatchClassLoader extends DecoratingClassLoader implements Smart
 			if (isExcluded(className) || ContextTypeMatchClassLoader.this.isExcluded(className)) {
 				return false;
 			}
-			ReflectionUtils.makeAccessible(findLoadedClassMethod);
-			ClassLoader parent = getParent();
-			while (parent != null) {
-				if (ReflectionUtils.invokeMethod(findLoadedClassMethod, parent, className) != null) {
-					return false;
+			if (findLoadedClassMethod != null) {
+				ClassLoader parent = getParent();
+				while (parent != null) {
+					if (ReflectionUtils.invokeMethod(findLoadedClassMethod, parent, className) != null) {
+						return false;
+					}
+					parent = parent.getParent();
 				}
-				parent = parent.getParent();
 			}
 			return true;
 		}
 
 		@Override
+		@Nullable
 		protected Class<?> loadClassForOverriding(String name) throws ClassNotFoundException {
 			byte[] bytes = bytesCache.get(name);
 			if (bytes == null) {

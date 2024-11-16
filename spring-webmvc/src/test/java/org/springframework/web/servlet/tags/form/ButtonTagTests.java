@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,18 +18,17 @@ package org.springframework.web.servlet.tags.form;
 
 import java.io.Writer;
 
-import javax.servlet.jsp.tagext.Tag;
+import jakarta.servlet.jsp.tagext.Tag;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Test;
+import org.springframework.beans.testfixture.beans.TestBean;
 
-import org.springframework.tests.sample.beans.TestBean;
-
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Rossen Stoyanchev
  */
-public class ButtonTagTests extends AbstractFormTagTests {
+class ButtonTagTests extends AbstractFormTagTests {
 
 	private ButtonTag tag;
 
@@ -44,9 +43,9 @@ public class ButtonTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void buttonTag() throws Exception {
-		assertEquals(Tag.EVAL_BODY_INCLUDE, this.tag.doStartTag());
-		assertEquals(Tag.EVAL_PAGE, this.tag.doEndTag());
+	void buttonTag() throws Exception {
+		assertThat(this.tag.doStartTag()).isEqualTo(Tag.EVAL_BODY_INCLUDE);
+		assertThat(this.tag.doEndTag()).isEqualTo(Tag.EVAL_PAGE);
 
 		String output = getOutput();
 		assertTagOpened(output);
@@ -60,7 +59,7 @@ public class ButtonTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void disabled() throws Exception {
+	void disabled() throws Exception {
 		this.tag.setDisabled(true);
 
 		this.tag.doStartTag();
@@ -79,14 +78,13 @@ public class ButtonTagTests extends AbstractFormTagTests {
 	}
 
 	protected final void assertTagClosed(String output) {
-		assertTrue("Tag not closed properly", output.endsWith("</button>"));
+		assertThat(output).as("Tag not closed properly").endsWith("</button>");
 	}
 
 	protected final void assertTagOpened(String output) {
-		assertTrue("Tag not opened properly", output.startsWith("<button "));
+		assertThat(output).as("Tag not opened properly").startsWith("<button ");
 	}
 
-	@SuppressWarnings("serial")
 	protected ButtonTag createTag(final Writer writer) {
 		return new ButtonTag() {
 			@Override

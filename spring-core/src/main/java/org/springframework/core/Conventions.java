@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,14 +34,16 @@ import org.springframework.util.ClassUtils;
  * @author Rossen Stoyanchev
  * @since 2.0
  */
-public abstract class Conventions {
+public final class Conventions {
 
 	/**
 	 * Suffix added to names when using arrays.
 	 */
 	private static final String PLURAL_SUFFIX = "List";
 
-	private static final ReactiveAdapterRegistry reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
+
+	private Conventions() {
+	}
 
 
 	/**
@@ -65,11 +67,10 @@ public abstract class Conventions {
 		boolean pluralize = false;
 
 		if (value.getClass().isArray()) {
-			valueClass = value.getClass().getComponentType();
+			valueClass = value.getClass().componentType();
 			pluralize = true;
 		}
-		else if (value instanceof Collection) {
-			Collection<?> collection = (Collection<?>) value;
+		else if (value instanceof Collection<?> collection) {
 			if (collection.isEmpty()) {
 				throw new IllegalArgumentException(
 						"Cannot generate variable name for an empty Collection");
@@ -103,7 +104,7 @@ public abstract class Conventions {
 		String reactiveSuffix = "";
 
 		if (parameter.getParameterType().isArray()) {
-			valueClass = parameter.getParameterType().getComponentType();
+			valueClass = parameter.getParameterType().componentType();
 			pluralize = true;
 		}
 		else if (Collection.class.isAssignableFrom(parameter.getParameterType())) {
@@ -116,13 +117,10 @@ public abstract class Conventions {
 		}
 		else {
 			valueClass = parameter.getParameterType();
-
-			if (reactiveAdapterRegistry.hasAdapters()) {
-				ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(valueClass);
-				if (adapter != null && !adapter.getDescriptor().isNoValue()) {
-					reactiveSuffix = ClassUtils.getShortName(valueClass);
-					valueClass = parameter.nested().getNestedParameterType();
-				}
+			ReactiveAdapter adapter = ReactiveAdapterRegistry.getSharedInstance().getAdapter(valueClass);
+			if (adapter != null && !adapter.getDescriptor().isNoValue()) {
+				reactiveSuffix = ClassUtils.getShortName(valueClass);
+				valueClass = parameter.nested().getNestedParameterType();
 			}
 		}
 
@@ -144,7 +142,7 @@ public abstract class Conventions {
 	 * Determine the conventional variable name for the return type of the given
 	 * method, taking the generic collection type, if any, into account, falling
 	 * back on the given actual return value if the method declaration is not
-	 * specific enough, e.g. {@code Object} return type or untyped collection.
+	 * specific enough, for example, {@code Object} return type or untyped collection.
 	 * @param method the method to generate a variable name for
 	 * @param value the return value (may be {@code null} if not available)
 	 * @return the generated variable name
@@ -157,7 +155,7 @@ public abstract class Conventions {
 	 * Determine the conventional variable name for the return type of the given
 	 * method, taking the generic collection type, if any, into account, falling
 	 * back on the given return value if the method declaration is not specific
-	 * enough, e.g. {@code Object} return type or untyped collection.
+	 * enough, for example, {@code Object} return type or untyped collection.
 	 * <p>As of 5.0 this method supports reactive types:<br>
 	 * {@code Mono<com.myapp.Product>} becomes {@code "productMono"}<br>
 	 * {@code Flux<com.myapp.MyProduct>} becomes {@code "myProductFlux"}<br>
@@ -171,10 +169,7 @@ public abstract class Conventions {
 		Assert.notNull(method, "Method must not be null");
 
 		if (Object.class == resolvedType) {
-			if (value == null) {
-				throw new IllegalArgumentException(
-						"Cannot generate variable name for an Object return type with null value");
-			}
+			Assert.notNull(value, "Cannot generate variable name for an Object return type with null value");
 			return getVariableName(value);
 		}
 
@@ -183,17 +178,16 @@ public abstract class Conventions {
 		String reactiveSuffix = "";
 
 		if (resolvedType.isArray()) {
-			valueClass = resolvedType.getComponentType();
+			valueClass = resolvedType.componentType();
 			pluralize = true;
 		}
 		else if (Collection.class.isAssignableFrom(resolvedType)) {
 			valueClass = ResolvableType.forMethodReturnType(method).asCollection().resolveGeneric();
 			if (valueClass == null) {
-				if (!(value instanceof Collection)) {
+				if (!(value instanceof Collection<?> collection)) {
 					throw new IllegalArgumentException("Cannot generate variable name " +
 							"for non-typed Collection return type and a non-Collection value");
 				}
-				Collection<?> collection = (Collection<?>) value;
 				if (collection.isEmpty()) {
 					throw new IllegalArgumentException("Cannot generate variable name " +
 							"for non-typed Collection return type and an empty Collection value");
@@ -205,12 +199,10 @@ public abstract class Conventions {
 		}
 		else {
 			valueClass = resolvedType;
-			if (reactiveAdapterRegistry.hasAdapters()) {
-				ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(valueClass);
-				if (adapter != null && !adapter.getDescriptor().isNoValue()) {
-					reactiveSuffix = ClassUtils.getShortName(valueClass);
-					valueClass = ResolvableType.forMethodReturnType(method).getGeneric().resolve(Object.class);
-				}
+			ReactiveAdapter adapter = ReactiveAdapterRegistry.getSharedInstance().getAdapter(valueClass);
+			if (adapter != null && !adapter.getDescriptor().isNoValue()) {
+				reactiveSuffix = ClassUtils.getShortName(valueClass);
+				valueClass = ResolvableType.forMethodReturnType(method).getGeneric().toClass();
 			}
 		}
 
@@ -219,7 +211,7 @@ public abstract class Conventions {
 	}
 
 	/**
-	 * Convert {@code String}s in attribute name format (e.g. lowercase, hyphens
+	 * Convert {@code String}s in attribute name format (for example, lowercase, hyphens
 	 * separating words) into property name format (camel-case). For example
 	 * {@code transaction-manager} becomes {@code "transactionManager"}.
 	 */
@@ -228,11 +220,11 @@ public abstract class Conventions {
 		if (!attributeName.contains("-")) {
 			return attributeName;
 		}
-		char[] chars = attributeName.toCharArray();
-		char[] result = new char[chars.length -1]; // not completely accurate but good guess
+		char[] result = new char[attributeName.length() -1]; // not completely accurate but good guess
 		int currPos = 0;
 		boolean upperCaseNext = false;
-		for (char c : chars) {
+		for (int i = 0; i < attributeName.length(); i++ ) {
+			char c = attributeName.charAt(i);
 			if (c == '-') {
 				upperCaseNext = true;
 			}
@@ -279,7 +271,7 @@ public abstract class Conventions {
 		}
 		else if (valueClass.getName().lastIndexOf('$') != -1 && valueClass.getDeclaringClass() == null) {
 			// '$' in the class name but no inner class -
-			// assuming it's a special subclass (e.g. by OpenJPA)
+			// assuming it's a special subclass (for example, by OpenJPA)
 			valueClass = valueClass.getSuperclass();
 		}
 		return valueClass;

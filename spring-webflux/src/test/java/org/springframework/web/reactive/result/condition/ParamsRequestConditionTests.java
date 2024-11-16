@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,91 +18,128 @@ package org.springframework.web.reactive.result.condition;
 
 import java.util.Collection;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.mock.web.test.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.testfixture.server.MockServerWebExchange;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.springframework.mock.http.server.reactive.test.MockServerHttpRequest.get;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest.get;
 
 /**
- * Unit tests for {@link ParamsRequestCondition}.
+ * Tests for {@link ParamsRequestCondition}.
+ *
  * @author Rossen Stoyanchev
+ * @author Stephane Nicoll
  */
-public class ParamsRequestConditionTests {
+class ParamsRequestConditionTests {
 
 	@Test
-	public void paramEquals() {
-		assertEquals(new ParamsRequestCondition("foo"), new ParamsRequestCondition("foo"));
-		assertFalse(new ParamsRequestCondition("foo").equals(new ParamsRequestCondition("bar")));
-		assertFalse(new ParamsRequestCondition("foo").equals(new ParamsRequestCondition("FOO")));
-		assertEquals(new ParamsRequestCondition("foo=bar"), new ParamsRequestCondition("foo=bar"));
-		assertFalse(new ParamsRequestCondition("foo=bar").equals(new ParamsRequestCondition("FOO=bar")));
+	void paramEquals() {
+		assertThat(new ParamsRequestCondition("foo")).isEqualTo(new ParamsRequestCondition("foo"));
+		assertThat(new ParamsRequestCondition("foo")).isNotEqualTo(new ParamsRequestCondition("bar"));
+		assertThat(new ParamsRequestCondition("foo")).isNotEqualTo(new ParamsRequestCondition("FOO"));
+		assertThat(new ParamsRequestCondition("foo=bar")).isEqualTo(new ParamsRequestCondition("foo=bar"));
+		assertThat(new ParamsRequestCondition("foo=bar")).isNotEqualTo(new ParamsRequestCondition("FOO=bar"));
 	}
 
 	@Test
-	public void paramPresent() throws Exception {
+	void paramPresent() {
 		ParamsRequestCondition condition = new ParamsRequestCondition("foo");
-		assertNotNull(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo="))));
+		assertThat(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo=")))).isNotNull();
 	}
 
 	@Test // SPR-15831
-	public void paramPresentNullValue() throws Exception {
+	void paramPresentNullValue() {
 		ParamsRequestCondition condition = new ParamsRequestCondition("foo");
-		assertNotNull(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo"))));
+		assertThat(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo")))).isNotNull();
 	}
 
 	@Test
-	public void paramPresentNoMatch() throws Exception {
+	void paramPresentNoMatch() {
 		ParamsRequestCondition condition = new ParamsRequestCondition("foo");
-		assertNull(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?bar="))));
+		assertThat(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?bar=")))).isNull();
 	}
 
 	@Test
-	public void paramNotPresent() throws Exception {
+	void paramNotPresent() {
 		MockServerWebExchange exchange = MockServerWebExchange.from(get("/"));
-		assertNotNull(new ParamsRequestCondition("!foo").getMatchingCondition(exchange));
+		assertThat(new ParamsRequestCondition("!foo").getMatchingCondition(exchange)).isNotNull();
 	}
 
 	@Test
-	public void paramValueMatch() throws Exception {
+	void paramValueMatch() {
 		ParamsRequestCondition condition = new ParamsRequestCondition("foo=bar");
-		assertNotNull(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo=bar"))));
+		assertThat(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo=bar")))).isNotNull();
 	}
 
 	@Test
-	public void paramValueNoMatch() throws Exception {
+	void paramValueNoMatch() {
 		ParamsRequestCondition condition = new ParamsRequestCondition("foo=bar");
-		assertNull(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo=bazz"))));
+		assertThat(condition.getMatchingCondition(MockServerWebExchange.from(get("/path?foo=bazz")))).isNull();
 	}
 
 	@Test
-	public void compareTo() throws Exception {
+	void compareTo() {
 		ServerWebExchange exchange = MockServerWebExchange.from(get("/"));
 
 		ParamsRequestCondition condition1 = new ParamsRequestCondition("foo", "bar", "baz");
 		ParamsRequestCondition condition2 = new ParamsRequestCondition("foo", "bar");
 
 		int result = condition1.compareTo(condition2, exchange);
-		assertTrue("Invalid comparison result: " + result, result < 0);
+		assertThat(result).as("Invalid comparison result: " + result).isLessThan(0);
 
 		result = condition2.compareTo(condition1, exchange);
-		assertTrue("Invalid comparison result: " + result, result > 0);
+		assertThat(result).as("Invalid comparison result: " + result).isGreaterThan(0);
+	}
+
+	@Test // SPR-16674
+	void compareToWithMoreSpecificMatchByValue() {
+		ServerWebExchange exchange = MockServerWebExchange.from(get("/"));
+
+		ParamsRequestCondition condition1 = new ParamsRequestCondition("response_type=code");
+		ParamsRequestCondition condition2 = new ParamsRequestCondition("response_type");
+
+		int result = condition1.compareTo(condition2, exchange);
+		assertThat(result).as("Invalid comparison result: " + result).isLessThan(0);
 	}
 
 	@Test
-	public void combine() {
+	void compareToWithNegatedMatch() {
+		ServerWebExchange exchange = MockServerWebExchange.from(get("/"));
+
+		ParamsRequestCondition condition1 = new ParamsRequestCondition("response_type!=code");
+		ParamsRequestCondition condition2 = new ParamsRequestCondition("response_type");
+
+		assertThat(condition1.compareTo(condition2, exchange)).as("Negated match should not count as more specific").isEqualTo(0);
+	}
+
+	@Test
+	void combineWithOtherEmpty() {
+		ParamsRequestCondition condition1 = new ParamsRequestCondition("foo=bar");
+		ParamsRequestCondition condition2 = new ParamsRequestCondition();
+
+		ParamsRequestCondition result = condition1.combine(condition2);
+		assertThat(result).isEqualTo(condition1);
+	}
+
+	@Test
+	void combineWithThisEmpty() {
+		ParamsRequestCondition condition1 = new ParamsRequestCondition();
+		ParamsRequestCondition condition2 = new ParamsRequestCondition("foo=bar");
+
+		ParamsRequestCondition result = condition1.combine(condition2);
+		assertThat(result).isEqualTo(condition2);
+	}
+
+	@Test
+	void combine() {
 		ParamsRequestCondition condition1 = new ParamsRequestCondition("foo=bar");
 		ParamsRequestCondition condition2 = new ParamsRequestCondition("foo=baz");
 
 		ParamsRequestCondition result = condition1.combine(condition2);
 		Collection<?> conditions = result.getContent();
-		assertEquals(2, conditions.size());
+		assertThat(conditions).hasSize(2);
 	}
 
 }

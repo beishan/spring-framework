@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.net.ssl.SSLSession;
 
 import org.springframework.lang.Nullable;
@@ -40,7 +41,7 @@ final class DefaultSslInfo implements SslInfo {
 	private final X509Certificate[] peerCertificates;
 
 
-	DefaultSslInfo(String sessionId, X509Certificate[] peerCertificates) {
+	DefaultSslInfo(@Nullable String sessionId, X509Certificate[] peerCertificates) {
 		Assert.notNull(peerCertificates, "No SSL certificates");
 		this.sessionId = sessionId;
 		this.peerCertificates = peerCertificates;
@@ -99,8 +100,8 @@ final class DefaultSslInfo implements SslInfo {
 
 		List<X509Certificate> result = new ArrayList<>(certificates.length);
 		for (Certificate certificate : certificates) {
-			if (certificate instanceof X509Certificate) {
-				result.add((X509Certificate) certificate);
+			if (certificate instanceof X509Certificate x509Certificate) {
+				result.add(x509Certificate);
 			}
 		}
 		return (!result.isEmpty() ? result.toArray(new X509Certificate[0]) : null);

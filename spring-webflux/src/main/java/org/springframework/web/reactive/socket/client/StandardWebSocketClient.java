@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,16 +19,18 @@ package org.springframework.web.reactive.socket.client;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import javax.websocket.ClientEndpointConfig;
-import javax.websocket.ClientEndpointConfig.Configurator;
-import javax.websocket.ContainerProvider;
-import javax.websocket.Endpoint;
-import javax.websocket.HandshakeResponse;
-import javax.websocket.Session;
-import javax.websocket.WebSocketContainer;
 
+import jakarta.websocket.ClientEndpointConfig;
+import jakarta.websocket.ClientEndpointConfig.Configurator;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.Endpoint;
+import jakarta.websocket.HandshakeResponse;
+import jakarta.websocket.Session;
+import jakarta.websocket.WebSocketContainer;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
 import org.springframework.core.io.buffer.DataBufferFactory;
@@ -36,20 +38,22 @@ import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.reactive.socket.HandshakeInfo;
 import org.springframework.web.reactive.socket.WebSocketHandler;
+import org.springframework.web.reactive.socket.adapter.ContextWebSocketHandler;
 import org.springframework.web.reactive.socket.adapter.StandardWebSocketHandlerAdapter;
 import org.springframework.web.reactive.socket.adapter.StandardWebSocketSession;
 
 /**
- * {@link WebSocketClient} implementation for use with the Java WebSocket API.
+ * {@link WebSocketClient} implementation for use with the Jakarta WebSocket API.
  *
  * @author Violeta Georgieva
  * @author Rossen Stoyanchev
  * @since 5.0
  * @see <a href="https://www.jcp.org/en/jsr/detail?id=356">https://www.jcp.org/en/jsr/detail?id=356</a>
  */
-public class StandardWebSocketClient extends WebSocketClientSupport implements WebSocketClient {
+public class StandardWebSocketClient implements WebSocketClient {
 
-	private final DataBufferFactory bufferFactory = new DefaultDataBufferFactory();
+	private static final Log logger = LogFactory.getLog(StandardWebSocketClient.class);
+
 
 	private final WebSocketContainer webSocketContainer;
 
@@ -91,44 +95,71 @@ public class StandardWebSocketClient extends WebSocketClientSupport implements W
 	}
 
 	private Mono<Void> executeInternal(URI url, HttpHeaders requestHeaders, WebSocketHandler handler) {
-		MonoProcessor<Void> completionMono = MonoProcessor.create();
-		return Mono.fromCallable(
-				() -> {
-					List<String> protocols = beforeHandshake(url, requestHeaders, handler);
+		Sinks.Empty<Void> completion = Sinks.empty();
+		return Mono.deferContextual(
+				contextView -> {
+					if (logger.isDebugEnabled()) {
+						logger.debug("Connecting to " + url);
+					}
+					List<String> protocols = handler.getSubProtocols();
 					DefaultConfigurator configurator = new DefaultConfigurator(requestHeaders);
-					Endpoint endpoint = createEndpoint(url, handler, completionMono, configurator);
+					Endpoint endpoint = createEndpoint(
+							url, ContextWebSocketHandler.decorate(handler, contextView), completion, configurator);
 					ClientEndpointConfig config = createEndpointConfig(configurator, protocols);
-					return this.webSocketContainer.connectToServer(endpoint, config, url);
+					try {
+						this.webSocketContainer.connectToServer(endpoint, config, url);
+						return completion.asMono();
+					}
+					catch (Exception ex) {
+						return Mono.error(ex);
+					}
 				})
-				.subscribeOn(Schedulers.elastic()) // connectToServer is blocking
-				.then(completionMono);
+				.subscribeOn(Schedulers.boundedElastic());  // connectToServer is blocking
 	}
 
 	private StandardWebSocketHandlerAdapter createEndpoint(URI url, WebSocketHandler handler,
-			MonoProcessor<Void> completion, DefaultConfigurator configurator) {
+			Sinks.Empty<Void> completionSink, DefaultConfigurator configurator) {
 
-		return new StandardWebSocketHandlerAdapter(handler, session -> {
-			HttpHeaders responseHeaders = configurator.getResponseHeaders();
-			HandshakeInfo info = afterHandshake(url, responseHeaders);
-			return createWebSocketSession(session, info, completion);
-		});
+		return new StandardWebSocketHandlerAdapter(handler, session ->
+				createWebSocketSession(session, createHandshakeInfo(url, configurator), completionSink));
 	}
 
-	protected StandardWebSocketSession createWebSocketSession(Session session, HandshakeInfo info,
-			MonoProcessor<Void> completion) {
-
-		return new StandardWebSocketSession(session, info, this.bufferFactory, completion);
+	private HandshakeInfo createHandshakeInfo(URI url, DefaultConfigurator configurator) {
+		HttpHeaders responseHeaders = configurator.getResponseHeaders();
+		String protocol = responseHeaders.getFirst("Sec-WebSocket-Protocol");
+		return new HandshakeInfo(url, responseHeaders, Mono.empty(), protocol);
 	}
 
-	private ClientEndpointConfig createEndpointConfig(Configurator configurator, List<String> subProtocols) {
+	/**
+	 * Create the {@link StandardWebSocketSession} for the given Jakarta WebSocket Session.
+	 * @see #bufferFactory()
+	 */
+	protected StandardWebSocketSession createWebSocketSession(
+			Session session, HandshakeInfo info, Sinks.Empty<Void> completionSink) {
+
+		return new StandardWebSocketSession(session, info, bufferFactory(), completionSink);
+	}
+
+	/**
+	 * Return the {@link DataBufferFactory} to use.
+	 * @see #createWebSocketSession
+	 */
+	protected DataBufferFactory bufferFactory() {
+		return DefaultDataBufferFactory.sharedInstance;
+	}
+
+	/**
+	 * Create the {@link ClientEndpointConfig} for the given configurator.
+	 * Can be overridden to add extensions or an SSL context.
+	 * @param configurator the configurator to apply
+	 * @param subProtocols the preferred sub-protocols
+	 * @since 6.1.3
+	 */
+	protected ClientEndpointConfig createEndpointConfig(Configurator configurator, List<String> subProtocols) {
 		return ClientEndpointConfig.Builder.create()
 				.configurator(configurator)
 				.preferredSubprotocols(subProtocols)
 				.build();
-	}
-
-	protected DataBufferFactory bufferFactory() {
-		return this.bufferFactory;
 	}
 
 
@@ -153,7 +184,7 @@ public class StandardWebSocketClient extends WebSocketClientSupport implements W
 
 		@Override
 		public void afterResponse(HandshakeResponse response) {
-			response.getHeaders().forEach(this.responseHeaders::put);
+			this.responseHeaders.putAll(response.getHeaders());
 		}
 	}
 

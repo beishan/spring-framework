@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,8 @@
 package org.springframework.web.reactive.function.server;
 
 import java.net.URI;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -31,10 +30,12 @@ import java.util.function.Consumer;
 
 import reactor.core.publisher.Mono;
 
+import org.springframework.core.codec.Hints;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.codec.HttpMessageWriter;
@@ -52,6 +53,7 @@ import org.springframework.web.server.ServerWebExchange;
  * @author Arjen Poutsma
  * @author Juergen Hoeller
  * @since 5.0
+ * @param <T> a self reference to the builder type
  */
 class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
@@ -59,7 +61,7 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
 	private final BodyInserter<T, ? super ServerHttpResponse> inserter;
 
-	private int status = HttpStatus.OK.value();
+	private HttpStatusCode status = HttpStatus.OK;
 
 	private final HttpHeaders headers = new HttpHeaders();
 
@@ -75,16 +77,15 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
 
 	@Override
-	public EntityResponse.Builder<T> status(HttpStatus status) {
-		Assert.notNull(status, "HttpStatus must not be null");
-		this.status = status.value();
+	public EntityResponse.Builder<T> status(HttpStatusCode status) {
+		Assert.notNull(status, "HttpStatusCode must not be null");
+		this.status = status;
 		return this;
 	}
 
 	@Override
 	public EntityResponse.Builder<T> status(int status) {
-		this.status = status;
-		return this;
+		return status(HttpStatusCode.valueOf(status));
 	}
 
 	@Override
@@ -96,7 +97,6 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
 	@Override
 	public EntityResponse.Builder<T> cookies(Consumer<MultiValueMap<String, ResponseCookie>> cookiesConsumer) {
-		Assert.notNull(cookiesConsumer, "Consumer must not be null");
 		cookiesConsumer.accept(this.cookies);
 		return this;
 	}
@@ -112,6 +112,13 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 	@Override
 	public EntityResponse.Builder<T> headers(HttpHeaders headers) {
 		this.headers.putAll(headers);
+		return this;
+	}
+
+	@Override
+	public EntityResponse.Builder<T> headers(Consumer<HttpHeaders> headersConsumer) {
+		Assert.notNull(headersConsumer, "HeadersConsumer must not be null");
+		headersConsumer.accept(this.headers);
 		return this;
 	}
 
@@ -140,14 +147,8 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 	}
 
 	@Override
-	public EntityResponse.Builder<T> eTag(String etag) {
-		if (!etag.startsWith("\"") && !etag.startsWith("W/\"")) {
-			etag = "\"" + etag;
-		}
-		if (!etag.endsWith("\"")) {
-			etag = etag + "\"";
-		}
-		this.headers.setETag(etag);
+	public EntityResponse.Builder<T> eTag(String tag) {
+		this.headers.setETag(tag);
 		return this;
 	}
 
@@ -158,10 +159,20 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 	}
 
 	@Override
+	public EntityResponse.Builder<T> hints(Consumer<Map<String, Object>> hintsConsumer) {
+		hintsConsumer.accept(this.hints);
+		return this;
+	}
+
+	@Override
 	public EntityResponse.Builder<T> lastModified(ZonedDateTime lastModified) {
-		ZonedDateTime gmt = lastModified.withZoneSameInstant(ZoneId.of("GMT"));
-		String headerValue = DateTimeFormatter.RFC_1123_DATE_TIME.format(gmt);
-		this.headers.set(HttpHeaders.LAST_MODIFIED, headerValue);
+		this.headers.setLastModified(lastModified);
+		return this;
+	}
+
+	@Override
+	public EntityResponse.Builder<T> lastModified(Instant lastModified) {
+		this.headers.setLastModified(lastModified);
 		return this;
 	}
 
@@ -173,10 +184,7 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
 	@Override
 	public EntityResponse.Builder<T> cacheControl(CacheControl cacheControl) {
-		String ccValue = cacheControl.getHeaderValue();
-		if (ccValue != null) {
-			this.headers.setCacheControl(cacheControl.getHeaderValue());
-		}
+		this.headers.setCacheControl(cacheControl);
 		return this;
 	}
 
@@ -188,7 +196,7 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
 	@Override
 	public Mono<EntityResponse<T>> build() {
-		return Mono.just(new DefaultEntityResponse<T>(
+		return Mono.just(new DefaultEntityResponse<>(
 				this.status, this.headers, this.cookies, this.entity, this.inserter, this.hints));
 	}
 
@@ -201,16 +209,14 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 
 		private final BodyInserter<T, ? super ServerHttpResponse> inserter;
 
-		private final Map<String, Object> hints;
 
-		public DefaultEntityResponse(int statusCode, HttpHeaders headers,
+		public DefaultEntityResponse(HttpStatusCode statusCode, HttpHeaders headers,
 				MultiValueMap<String, ResponseCookie> cookies, T entity,
 				BodyInserter<T, ? super ServerHttpResponse> inserter, Map<String, Object> hints) {
 
-			super(statusCode, headers, cookies);
+			super(statusCode, headers, cookies, hints);
 			this.entity = entity;
 			this.inserter = inserter;
-			this.hints = hints;
 		}
 
 		@Override
@@ -236,6 +242,7 @@ class DefaultEntityResponseBuilder<T> implements EntityResponse.Builder<T> {
 				}
 				@Override
 				public Map<String, Object> hints() {
+					hints.put(Hints.LOG_PREFIX_HINT, exchange.getLogPrefix());
 					return hints;
 				}
 			});

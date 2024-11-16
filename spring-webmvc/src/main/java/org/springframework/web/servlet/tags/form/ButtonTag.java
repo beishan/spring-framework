@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,10 @@
 
 package org.springframework.web.servlet.tags.form;
 
-import javax.servlet.jsp.JspException;
+import jakarta.servlet.jsp.JspException;
 
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
 import org.springframework.web.servlet.support.RequestDataValueProcessor;
 
 /**
@@ -25,38 +27,37 @@ import org.springframework.web.servlet.support.RequestDataValueProcessor;
  * It is provided for completeness if the application relies on a
  * {@link RequestDataValueProcessor}.
  *
- * <p>
+ * <h3>Attribute Summary</h3>
  * <table>
- * <caption>Attribute Summary</caption>
  * <thead>
  * <tr>
- * <th class="colFirst">Attribute</th>
- * <th class="colOne">Required?</th>
- * <th class="colOne">Runtime Expression?</th>
- * <th class="colLast">Description</th>
+ * <th class="table-header col-first">Attribute</th>
+ * <th class="table-header col-second">Required?</th>
+ * <th class="table-header col-second">Runtime Expression?</th>
+ * <th class="table-header col-last">Description</th>
  * </tr>
  * </thead>
  * <tbody>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>disabled</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Optional Attribute. Setting the value of this attribute to 'true'
  * will disable the HTML element.</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>id</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>HTML Standard Attribute</p></td>
  * </tr>
- * <tr class="altColor">
+ * <tr class="even-row-color">
  * <td><p>name</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
  * <td><p>The name attribute for the HTML button tag</p></td>
  * </tr>
- * <tr class="rowColor">
+ * <tr class="odd-row-color">
  * <td><p>value</p></td>
  * <td><p>false</p></td>
  * <td><p>true</p></td>
@@ -77,10 +78,13 @@ public class ButtonTag extends AbstractHtmlElementTag {
 	public static final String DISABLED_ATTRIBUTE = "disabled";
 
 
+	@Nullable
 	private TagWriter tagWriter;
 
+	@Nullable
 	private String name;
 
+	@Nullable
 	private String value;
 
 	private boolean disabled;
@@ -97,6 +101,7 @@ public class ButtonTag extends AbstractHtmlElementTag {
 	 * Set the value of the '{@code name}' attribute.
 	 */
 	@Override
+	@Nullable
 	public String getName() {
 		return this.name;
 	}
@@ -104,13 +109,14 @@ public class ButtonTag extends AbstractHtmlElementTag {
 	/**
 	 * Set the value of the '{@code value}' attribute.
 	 */
-	public void setValue(String value) {
+	public void setValue(@Nullable String value) {
 		this.value = value;
 	}
 
 	/**
 	 * Get the value of the '{@code value}' attribute.
 	 */
+	@Nullable
 	public String getValue() {
 		return this.value;
 	}
@@ -150,13 +156,13 @@ public class ButtonTag extends AbstractHtmlElementTag {
 	 * when the value is written.
 	 */
 	protected void writeValue(TagWriter tagWriter) throws JspException {
-		String valueToUse = (getValue() != null) ? getValue() : getDefaultValue();
+		String valueToUse = (getValue() != null ? getValue() : getDefaultValue());
 		tagWriter.writeAttribute("value", processFieldValue(getName(), valueToUse, getType()));
 	}
 
 	/**
 	 * Return the default value.
-	 * @return The default value if none supplied.
+	 * @return the default value if none supplied
 	 */
 	protected String getDefaultValue() {
 		return "Submit";
@@ -176,6 +182,7 @@ public class ButtonTag extends AbstractHtmlElementTag {
 	 */
 	@Override
 	public int doEndTag() throws JspException {
+		Assert.state(this.tagWriter != null, "No TagWriter set");
 		this.tagWriter.endTag();
 		return EVAL_PAGE;
 	}

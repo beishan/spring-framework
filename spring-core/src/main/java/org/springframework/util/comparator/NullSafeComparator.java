@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,8 +28,12 @@ import org.springframework.util.Assert;
  * @author Keith Donald
  * @author Juergen Hoeller
  * @since 1.2.2
+ * @param <T> the type of objects that may be compared by this comparator
  * @see Comparable
+ * @see Comparators
+ * @deprecated as of 6.1 in favor of {@link Comparator#nullsLast} and {@link Comparator#nullsFirst}
  */
+@Deprecated(since = "6.1")
 public class NullSafeComparator<T> implements Comparator<T> {
 
 	/**
@@ -68,9 +72,8 @@ public class NullSafeComparator<T> implements Comparator<T> {
 	 * @see #NULLS_LOW
 	 * @see #NULLS_HIGH
 	 */
-	@SuppressWarnings("unchecked")
 	private NullSafeComparator(boolean nullsLow) {
-		this.nonNullComparator = ComparableComparator.INSTANCE;
+		this.nonNullComparator = Comparators.comparable();
 		this.nullsLow = nullsLow;
 	}
 
@@ -84,43 +87,29 @@ public class NullSafeComparator<T> implements Comparator<T> {
 	 * @param nullsLow whether to treat nulls lower or higher than non-null objects
 	 */
 	public NullSafeComparator(Comparator<T> comparator, boolean nullsLow) {
-		Assert.notNull(comparator, "Non-null Comparator is required");
+		Assert.notNull(comparator, "Comparator must not be null");
 		this.nonNullComparator = comparator;
 		this.nullsLow = nullsLow;
 	}
 
 
 	@Override
-	public int compare(@Nullable T o1, @Nullable T o2) {
-		if (o1 == o2) {
-			return 0;
-		}
-		if (o1 == null) {
-			return (this.nullsLow ? -1 : 1);
-		}
-		if (o2 == null) {
-			return (this.nullsLow ? 1 : -1);
-		}
-		return this.nonNullComparator.compare(o1, o2);
+	public int compare(@Nullable T left, @Nullable T right) {
+		Comparator<T> comparator = this.nullsLow ? Comparator.nullsFirst(this.nonNullComparator) : Comparator.nullsLast(this.nonNullComparator);
+		return comparator.compare(left, right);
 	}
 
 
 	@Override
-	@SuppressWarnings("unchecked")
-	public boolean equals(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-		if (!(obj instanceof NullSafeComparator)) {
-			return false;
-		}
-		NullSafeComparator<T> other = (NullSafeComparator<T>) obj;
-		return (this.nonNullComparator.equals(other.nonNullComparator) && this.nullsLow == other.nullsLow);
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof NullSafeComparator<?> that &&
+				this.nonNullComparator.equals(that.nonNullComparator) &&
+				this.nullsLow == that.nullsLow));
 	}
 
 	@Override
 	public int hashCode() {
-		return this.nonNullComparator.hashCode() * (this.nullsLow ? -1 : 1);
+		return Boolean.hashCode(this.nullsLow);
 	}
 
 	@Override

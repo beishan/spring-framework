@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,11 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import org.springframework.core.NamedThreadLocal;
-import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.springframework.core.OrderComparator;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
@@ -40,7 +37,7 @@ import org.springframework.util.Assert;
  * to be removed before a new one can be set for the same key.
  * Supports a list of transaction synchronizations if synchronization is active.
  *
- * <p>Resource management code should check for thread-bound resources, e.g. JDBC
+ * <p>Resource management code should check for thread-bound resources, for example, JDBC
  * Connections or Hibernate Sessions, via {@code getResource}. Such code is
  * normally not supposed to bind resources to threads, as this is the responsibility
  * of transaction managers. A further option is to lazily bind on first use if
@@ -61,7 +58,7 @@ import org.springframework.util.Assert;
  * doesn't support transaction synchronization.
  *
  * <p>Synchronization is for example used to always return the same resources
- * within a JTA transaction, e.g. a JDBC Connection or a Hibernate Session for
+ * within a JTA transaction, for example, a JDBC Connection or a Hibernate Session for
  * any given DataSource or SessionFactory, respectively.
  *
  * @author Juergen Hoeller
@@ -75,8 +72,6 @@ import org.springframework.util.Assert;
  * @see org.springframework.jdbc.datasource.DataSourceUtils#getConnection
  */
 public abstract class TransactionSynchronizationManager {
-
-	private static final Log logger = LogFactory.getLog(TransactionSynchronizationManager.class);
 
 	private static final ThreadLocal<Map<Object, Object>> resources =
 			new NamedThreadLocal<>("Transactional resources");
@@ -137,12 +132,7 @@ public abstract class TransactionSynchronizationManager {
 	@Nullable
 	public static Object getResource(Object key) {
 		Object actualKey = TransactionSynchronizationUtils.unwrapResourceIfNecessary(key);
-		Object value = doGetResource(actualKey);
-		if (value != null && logger.isTraceEnabled()) {
-			logger.trace("Retrieved value [" + value + "] for key [" + actualKey + "] bound to thread [" +
-					Thread.currentThread().getName() + "]");
-		}
-		return value;
+		return doGetResource(actualKey);
 	}
 
 	/**
@@ -156,7 +146,7 @@ public abstract class TransactionSynchronizationManager {
 		}
 		Object value = map.get(actualKey);
 		// Transparently remove ResourceHolder that was marked as void...
-		if (value instanceof ResourceHolder && ((ResourceHolder) value).isVoid()) {
+		if (value instanceof ResourceHolder resourceHolder && resourceHolder.isVoid()) {
 			map.remove(actualKey);
 			// Remove entire ThreadLocal if empty...
 			if (map.isEmpty()) {
@@ -185,16 +175,12 @@ public abstract class TransactionSynchronizationManager {
 		}
 		Object oldValue = map.put(actualKey, value);
 		// Transparently suppress a ResourceHolder that was marked as void...
-		if (oldValue instanceof ResourceHolder && ((ResourceHolder) oldValue).isVoid()) {
+		if (oldValue instanceof ResourceHolder resourceHolder && resourceHolder.isVoid()) {
 			oldValue = null;
 		}
 		if (oldValue != null) {
-			throw new IllegalStateException("Already value [" + oldValue + "] for key [" +
-					actualKey + "] bound to thread [" + Thread.currentThread().getName() + "]");
-		}
-		if (logger.isTraceEnabled()) {
-			logger.trace("Bound value [" + value + "] for key [" + actualKey + "] to thread [" +
-					Thread.currentThread().getName() + "]");
+			throw new IllegalStateException(
+					"Already value [" + oldValue + "] for key [" + actualKey + "] bound to thread");
 		}
 	}
 
@@ -209,8 +195,7 @@ public abstract class TransactionSynchronizationManager {
 		Object actualKey = TransactionSynchronizationUtils.unwrapResourceIfNecessary(key);
 		Object value = doUnbindResource(actualKey);
 		if (value == null) {
-			throw new IllegalStateException(
-					"No value for key [" + actualKey + "] bound to thread [" + Thread.currentThread().getName() + "]");
+			throw new IllegalStateException("No value for key [" + actualKey + "] bound to thread");
 		}
 		return value;
 	}
@@ -241,12 +226,8 @@ public abstract class TransactionSynchronizationManager {
 			resources.remove();
 		}
 		// Transparently suppress a ResourceHolder that was marked as void...
-		if (value instanceof ResourceHolder && ((ResourceHolder) value).isVoid()) {
+		if (value instanceof ResourceHolder resourceHolder && resourceHolder.isVoid()) {
 			value = null;
-		}
-		if (value != null && logger.isTraceEnabled()) {
-			logger.trace("Removed value [" + value + "] for key [" + actualKey + "] from thread [" +
-					Thread.currentThread().getName() + "]");
 		}
 		return value;
 	}
@@ -274,7 +255,6 @@ public abstract class TransactionSynchronizationManager {
 		if (isSynchronizationActive()) {
 			throw new IllegalStateException("Cannot activate transaction synchronization - already active");
 		}
-		logger.trace("Initializing transaction synchronization");
 		synchronizations.set(new LinkedHashSet<>());
 	}
 
@@ -292,10 +272,11 @@ public abstract class TransactionSynchronizationManager {
 			throws IllegalStateException {
 
 		Assert.notNull(synchronization, "TransactionSynchronization must not be null");
-		if (!isSynchronizationActive()) {
+		Set<TransactionSynchronization> synchs = synchronizations.get();
+		if (synchs == null) {
 			throw new IllegalStateException("Transaction synchronization is not active");
 		}
-		synchronizations.get().add(synchronization);
+		synchs.add(synchronization);
 	}
 
 	/**
@@ -316,10 +297,13 @@ public abstract class TransactionSynchronizationManager {
 		if (synchs.isEmpty()) {
 			return Collections.emptyList();
 		}
+		else if (synchs.size() == 1) {
+			return Collections.singletonList(synchs.iterator().next());
+		}
 		else {
 			// Sort lazily here, not in registerSynchronization.
 			List<TransactionSynchronization> sortedSynchs = new ArrayList<>(synchs);
-			AnnotationAwareOrderComparator.sort(sortedSynchs);
+			OrderComparator.sort(sortedSynchs);
 			return Collections.unmodifiableList(sortedSynchs);
 		}
 	}
@@ -333,7 +317,6 @@ public abstract class TransactionSynchronizationManager {
 		if (!isSynchronizationActive()) {
 			throw new IllegalStateException("Cannot deactivate transaction synchronization - not active");
 		}
-		logger.trace("Clearing transaction synchronization");
 		synchronizations.remove();
 	}
 
@@ -382,7 +365,7 @@ public abstract class TransactionSynchronizationManager {
 	 * as argument for the {@code beforeCommit} callback, to be able
 	 * to suppress change detection on commit. The present method is meant
 	 * to be used for earlier read-only checks, for example to set the
-	 * flush mode of a Hibernate Session to "FlushMode.NEVER" upfront.
+	 * flush mode of a Hibernate Session to "FlushMode.MANUAL" upfront.
 	 * @see org.springframework.transaction.TransactionDefinition#isReadOnly()
 	 * @see TransactionSynchronization#beforeCommit(boolean)
 	 */
@@ -446,10 +429,10 @@ public abstract class TransactionSynchronizationManager {
 	 * Return whether there currently is an actual transaction active.
 	 * This indicates whether the current thread is associated with an actual
 	 * transaction rather than just with active transaction synchronization.
-	 * <p>To be called by resource management code that wants to discriminate
-	 * between active transaction synchronization (with or without backing
+	 * <p>To be called by resource management code that wants to differentiate
+	 * between active transaction synchronization (with or without a backing
 	 * resource transaction; also on PROPAGATION_SUPPORTS) and an actual
-	 * transaction being active (with backing resource transaction;
+	 * transaction being active (with a backing resource transaction;
 	 * on PROPAGATION_REQUIRED, PROPAGATION_REQUIRES_NEW, etc).
 	 * @see #isSynchronizationActive()
 	 */

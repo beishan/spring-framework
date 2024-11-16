@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,98 +16,141 @@
 
 package org.springframework.web.util;
 
-import org.junit.Test;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.util.FileCopyUtils;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
+ * Tests for {@link ContentCachingRequestWrapper}.
+ *
  * @author Brian Clozel
+ * @author Stephane Nicoll
  */
-public class ContentCachingRequestWrapperTests {
+class ContentCachingRequestWrapperTests {
 
-	protected static final String FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
+	protected static final String FORM_CONTENT_TYPE = MediaType.APPLICATION_FORM_URLENCODED_VALUE;
 
-	protected static final String CHARSET = "UTF-8";
+	protected static final String CHARSET = StandardCharsets.UTF_8.name();
 
-	private final MockHttpServletRequest request = new MockHttpServletRequest();
+	protected static final String GET = HttpMethod.GET.name();
+
+	protected static final String POST = HttpMethod.POST.name();
+
+	protected static final int CONTENT_CACHE_LIMIT = 3;
 
 
 	@Test
-	public void cachedContent() throws Exception {
-		this.request.setMethod("GET");
-		this.request.setCharacterEncoding(CHARSET);
-		this.request.setContent("Hello World".getBytes(CHARSET));
-
-		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(this.request);
-		byte[] response = FileCopyUtils.copyToByteArray(wrapper.getInputStream());
-		assertArrayEquals(response, wrapper.getContentAsByteArray());
+	void cachedContentToByteArrayWithNoRead() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello"));
+		assertThat(wrapper.getContentAsByteArray()).isEmpty();
 	}
 
 	@Test
-	public void cachedContentWithLimit() throws Exception {
-		this.request.setMethod("GET");
-		this.request.setCharacterEncoding(CHARSET);
-		this.request.setContent("Hello World".getBytes(CHARSET));
-
-		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(this.request, 3);
-		byte[] response = FileCopyUtils.copyToByteArray(wrapper.getInputStream());
-		assertArrayEquals("Hello World".getBytes(CHARSET), response);
-		assertArrayEquals("Hel".getBytes(CHARSET), wrapper.getContentAsByteArray());
+	void cachedContentToStringWithNoRead() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello"));
+		assertThat(wrapper.getContentAsString()).isEqualTo("");
 	}
 
 	@Test
-	public void cachedContentWithOverflow() throws Exception {
-		this.request.setMethod("GET");
-		this.request.setCharacterEncoding(CHARSET);
-		this.request.setContent("Hello World".getBytes(CHARSET));
+	void cachedContentToByteArray() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello World"));
+		byte[] response = wrapper.getInputStream().readAllBytes();
+		assertThat(wrapper.getContentAsByteArray()).isEqualTo(response);
+	}
 
-		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(this.request, 3) {
+	@Test
+	void cachedContentToString() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello World"));
+		byte[] response = wrapper.getInputStream().readAllBytes();
+		assertThat(wrapper.getContentAsString()).isEqualTo(new String(response, CHARSET));
+	}
+
+	@Test
+	void cachedContentToByteArrayWithLimit() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello World"), CONTENT_CACHE_LIMIT);
+		byte[] response = wrapper.getInputStream().readAllBytes();
+		assertThat(response).isEqualTo("Hello World".getBytes(CHARSET));
+		assertThat(wrapper.getContentAsByteArray()).isEqualTo("Hel".getBytes(CHARSET));
+	}
+
+	@Test
+	void cachedContentToStringWithLimit() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello World"), CONTENT_CACHE_LIMIT);
+		byte[] response = wrapper.getInputStream().readAllBytes();
+		assertThat(response).isEqualTo("Hello World".getBytes(CHARSET));
+		assertThat(wrapper.getContentAsString()).isEqualTo(new String("Hel".getBytes(CHARSET), CHARSET));
+	}
+
+	@Test
+	void shouldNotAllocateMoreThanCacheLimit() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(createGetRequest("Hello World"), CONTENT_CACHE_LIMIT);
+		assertThat(wrapper).extracting("cachedContent.initialBlockSize").isEqualTo(CONTENT_CACHE_LIMIT);
+	}
+
+
+	@Test
+	void cachedContentWithOverflow() throws Exception {
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(
+				createGetRequest("Hello World"), CONTENT_CACHE_LIMIT) {
 			@Override
 			protected void handleContentOverflow(int contentCacheLimit) {
 				throw new IllegalStateException(String.valueOf(contentCacheLimit));
 			}
 		};
 
-		try {
-			FileCopyUtils.copyToByteArray(wrapper.getInputStream());
-			fail("Should have thrown IllegalStateException");
-		}
-		catch (IllegalStateException ex) {
-			assertEquals("3", ex.getMessage());
-		}
+		assertThatIllegalStateException()
+				.isThrownBy(() -> wrapper.getInputStream().readAllBytes())
+				.withMessage("3");
 	}
 
 	@Test
-	public void requestParams() throws Exception {
-		this.request.setMethod("POST");
-		this.request.setContentType(FORM_CONTENT_TYPE);
-		this.request.setCharacterEncoding(CHARSET);
-		this.request.setParameter("first", "value");
-		this.request.setParameter("second", "foo", "bar");
+	void requestParams() throws Exception {
+		MockHttpServletRequest request = createPostRequest();
+		request.setParameter("first", "value");
+		request.setParameter("second", "foo", "bar");
 
-		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(this.request);
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(request);
 		// getting request parameters will consume the request body
-		assertFalse(wrapper.getParameterMap().isEmpty());
-		assertEquals("first=value&second=foo&second=bar", new String(wrapper.getContentAsByteArray()));
+		assertThat(wrapper.getParameterMap()).isNotEmpty();
+		assertThat(new String(wrapper.getContentAsByteArray())).isEqualTo("first=value&second=foo&second=bar");
 		// SPR-12810 : inputstream body should be consumed
-		assertEquals("", new String(FileCopyUtils.copyToByteArray(wrapper.getInputStream())));
+		assertThat(new String(wrapper.getInputStream().readAllBytes())).isEmpty();
 	}
 
-	@Test  // SPR-12810
-	public void inputStreamFormPostRequest() throws Exception {
-		this.request.setMethod("POST");
-		this.request.setContentType(FORM_CONTENT_TYPE);
-		this.request.setCharacterEncoding(CHARSET);
-		this.request.setParameter("first", "value");
-		this.request.setParameter("second", "foo", "bar");
+	@Test // SPR-12810
+	void inputStreamFormPostRequest() throws Exception {
+		MockHttpServletRequest request = createPostRequest();
+		request.setParameter("first", "value");
+		request.setParameter("second", "foo", "bar");
 
-		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(this.request);
+		ContentCachingRequestWrapper wrapper = new ContentCachingRequestWrapper(request);
 
-		byte[] response = FileCopyUtils.copyToByteArray(wrapper.getInputStream());
-		assertArrayEquals(response, wrapper.getContentAsByteArray());
+		byte[] response = wrapper.getInputStream().readAllBytes();
+		assertThat(wrapper.getContentAsByteArray()).isEqualTo(response);
+	}
+
+	private MockHttpServletRequest createGetRequest(String content) throws UnsupportedEncodingException {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod(GET);
+		request.setCharacterEncoding(CHARSET);
+		request.setContent(content.getBytes(CHARSET));
+		return request;
+	}
+
+	private MockHttpServletRequest createPostRequest() {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setMethod(POST);
+		request.setContentType(FORM_CONTENT_TYPE);
+		request.setCharacterEncoding(CHARSET);
+		return request;
 	}
 
 }

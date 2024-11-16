@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,16 +21,18 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.annotation.JsonView;
-import org.junit.Before;
-import org.junit.Test;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.xmlunit.assertj.XmlAssert;
 
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.aop.target.SingletonTargetSource;
@@ -41,6 +43,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -51,10 +54,10 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
 import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
 import org.springframework.lang.Nullable;
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.accept.ContentNegotiationManagerFactoryBean;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -68,322 +71,382 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.json.MappingJackson2JsonView;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 import org.springframework.web.util.WebUtils;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
- * Test fixture for a {@link RequestResponseBodyMethodProcessor} with
- * actual delegation to {@link HttpMessageConverter} instances. Also see
- * {@link RequestResponseBodyMethodProcessorMockTests}.
+ * Tests for {@link RequestResponseBodyMethodProcessor} with actual delegation to
+ * {@link HttpMessageConverter} instances.
  *
  * @author Rossen Stoyanchev
  * @author Sebastien Deleuze
+ * @author Sam Brannen
+ * @see RequestResponseBodyMethodProcessorMockTests
  */
 @SuppressWarnings("unused")
-public class RequestResponseBodyMethodProcessorTests {
+class RequestResponseBodyMethodProcessorTests {
 
-	private ModelAndViewContainer container;
+	private final ModelAndViewContainer container = new ModelAndViewContainer();
 
-	private MockHttpServletRequest servletRequest;
+	private final MockHttpServletRequest servletRequest = new MockHttpServletRequest();
 
-	private MockHttpServletResponse servletResponse;
+	private final MockHttpServletResponse servletResponse = new MockHttpServletResponse();
 
-	private NativeWebRequest request;
+	private final NativeWebRequest request = new ServletWebRequest(servletRequest, servletResponse);
 
-	private ValidatingBinderFactory factory;
+	private final ValidatingBinderFactory factory = new ValidatingBinderFactory();
 
-	private MethodParameter paramGenericList;
-	private MethodParameter paramSimpleBean;
-	private MethodParameter paramMultiValueMap;
-	private MethodParameter paramString;
-	private MethodParameter returnTypeString;
+	private final Method method = ReflectionUtils.findMethod(getClass(), "handle",
+			List.class, SimpleBean.class, MultiValueMap.class, String.class);
 
-
-	@Before
-	public void setup() throws Exception {
-		container = new ModelAndViewContainer();
-		servletRequest = new MockHttpServletRequest();
-		servletRequest.setMethod("POST");
-		servletResponse = new MockHttpServletResponse();
-		request = new ServletWebRequest(servletRequest, servletResponse);
-		this.factory = new ValidatingBinderFactory();
-
-		Method method = getClass().getDeclaredMethod("handle",
-				List.class, SimpleBean.class, MultiValueMap.class, String.class);
-		paramGenericList = new MethodParameter(method, 0);
-		paramSimpleBean = new MethodParameter(method, 1);
-		paramMultiValueMap = new MethodParameter(method, 2);
-		paramString = new MethodParameter(method, 3);
-		returnTypeString = new MethodParameter(method, -1);
-	}
+	private final MethodParameter paramGenericList = new MethodParameter(method, 0);
+	private final MethodParameter paramSimpleBean = new MethodParameter(method, 1);
+	private final MethodParameter paramMultiValueMap = new MethodParameter(method, 2);
+	private final MethodParameter paramString = new MethodParameter(method, 3);
+	private final MethodParameter returnTypeString = new MethodParameter(method, -1);
 
 
 	@Test
-	public void resolveArgumentParameterizedType() throws Exception {
+	void resolveArgumentParameterizedType() throws Exception {
 		String content = "[{\"name\" : \"Jad\"}, {\"name\" : \"Robert\"}]";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		@SuppressWarnings("unchecked")
 		List<SimpleBean> result = (List<SimpleBean>) processor.resolveArgument(
 				paramGenericList, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("Jad", result.get(0).getName());
-		assertEquals("Robert", result.get(1).getName());
+		assertThat(result).map(SimpleBean::getName).containsExactly("Jad", "Robert");
 	}
 
 	@Test
-	public void resolveArgumentRawTypeFromParameterizedType() throws Exception {
+	void resolveArgumentRawTypeFromParameterizedType() throws Exception {
 		String content = "fruit=apple&vegetable=kale";
 		this.servletRequest.setMethod("GET");
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_FORM_URLENCODED_VALUE);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new AllEncompassingFormHttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new AllEncompassingFormHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		@SuppressWarnings("unchecked")
 		MultiValueMap<String, String> result = (MultiValueMap<String, String>) processor.resolveArgument(
 				paramMultiValueMap, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("apple", result.getFirst("fruit"));
-		assertEquals("kale", result.getFirst("vegetable"));
+		assertThat(result).isNotNull();
+		assertThat(result.getFirst("fruit")).isEqualTo("apple");
+		assertThat(result.getFirst("vegetable")).isEqualTo("kale");
 	}
 
 	@Test
-	public void resolveArgumentClassJson() throws Exception {
+	void resolveArgumentClassJson() throws Exception {
 		String content = "{\"name\" : \"Jad\"}";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType("application/json");
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		SimpleBean result = (SimpleBean) processor.resolveArgument(
 				paramSimpleBean, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("Jad", result.getName());
+		assertThat(result).isNotNull();
+		assertThat(result.getName()).isEqualTo("Jad");
 	}
 
 	@Test
-	public void resolveArgumentClassString() throws Exception {
+	void resolveArgumentClassString() throws Exception {
 		String content = "foobarbaz";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType("application/json");
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new StringHttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		String result = (String) processor.resolveArgument(
 				paramString, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("foobarbaz", result);
+		assertThat(result).isEqualTo("foobarbaz");
 	}
 
-	@Test(expected = HttpMessageNotReadableException.class)  // SPR-9942
-	public void resolveArgumentRequiredNoContent() throws Exception {
+	@Test // SPR-9942
+	void resolveArgumentRequiredNoContent() {
 		this.servletRequest.setContent(new byte[0]);
 		this.servletRequest.setContentType("text/plain");
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new StringHttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
-		processor.resolveArgument(paramString, container, request, factory);
+		assertThatExceptionOfType(HttpMessageNotReadableException.class).isThrownBy(() ->
+				processor.resolveArgument(paramString, container, request, factory));
 	}
 
 	@Test  // SPR-12778
-	public void resolveArgumentRequiredNoContentDefaultValue() throws Exception {
+	void resolveArgumentRequiredNoContentDefaultValue() throws Exception {
 		this.servletRequest.setContent(new byte[0]);
 		this.servletRequest.setContentType("text/plain");
-		List<HttpMessageConverter<?>> converters = Collections.singletonList(new StringHttpMessageConverter());
-		List<Object> advice = Collections.singletonList(new EmptyRequestBodyAdvice());
+		List<HttpMessageConverter<?>> converters = List.of(new StringHttpMessageConverter());
+		List<Object> advice = List.of(new EmptyRequestBodyAdvice());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters, advice);
 		String arg = (String) processor.resolveArgument(paramString, container, request, factory);
-		assertNotNull(arg);
-		assertEquals("default value for empty body", arg);
+		assertThat(arg).isEqualTo("default value for empty body");
 	}
 
 	@Test  // SPR-9964
-	public void resolveArgumentTypeVariable() throws Exception {
+	void resolveArgumentTypeVariable() throws Exception {
 		Method method = MyParameterizedController.class.getMethod("handleDto", Identifiable.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new MySimpleParameterizedController(), method);
 		MethodParameter methodParam = handlerMethod.getMethodParameters()[0];
 
 		String content = "{\"name\" : \"Jad\"}";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		SimpleBean result = (SimpleBean) processor.resolveArgument(methodParam, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("Jad", result.getName());
+		assertThat(result).isNotNull();
+		assertThat(result.getName()).isEqualTo("Jad");
 	}
 
 	@Test  // SPR-14470
-	public void resolveParameterizedWithTypeVariableArgument() throws Exception {
+	void resolveParameterizedWithTypeVariableArgument() throws Exception {
 		Method method = MyParameterizedControllerWithList.class.getMethod("handleDto", List.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new MySimpleParameterizedControllerWithList(), method);
 		MethodParameter methodParam = handlerMethod.getMethodParameters()[0];
 
 		String content = "[{\"name\" : \"Jad\"}, {\"name\" : \"Robert\"}]";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		@SuppressWarnings("unchecked")
 		List<SimpleBean> result = (List<SimpleBean>) processor.resolveArgument(
 				methodParam, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("Jad", result.get(0).getName());
-		assertEquals("Robert", result.get(1).getName());
+		assertThat(result).map(SimpleBean::getName).containsExactly("Jad", "Robert");
 	}
 
 	@Test  // SPR-11225
-	public void resolveArgumentTypeVariableWithNonGenericConverter() throws Exception {
+	void resolveArgumentTypeVariableWithNonGenericConverter() throws Exception {
 		Method method = MyParameterizedController.class.getMethod("handleDto", Identifiable.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new MySimpleParameterizedController(), method);
 		MethodParameter methodParam = handlerMethod.getMethodParameters()[0];
 
 		String content = "{\"name\" : \"Jad\"}";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		HttpMessageConverter target = new MappingJackson2HttpMessageConverter();
-		HttpMessageConverter proxy = ProxyFactory.getProxy(HttpMessageConverter.class, new SingletonTargetSource(target));
-		converters.add(proxy);
+		HttpMessageConverter<Object> target = new MappingJackson2HttpMessageConverter();
+		HttpMessageConverter<?> proxy = ProxyFactory.getProxy(HttpMessageConverter.class, new SingletonTargetSource(target));
+		List<HttpMessageConverter<?>> converters = List.of(proxy);
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		SimpleBean result = (SimpleBean) processor.resolveArgument(methodParam, container, request, factory);
 
-		assertNotNull(result);
-		assertEquals("Jad", result.getName());
+		assertThat(result).isNotNull();
+		assertThat(result.getName()).isEqualTo("Jad");
 	}
 
 	@Test  // SPR-9160
-	public void handleReturnValueSortByQuality() throws Exception {
+	void handleReturnValueSortByQuality() throws Exception {
 		this.servletRequest.addHeader("Accept", "text/plain; q=0.5, application/json");
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-		converters.add(new StringHttpMessageConverter());
+		List<HttpMessageConverter<?>> converters =
+				List.of(new MappingJackson2HttpMessageConverter(), new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		processor.writeWithMessageConverters("Foo", returnTypeString, request);
 
-		assertEquals("application/json;charset=UTF-8", servletResponse.getHeader("Content-Type"));
+		assertThat(servletResponse.getHeader("Content-Type")).isEqualTo(MediaType.APPLICATION_JSON_VALUE);
 	}
 
 	@Test
-	public void handleReturnValueString() throws Exception {
-		List<HttpMessageConverter<?>>converters = new ArrayList<>();
-		converters.add(new ByteArrayHttpMessageConverter());
-		converters.add(new StringHttpMessageConverter());
-
+	void handleReturnValueString() throws Exception {
+		List<HttpMessageConverter<?>> converters =
+					List.of(new ByteArrayHttpMessageConverter(), new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 		processor.handleReturnValue("Foo", returnTypeString, container, request);
 
-		assertEquals("text/plain;charset=ISO-8859-1", servletResponse.getHeader("Content-Type"));
-		assertEquals("Foo", servletResponse.getContentAsString());
+		assertThat(servletResponse.getHeader("Content-Type")).isEqualTo("text/plain;charset=ISO-8859-1");
+		assertThat(servletResponse.getContentAsString()).isEqualTo("Foo");
 	}
 
 	@Test  // SPR-13423
-	public void handleReturnValueCharSequence() throws Exception {
-		List<HttpMessageConverter<?>>converters = new ArrayList<>();
-		converters.add(new ByteArrayHttpMessageConverter());
-		converters.add(new StringHttpMessageConverter());
-
+	void handleReturnValueCharSequence() throws Exception {
 		Method method = ResponseBodyController.class.getMethod("handleWithCharSequence");
 		MethodParameter returnType = new MethodParameter(method, -1);
 
+		List<HttpMessageConverter<?>> converters =
+				List.of(new ByteArrayHttpMessageConverter(), new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 		processor.handleReturnValue(new StringBuilder("Foo"), returnType, container, request);
 
-		assertEquals("text/plain;charset=ISO-8859-1", servletResponse.getHeader("Content-Type"));
-		assertEquals("Foo", servletResponse.getContentAsString());
+		assertThat(servletResponse.getHeader("Content-Type")).isEqualTo("text/plain;charset=ISO-8859-1");
+		assertThat(servletResponse.getContentAsString()).isEqualTo("Foo");
 	}
 
 	@Test
-	public void handleReturnValueStringAcceptCharset() throws Exception {
+	void handleReturnValueStringAcceptCharset() throws Exception {
 		this.servletRequest.addHeader("Accept", "text/plain;charset=UTF-8");
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new ByteArrayHttpMessageConverter());
-		converters.add(new StringHttpMessageConverter());
+		List<HttpMessageConverter<?>> converters =
+				List.of(new ByteArrayHttpMessageConverter(), new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		processor.writeWithMessageConverters("Foo", returnTypeString, request);
 
-		assertEquals("text/plain;charset=UTF-8", servletResponse.getHeader("Content-Type"));
+		assertThat(servletResponse.getHeader("Content-Type")).isEqualTo("text/plain;charset=UTF-8");
 	}
 
-	// SPR-12894
-
-	@Test
-	public void handleReturnValueImage() throws Exception {
+	@Test // SPR-12894
+	void handleReturnValueImage() throws Exception {
 		this.servletRequest.addHeader("Accept", "*/*");
 
 		Method method = getClass().getDeclaredMethod("getImage");
 		MethodParameter returnType = new MethodParameter(method, -1);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new ResourceHttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new ResourceHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		ClassPathResource resource = new ClassPathResource("logo.jpg", getClass());
 		processor.writeWithMessageConverters(resource, returnType, this.request);
 
-		assertEquals("image/jpeg", this.servletResponse.getHeader("Content-Type"));
+		assertThat(this.servletResponse.getHeader("Content-Type")).isEqualTo("image/jpeg");
 	}
 
-	// SPR-13135
+	@Test // gh-26212
+	void handleReturnValueWithObjectMapperByTypeRegistration() throws Exception {
+		MediaType halFormsMediaType = MediaType.parseMediaType("application/prs.hal-forms+json");
+		MediaType halMediaType = MediaType.parseMediaType("application/hal+json");
 
-	@Test(expected = IllegalArgumentException.class)
-	public void handleReturnValueWithInvalidReturnType() throws Exception {
-		Method method = getClass().getDeclaredMethod("handleAndReturnOutputStream");
-		MethodParameter returnType = new MethodParameter(method, -1);
-		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(new ArrayList<>());
-		processor.writeWithMessageConverters(new ByteArrayOutputStream(), returnType, this.request);
+		this.servletRequest.addHeader("Accept", halFormsMediaType + "," + halMediaType);
+
+		ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+
+		SimpleBean simpleBean = new SimpleBean();
+		simpleBean.setId(12L);
+		simpleBean.setName("Jason");
+
+		MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
+		converter.registerObjectMappersForType(SimpleBean.class, map -> map.put(halMediaType, objectMapper));
+		RequestResponseBodyMethodProcessor processor =
+				new RequestResponseBodyMethodProcessor(List.of(converter));
+		MethodParameter returnType = new MethodParameter(getClass().getDeclaredMethod("getSimpleBean"), -1);
+		processor.writeWithMessageConverters(simpleBean, returnType, this.request);
+
+		assertThat(this.servletResponse.getHeader("Content-Type")).isEqualTo(halMediaType.toString());
+		JSONAssert.assertEquals("""
+				{ "id" : 12, "name" : "Jason" }""", this.servletResponse.getContentAsString(), true);
 	}
 
 	@Test
-	public void addContentDispositionHeader() throws Exception {
+	void problemDetailDefaultMediaType() throws Exception {
+		testProblemDetailMediaType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+	}
+
+	@Test
+	void problemDetailWhenJsonRequested() throws Exception {
+		this.servletRequest.addHeader("Accept", MediaType.APPLICATION_JSON_VALUE);
+		testProblemDetailMediaType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+	}
+
+	@Test // gh-29588
+	void problemDetailWhenJsonAndProblemJsonRequested() throws Exception {
+		this.servletRequest.addHeader("Accept", MediaType.APPLICATION_JSON_VALUE + "," + MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+		testProblemDetailMediaType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+	}
+
+	@Test
+	void problemDetailWhenNoMatchingMediaTypeRequested() throws Exception {
+		this.servletRequest.addHeader("Accept", MediaType.APPLICATION_PDF_VALUE);
+		testProblemDetailMediaType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+	}
+
+	private void testProblemDetailMediaType(String expectedContentType) throws Exception {
+		MyProblemDetail problemDetail = new MyProblemDetail(HttpStatus.BAD_REQUEST);
+
+		this.servletRequest.setRequestURI("/path");
+
+		RequestResponseBodyMethodProcessor processor =
+				new RequestResponseBodyMethodProcessor(List.of(
+						new MappingJackson2HttpMessageConverter(), new MappingJackson2XmlHttpMessageConverter()));
+
+		MethodParameter returnType =
+				new MethodParameter(getClass().getDeclaredMethod("handleAndReturnProblemDetail"), -1);
+
+		processor.handleReturnValue(problemDetail, returnType, this.container, this.request);
+
+		assertThat(this.servletResponse.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+		assertThat(this.servletResponse.getContentType()).isEqualTo(expectedContentType);
+
+		if (expectedContentType.equals(MediaType.APPLICATION_PROBLEM_XML_VALUE)) {
+			XmlAssert.assertThat(this.servletResponse.getContentAsString()).and("""
+						<problem xmlns="urn:ietf:rfc:7807">
+							<type>about:blank</type>
+							<title>Bad Request</title>
+							<status>400</status>
+							<instance>/path</instance>
+						</problem>""")
+					.ignoreWhitespace()
+					.areIdentical();
+		}
+		else {
+			JSONAssert.assertEquals("""
+					{
+						"type":     "about:blank",
+						"title":    "Bad Request",
+						"status":   400,
+						"instance": "/path"
+					}""", this.servletResponse.getContentAsString(), false);
+		}
+	}
+
+	@Test
+	void problemDetailWhenProblemXmlRequested() throws Exception {
+		this.servletRequest.addHeader("Accept", MediaType.APPLICATION_PROBLEM_XML_VALUE);
+		testProblemDetailMediaType(MediaType.APPLICATION_PROBLEM_XML_VALUE);
+	}
+
+	@Test // SPR-13135
+	void handleReturnValueWithInvalidReturnType() throws Exception {
+		Method method = getClass().getDeclaredMethod("handleAndReturnOutputStream");
+		MethodParameter returnType = new MethodParameter(method, -1);
+		List<HttpMessageConverter<?>> converters = List.of(new StringHttpMessageConverter());
+		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
+		assertThatExceptionOfType(HttpMediaTypeNotAcceptableException.class).isThrownBy(() ->
+				processor.writeWithMessageConverters(new ByteArrayOutputStream(), returnType, this.request));
+	}
+
+	@Test
+	void addContentDispositionHeader() throws Exception {
 		ContentNegotiationManagerFactoryBean factory = new ContentNegotiationManagerFactoryBean();
 		factory.addMediaType("pdf", new MediaType("application", "pdf"));
 		factory.afterPropertiesSet();
 
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(
-				Collections.singletonList(new StringHttpMessageConverter()),
-				factory.getObject());
+				List.of(new StringHttpMessageConverter()), factory.getObject());
 
-		assertContentDisposition(processor, false, "/hello.json", "whitelisted extension");
+		assertContentDisposition(processor, false, "/hello.json", "safe extension");
 		assertContentDisposition(processor, false, "/hello.pdf", "registered extension");
-		assertContentDisposition(processor, true, "/hello.dataless", "uknown extension");
+		assertContentDisposition(processor, true, "/hello.dataless", "unknown extension");
 
 		// path parameters
 		assertContentDisposition(processor, false, "/hello.json;a=b", "path param shouldn't cause issue");
-		assertContentDisposition(processor, true, "/hello.json;a=b;setup.dataless", "uknown ext in path params");
-		assertContentDisposition(processor, true, "/hello.dataless;a=b;setup.json", "uknown ext in filename");
-		assertContentDisposition(processor, false, "/hello.json;a=b;setup.json", "whitelisted extensions");
+		assertContentDisposition(processor, true, "/hello.json;a=b;setup.dataless", "unknown ext in path params");
+		assertContentDisposition(processor, true, "/hello.dataless;a=b;setup.json", "unknown ext in filename");
+		assertContentDisposition(processor, false, "/hello.json;a=b;setup.json", "safe extensions");
+		assertContentDisposition(processor, true, "/hello.json;jsessionid=foo.bar", "jsessionid shouldn't cause issue");
 
 		// encoded dot
 		assertContentDisposition(processor, true, "/hello%2Edataless;a=b;setup.json", "encoded dot in filename");
@@ -396,316 +459,328 @@ public class RequestResponseBodyMethodProcessorTests {
 	}
 
 	@Test
-	public void supportsReturnTypeResponseBodyOnType() throws Exception {
+	void addContentDispositionHeaderToErrorResponse() throws Exception {
+		ContentNegotiationManagerFactoryBean factory = new ContentNegotiationManagerFactoryBean();
+		factory.addMediaType("pdf", new MediaType("application", "pdf"));
+		factory.afterPropertiesSet();
+
+		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(
+				List.of(new StringHttpMessageConverter()), factory.getObject());
+
+		this.servletRequest.setRequestURI("/hello.dataless");
+		this.servletResponse.setStatus(400);
+
+		processor.handleReturnValue("body", this.returnTypeString, this.container, this.request);
+
+		String header = servletResponse.getHeader("Content-Disposition");
+		assertThat(header).isEqualTo("inline;filename=f.txt");
+	}
+
+	@Test
+	void supportsReturnTypeResponseBodyOnType() throws Exception {
 		Method method = ResponseBodyController.class.getMethod("handle");
 		MethodParameter returnType = new MethodParameter(method, -1);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new StringHttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
-		assertTrue("Failed to recognize type-level @ResponseBody", processor.supportsReturnType(returnType));
+		assertThat(processor.supportsReturnType(returnType)).as("Failed to recognize type-level @ResponseBody").isTrue();
 	}
 
 	@Test
-	public void supportsReturnTypeRestController() throws Exception {
+	void supportsReturnTypeRestController() throws Exception {
 		Method method = TestRestController.class.getMethod("handle");
 		MethodParameter returnType = new MethodParameter(method, -1);
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new StringHttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new StringHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
-		assertTrue("Failed to recognize type-level @RestController", processor.supportsReturnType(returnType));
+		assertThat(processor.supportsReturnType(returnType)).as("Failed to recognize type-level @RestController").isTrue();
 	}
 
 	@Test
-	public void jacksonJsonViewWithResponseBodyAndJsonMessageConverter() throws Exception {
+	void jacksonJsonViewWithResponseBodyAndJsonMessageConverter() throws Exception {
 		Method method = JacksonController.class.getMethod("handleResponseBody");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewResponseBodyAdvice()));
+				converters, null, List.of(new JsonViewResponseBodyAdvice()));
 
 		Object returnValue = new JacksonController().handleResponseBody();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertFalse(content.contains("\"withView1\":\"with\""));
-		assertTrue(content.contains("\"withView2\":\"with\""));
-		assertFalse(content.contains("\"withoutView\":\"without\""));
+		assertThat(this.servletResponse.getContentAsString())
+				.doesNotContain("\"withView1\":\"with\"")
+				.contains("\"withView2\":\"with\"")
+				.doesNotContain("\"withoutView\":\"without\"");
 	}
 
 	@Test
-	public void jacksonJsonViewWithResponseEntityAndJsonMessageConverter() throws Exception {
+	void jacksonJsonViewWithResponseEntityAndJsonMessageConverter() throws Exception {
 		Method method = JacksonController.class.getMethod("handleResponseEntity");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		HttpEntityMethodProcessor processor = new HttpEntityMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewResponseBodyAdvice()));
+				converters, null, List.of(new JsonViewResponseBodyAdvice()));
 
 		Object returnValue = new JacksonController().handleResponseEntity();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertFalse(content.contains("\"withView1\":\"with\""));
-		assertTrue(content.contains("\"withView2\":\"with\""));
-		assertFalse(content.contains("\"withoutView\":\"without\""));
+		assertThat(this.servletResponse.getContentAsString())
+				.doesNotContain("\"withView1\":\"with\"")
+				.contains("\"withView2\":\"with\"")
+				.doesNotContain("\"withoutView\":\"without\"");
 	}
 
 	@Test  // SPR-12149
-	public void jacksonJsonViewWithResponseBodyAndXmlMessageConverter() throws Exception {
+	void jacksonJsonViewWithResponseBodyAndXmlMessageConverter() throws Exception {
 		Method method = JacksonController.class.getMethod("handleResponseBody");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2XmlHttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2XmlHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewResponseBodyAdvice()));
+				converters, null, List.of(new JsonViewResponseBodyAdvice()));
 
 		Object returnValue = new JacksonController().handleResponseBody();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertFalse(content.contains("<withView1>with</withView1>"));
-		assertTrue(content.contains("<withView2>with</withView2>"));
-		assertFalse(content.contains("<withoutView>without</withoutView>"));
+		assertThat(this.servletResponse.getContentAsString())
+				.doesNotContain("<withView1>with</withView1>")
+				.contains("<withView2>with</withView2>")
+				.doesNotContain("<withoutView>without</withoutView>");
 	}
 
 	@Test  // SPR-12149
-	public void jacksonJsonViewWithResponseEntityAndXmlMessageConverter() throws Exception {
+	void jacksonJsonViewWithResponseEntityAndXmlMessageConverter() throws Exception {
 		Method method = JacksonController.class.getMethod("handleResponseEntity");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2XmlHttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2XmlHttpMessageConverter());
 		HttpEntityMethodProcessor processor = new HttpEntityMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewResponseBodyAdvice()));
+				converters, null, List.of(new JsonViewResponseBodyAdvice()));
 
 		Object returnValue = new JacksonController().handleResponseEntity();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertFalse(content.contains("<withView1>with</withView1>"));
-		assertTrue(content.contains("<withView2>with</withView2>"));
-		assertFalse(content.contains("<withoutView>without</withoutView>"));
+		assertThat(this.servletResponse.getContentAsString())
+				.doesNotContain("<withView1>with</withView1>")
+				.contains("<withView2>with</withView2>")
+				.doesNotContain("<withoutView>without</withoutView>");
 	}
 
 	@Test  // SPR-12501
-	public void resolveArgumentWithJacksonJsonView() throws Exception {
+	void resolveArgumentWithJacksonJsonView() throws Exception {
 		String content = "{\"withView1\" : \"with\", \"withView2\" : \"with\", \"withoutView\" : \"without\"}";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
 		Method method = JacksonController.class.getMethod("handleRequestBody", JacksonViewBean.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewRequestBodyAdvice()));
+				converters, null, List.of(new JsonViewRequestBodyAdvice()));
 
-		@SuppressWarnings("unchecked")
 		JacksonViewBean result = (JacksonViewBean)
 				processor.resolveArgument(methodParameter, this.container, this.request, this.factory);
 
-		assertNotNull(result);
-		assertEquals("with", result.getWithView1());
-		assertNull(result.getWithView2());
-		assertNull(result.getWithoutView());
+		assertThat(result).isNotNull();
+		assertThat(result.getWithView1()).isEqualTo("with");
+		assertThat(result.getWithView2()).isNull();
+		assertThat(result.getWithoutView()).isNull();
 	}
 
 	@Test  // SPR-12501
-	public void resolveHttpEntityArgumentWithJacksonJsonView() throws Exception {
+	void resolveHttpEntityArgumentWithJacksonJsonView() throws Exception {
 		String content = "{\"withView1\" : \"with\", \"withView2\" : \"with\", \"withoutView\" : \"without\"}";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
 		Method method = JacksonController.class.getMethod("handleHttpEntity", HttpEntity.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		HttpEntityMethodProcessor processor = new HttpEntityMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewRequestBodyAdvice()));
+				converters, null, List.of(new JsonViewRequestBodyAdvice()));
 
 		@SuppressWarnings("unchecked")
 		HttpEntity<JacksonViewBean> result = (HttpEntity<JacksonViewBean>)
 				processor.resolveArgument( methodParameter, this.container, this.request, this.factory);
 
-		assertNotNull(result);
-		assertNotNull(result.getBody());
-		assertEquals("with", result.getBody().getWithView1());
-		assertNull(result.getBody().getWithView2());
-		assertNull(result.getBody().getWithoutView());
+		assertThat(result).isNotNull();
+		assertThat(result.getBody()).isNotNull();
+		assertThat(result.getBody().getWithView1()).isEqualTo("with");
+		assertThat(result.getBody().getWithView2()).isNull();
+		assertThat(result.getBody().getWithoutView()).isNull();
 	}
 
 	@Test  // SPR-12501
-	public void resolveArgumentWithJacksonJsonViewAndXmlMessageConverter() throws Exception {
+	void resolveArgumentWithJacksonJsonViewAndXmlMessageConverter() throws Exception {
 		String content = "<root>" +
 				"<withView1>with</withView1>" +
 				"<withView2>with</withView2>" +
 				"<withoutView>without</withoutView></root>";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_XML_VALUE);
 
 		Method method = JacksonController.class.getMethod("handleRequestBody", JacksonViewBean.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2XmlHttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2XmlHttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewRequestBodyAdvice()));
+				converters, null, List.of(new JsonViewRequestBodyAdvice()));
 
-		@SuppressWarnings("unchecked")
 		JacksonViewBean result = (JacksonViewBean)
 				processor.resolveArgument(methodParameter, this.container, this.request, this.factory);
 
-		assertNotNull(result);
-		assertEquals("with", result.getWithView1());
-		assertNull(result.getWithView2());
-		assertNull(result.getWithoutView());
+		assertThat(result).isNotNull();
+		assertThat(result.getWithView1()).isEqualTo("with");
+		assertThat(result.getWithView2()).isNull();
+		assertThat(result.getWithoutView()).isNull();
 	}
 
 	@Test  // SPR-12501
-	public void resolveHttpEntityArgumentWithJacksonJsonViewAndXmlMessageConverter() throws Exception {
+	void resolveHttpEntityArgumentWithJacksonJsonViewAndXmlMessageConverter() throws Exception {
 		String content = "<root>" +
 				"<withView1>with</withView1>" +
 				"<withView2>with</withView2>" +
 				"<withoutView>without</withoutView></root>";
-		this.servletRequest.setContent(content.getBytes("UTF-8"));
+		this.servletRequest.setContent(content.getBytes(StandardCharsets.UTF_8));
 		this.servletRequest.setContentType(MediaType.APPLICATION_XML_VALUE);
 
 		Method method = JacksonController.class.getMethod("handleHttpEntity", HttpEntity.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2XmlHttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2XmlHttpMessageConverter());
 		HttpEntityMethodProcessor processor = new HttpEntityMethodProcessor(
-				converters, null, Collections.singletonList(new JsonViewRequestBodyAdvice()));
+				converters, null, List.of(new JsonViewRequestBodyAdvice()));
 
 		@SuppressWarnings("unchecked")
 		HttpEntity<JacksonViewBean> result = (HttpEntity<JacksonViewBean>)
 				processor.resolveArgument(methodParameter, this.container, this.request, this.factory);
 
-		assertNotNull(result);
-		assertNotNull(result.getBody());
-		assertEquals("with", result.getBody().getWithView1());
-		assertNull(result.getBody().getWithView2());
-		assertNull(result.getBody().getWithoutView());
+		assertThat(result).isNotNull();
+		assertThat(result.getBody()).isNotNull();
+		assertThat(result.getBody().getWithView1()).isEqualTo("with");
+		assertThat(result.getBody().getWithView2()).isNull();
+		assertThat(result.getBody().getWithoutView()).isNull();
 	}
 
 	@Test  // SPR-12811
-	public void jacksonTypeInfoList() throws Exception {
+	void jacksonTypeInfoList() throws Exception {
 		Method method = JacksonController.class.getMethod("handleTypeInfoList");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		Object returnValue = new JacksonController().handleTypeInfoList();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertTrue(content.contains("\"type\":\"foo\""));
-		assertTrue(content.contains("\"type\":\"bar\""));
+		assertThat(this.servletResponse.getContentAsString())
+				.contains("\"type\":\"foo\"")
+				.contains("\"type\":\"bar\"");
 	}
 
 	@Test  // SPR-13318
-	public void jacksonSubType() throws Exception {
+	void jacksonSubType() throws Exception {
 		Method method = JacksonController.class.getMethod("handleSubType");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		Object returnValue = new JacksonController().handleSubType();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertTrue(content.contains("\"id\":123"));
-		assertTrue(content.contains("\"name\":\"foo\""));
+		assertThat(this.servletResponse.getContentAsString())
+				.contains("\"id\":123")
+				.contains("\"name\":\"foo\"");
 	}
 
 	@Test  // SPR-13318
-	public void jacksonSubTypeList() throws Exception {
+	void jacksonSubTypeList() throws Exception {
 		Method method = JacksonController.class.getMethod("handleSubTypeList");
 		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
 		MethodParameter methodReturnType = handlerMethod.getReturnType();
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
 		Object returnValue = new JacksonController().handleSubTypeList();
 		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
 
-		String content = this.servletResponse.getContentAsString();
-		assertTrue(content.contains("\"id\":123"));
-		assertTrue(content.contains("\"name\":\"foo\""));
-		assertTrue(content.contains("\"id\":456"));
-		assertTrue(content.contains("\"name\":\"bar\""));
-	}
-
-	@Test  // SPR-13631
-	public void defaultCharset() throws Exception {
-		Method method = JacksonController.class.getMethod("defaultCharset");
-		HandlerMethod handlerMethod = new HandlerMethod(new JacksonController(), method);
-		MethodParameter methodReturnType = handlerMethod.getReturnType();
-
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
-
-		Object returnValue = new JacksonController().defaultCharset();
-		processor.handleReturnValue(returnValue, methodReturnType, this.container, this.request);
-
-		assertEquals("UTF-8", this.servletResponse.getCharacterEncoding());
+		assertThat(this.servletResponse.getContentAsString())
+				.contains("\"id\":123")
+				.contains("\"name\":\"foo\"")
+				.contains("\"id\":456")
+				.contains("\"name\":\"bar\"");
 	}
 
 	@Test  // SPR-14520
-	public void resolveArgumentTypeVariableWithGenericInterface() throws Exception {
-		this.servletRequest.setContent("\"foo\"".getBytes("UTF-8"));
-		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
+	void resolveArgumentTypeVariableWithGenericInterface() throws Exception {
+		this.servletRequest.setContent("\"foo\"".getBytes(StandardCharsets.UTF_8));
+		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
 		Method method = MyControllerImplementingInterface.class.getMethod("handle", Object.class);
 		HandlerMethod handlerMethod = new HandlerMethod(new MyControllerImplementingInterface(), method);
 		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
 
-		List<HttpMessageConverter<?>> converters = new ArrayList<>();
-		converters.add(new MappingJackson2HttpMessageConverter());
-
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
 		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
 
+		assertThat(processor.supportsParameter(methodParameter)).isTrue();
 		String value = (String) processor.readWithMessageConverters(
 				this.request, methodParameter, methodParameter.getGenericParameterType());
-		assertEquals("foo", value);
+		assertThat(value).isEqualTo("foo");
+	}
+
+	@Test  // gh-24127
+	void resolveArgumentTypeVariableWithGenericInterfaceAndSubclass() throws Exception {
+		this.servletRequest.setContent("\"foo\"".getBytes(StandardCharsets.UTF_8));
+		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+		Method method = SubControllerImplementingInterface.class.getMethod("handle", Object.class);
+		HandlerMethod handlerMethod = new HandlerMethod(new SubControllerImplementingInterface(), method);
+		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
+
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
+		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
+
+		assertThat(processor.supportsParameter(methodParameter)).isTrue();
+		String value = (String) processor.readWithMessageConverters(
+				this.request, methodParameter, methodParameter.getGenericParameterType());
+		assertThat(value).isEqualTo("foo");
+	}
+
+	@Test  // gh-25788
+	void resolveArgumentTypeVariableWithAbstractMethod() throws Exception {
+		this.servletRequest.setContent("\"foo\"".getBytes(StandardCharsets.UTF_8));
+		this.servletRequest.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+		Method method = SubControllerImplementingAbstractMethod.class.getMethod("handle", Object.class);
+		HandlerMethod handlerMethod = new HandlerMethod(new SubControllerImplementingAbstractMethod(), method);
+		MethodParameter methodParameter = handlerMethod.getMethodParameters()[0];
+
+		List<HttpMessageConverter<?>> converters = List.of(new MappingJackson2HttpMessageConverter());
+		RequestResponseBodyMethodProcessor processor = new RequestResponseBodyMethodProcessor(converters);
+
+		assertThat(processor.supportsParameter(methodParameter)).isTrue();
+		String value = (String) processor.readWithMessageConverters(
+				this.request, methodParameter, methodParameter.getGenericParameterType());
+		assertThat(value).isEqualTo("foo");
 	}
 
 	private void assertContentDisposition(RequestResponseBodyMethodProcessor processor,
@@ -716,19 +791,23 @@ public class RequestResponseBodyMethodProcessorTests {
 
 		String header = servletResponse.getHeader("Content-Disposition");
 		if (expectContentDisposition) {
-			assertEquals("Expected 'Content-Disposition' header. Use case: '" + comment + "'",
-					"inline;filename=f.txt", header);
+			assertThat(header)
+					.as("Expected 'Content-Disposition' header. Use case: '" + comment + "'")
+					.isEqualTo("inline;filename=f.txt");
 		}
 		else {
-			assertNull("Did not expect 'Content-Disposition' header. Use case: '" + comment + "'", header);
+			assertThat(header)
+					.as("Did not expect 'Content-Disposition' header. Use case: '" + comment + "'")
+					.isNull();
 		}
 
-		this.servletRequest = new MockHttpServletRequest();
-		this.servletResponse = new MockHttpServletResponse();
-		this.request = new ServletWebRequest(servletRequest, servletResponse);
+		this.servletRequest.clearAttributes();
+		this.servletResponse.setCommitted(false);
+		this.servletResponse.reset();
 	}
 
 
+	@SuppressWarnings("ConstantConditions")
 	String handle(
 			@RequestBody List<SimpleBean> list,
 			@RequestBody SimpleBean simpleBean,
@@ -738,17 +817,38 @@ public class RequestResponseBodyMethodProcessorTests {
 		return null;
 	}
 
+	@SuppressWarnings("ConstantConditions")
 	Resource getImage() {
 		return null;
 	}
 
+	@SuppressWarnings("ConstantConditions")
+	MyProblemDetail handleAndReturnProblemDetail() {
+		return null;
+	}
+
+	@SuppressWarnings("ConstantConditions")
 	@RequestMapping
 	OutputStream handleAndReturnOutputStream() {
 		return null;
 	}
 
+	@SuppressWarnings("ConstantConditions")
+	SimpleBean getSimpleBean() {
+		return null;
+	}
 
-	private static abstract class MyParameterizedController<DTO extends Identifiable> {
+
+	private static class MyProblemDetail extends ProblemDetail {
+
+		public MyProblemDetail(HttpStatus status) {
+			super(status.value());
+		}
+
+	}
+
+
+	private abstract static class MyParameterizedController<DTO extends Identifiable> {
 
 		@SuppressWarnings("unused")
 		public void handleDto(@RequestBody DTO dto) {}
@@ -768,7 +868,7 @@ public class RequestResponseBodyMethodProcessorTests {
 
 
 	@SuppressWarnings("unused")
-	private static abstract class MyParameterizedControllerWithList<DTO extends Identifiable> {
+	private abstract static class MyParameterizedControllerWithList<DTO extends Identifiable> {
 
 		public void handleDto(@RequestBody List<DTO> dto) {
 		}
@@ -780,7 +880,7 @@ public class RequestResponseBodyMethodProcessorTests {
 	}
 
 
-	@SuppressWarnings({ "serial" })
+	@SuppressWarnings({"serial", "NotNullFieldNotInitialized"})
 	private static class SimpleBean implements Identifiable {
 
 		private Long id;
@@ -807,7 +907,7 @@ public class RequestResponseBodyMethodProcessorTests {
 	}
 
 
-	private final class ValidatingBinderFactory implements WebDataBinderFactory {
+	private static final class ValidatingBinderFactory implements WebDataBinderFactory {
 
 		@Override
 		public WebDataBinder createBinder(NativeWebRequest request, @Nullable Object target, String objectName) {
@@ -828,6 +928,7 @@ public class RequestResponseBodyMethodProcessorTests {
 			return "hello";
 		}
 
+		@SuppressWarnings("ConstantConditions")
 		@RequestMapping
 		public CharSequence handleWithCharSequence() {
 			return null;
@@ -850,6 +951,7 @@ public class RequestResponseBodyMethodProcessorTests {
 	private interface MyJacksonView2 {}
 
 
+	@SuppressWarnings("NotNullFieldNotInitialized")
 	private static class JacksonViewBean {
 
 		@JsonView(MyJacksonView1.class)
@@ -868,6 +970,7 @@ public class RequestResponseBodyMethodProcessorTests {
 			this.withView1 = withView1;
 		}
 
+		@Nullable
 		public String getWithView2() {
 			return withView2;
 		}
@@ -876,6 +979,7 @@ public class RequestResponseBodyMethodProcessorTests {
 			this.withView2 = withView2;
 		}
 
+		@Nullable
 		public String getWithoutView() {
 			return withoutView;
 		}
@@ -886,7 +990,8 @@ public class RequestResponseBodyMethodProcessorTests {
 	}
 
 
-	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+	@SuppressWarnings("NotNullFieldNotInitialized")
+	@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 	public static class ParentClass {
 
 		private String parentProperty;
@@ -932,7 +1037,18 @@ public class RequestResponseBodyMethodProcessorTests {
 	}
 
 
-	private static class JacksonController {
+	private static class BaseController<T> {
+
+		@RequestMapping
+		@ResponseBody
+		@SuppressWarnings("unchecked")
+		public List<T> handleTypeInfoList() {
+			return List.of((T) new Foo("foo"), (T) new Bar("bar"));
+		}
+	}
+
+
+	private static class JacksonController extends BaseController<ParentClass> {
 
 		@RequestMapping
 		@ResponseBody
@@ -963,19 +1079,11 @@ public class RequestResponseBodyMethodProcessorTests {
 			return bean;
 		}
 
+		@SuppressWarnings("ConstantConditions")
 		@RequestMapping
 		@ResponseBody
 		public JacksonViewBean handleHttpEntity(@JsonView(MyJacksonView1.class) HttpEntity<JacksonViewBean> entity) {
 			return entity.getBody();
-		}
-
-		@RequestMapping
-		@ResponseBody
-		public List<ParentClass> handleTypeInfoList() {
-			List<ParentClass> list = new ArrayList<>();
-			list.add(new Foo("foo"));
-			list.add(new Bar("bar"));
-			return list;
 		}
 
 		@RequestMapping
@@ -1048,6 +1156,30 @@ public class RequestResponseBodyMethodProcessorTests {
 
 
 	static class MyControllerImplementingInterface implements MappingInterface<String> {
+	}
+
+
+	static class SubControllerImplementingInterface extends MyControllerImplementingInterface {
+
+		@Override
+		public String handle(String arg) {
+			return arg;
+		}
+	}
+
+
+	abstract static class MyControllerWithAbstractMethod<A> {
+
+		public abstract A handle(@RequestBody A arg);
+	}
+
+
+	static class SubControllerImplementingAbstractMethod extends MyControllerWithAbstractMethod<String> {
+
+		@Override
+		public String handle(String arg) {
+			return arg;
+		}
 	}
 
 }

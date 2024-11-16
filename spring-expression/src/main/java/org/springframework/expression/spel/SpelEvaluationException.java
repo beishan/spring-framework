@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,11 +17,15 @@
 package org.springframework.expression.spel;
 
 import org.springframework.expression.EvaluationException;
+import org.springframework.lang.Nullable;
 
 /**
- * Root exception for Spring EL related exceptions. Rather than holding a hard coded
- * string indicating the problem, it records a message key and the inserts for the
- * message. See {@link SpelMessage} for the list of all possible messages that can occur.
+ * Root exception for Spring EL related exceptions.
+ *
+ * <p>Rather than holding a hard-coded string indicating the problem, it records
+ * a message key and the inserts for the message.
+ *
+ * <p>See {@link SpelMessage} for the list of all possible messages that can occur.
  *
  * @author Andy Clement
  * @author Juergen Hoeller
@@ -32,28 +36,29 @@ public class SpelEvaluationException extends EvaluationException {
 
 	private final SpelMessage message;
 
+	@Nullable
 	private final Object[] inserts;
 
 
-	public SpelEvaluationException(SpelMessage message, Object... inserts) {
+	public SpelEvaluationException(SpelMessage message, @Nullable Object... inserts) {
 		super(message.formatMessage(inserts));
 		this.message = message;
 		this.inserts = inserts;
 	}
 
-	public SpelEvaluationException(int position, SpelMessage message, Object... inserts) {
+	public SpelEvaluationException(int position, SpelMessage message, @Nullable Object... inserts) {
 		super(position, message.formatMessage(inserts));
 		this.message = message;
 		this.inserts = inserts;
 	}
 
-	public SpelEvaluationException(int position, Throwable cause, SpelMessage message, Object... inserts) {
-		super(position, message.formatMessage(inserts),cause);
+	public SpelEvaluationException(int position, @Nullable Throwable cause, SpelMessage message, @Nullable Object... inserts) {
+		super(position, message.formatMessage(inserts), cause);
 		this.message = message;
 		this.inserts = inserts;
 	}
 
-	public SpelEvaluationException(Throwable cause, SpelMessage message, Object... inserts) {
+	public SpelEvaluationException(@Nullable Throwable cause, SpelMessage message, @Nullable Object... inserts) {
 		super(message.formatMessage(inserts), cause);
 		this.message = message;
 		this.inserts = inserts;
@@ -77,6 +82,7 @@ public class SpelEvaluationException extends EvaluationException {
 	/**
 	 * Return the message inserts.
 	 */
+	@Nullable
 	public Object[] getInserts() {
 		return this.inserts;
 	}

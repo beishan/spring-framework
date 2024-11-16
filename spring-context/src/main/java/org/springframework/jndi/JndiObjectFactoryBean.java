@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package org.springframework.jndi;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+
 import javax.naming.Context;
 import javax.naming.NamingException;
 
@@ -40,11 +41,11 @@ import org.springframework.util.ClassUtils;
 /**
  * {@link org.springframework.beans.factory.FactoryBean} that looks up a
  * JNDI object. Exposes the object found in JNDI for bean references,
- * e.g. for data access object's "dataSource" property in case of a
+ * for example, for data access object's "dataSource" property in case of a
  * {@link javax.sql.DataSource}.
  *
  * <p>The typical usage will be to register this as singleton factory
- * (e.g. for a certain JNDI-bound DataSource) in an application context,
+ * (for example, for a certain JNDI-bound DataSource) in an application context,
  * and give bean references to application services that need it.
  *
  * <p>The default behavior is to look up the JNDI object on startup and cache it.
@@ -53,12 +54,12 @@ import org.springframework.util.ClassUtils;
  * a "proxyInterface" in such a scenario, since the actual JNDI object type is not
  * known in advance.
  *
- * <p>Of course, bean classes in a Spring environment may lookup e.g. a DataSource
+ * <p>Of course, bean classes in a Spring environment may look up, for example, a DataSource
  * from JNDI themselves. This class simply enables central configuration of the
  * JNDI name, and easy switching to non-JNDI alternatives. The latter is
  * particularly convenient for test setups, reuse in standalone clients, etc.
  *
- * <p>Note that switching to e.g. DriverManagerDataSource is just a matter of
+ * <p>Note that switching to, for example, DriverManagerDataSource is just a matter of
  * configuration: Simply replace the definition of this FactoryBean with a
  * {@link org.springframework.jdbc.datasource.DriverManagerDataSource} definition!
  *
@@ -151,7 +152,7 @@ public class JndiObjectFactoryBean extends JndiObjectLocator
 	 * <p>Default is "false", i.e. to only expose the JNDI context for object lookup.
 	 * Switch this flag to "true" in order to expose the JNDI environment (including
 	 * the authorization context) for each method invocation, as needed by WebLogic
-	 * for JNDI-obtained factories (e.g. JDBC DataSource, JMS ConnectionFactory)
+	 * for JNDI-obtained factories (for example, JDBC DataSource, JMS ConnectionFactory)
 	 * with authorization requirements.
 	 */
 	public void setExposeAccessContext(boolean exposeAccessContext) {
@@ -177,10 +178,10 @@ public class JndiObjectFactoryBean extends JndiObjectLocator
 
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) {
-		if (beanFactory instanceof ConfigurableBeanFactory) {
+		if (beanFactory instanceof ConfigurableBeanFactory cbf) {
 			// Just optional - for getting a specifically configured TypeConverter if needed.
 			// We'll simply fall back to a SimpleTypeConverter if no specific one available.
-			this.beanFactory = (ConfigurableBeanFactory) beanFactory;
+			this.beanFactory = cbf;
 		}
 	}
 
@@ -244,11 +245,11 @@ public class JndiObjectFactoryBean extends JndiObjectLocator
 		}
 		catch (NamingException ex) {
 			if (this.defaultObject != null) {
-				if (logger.isDebugEnabled()) {
-					logger.debug("JNDI lookup failed - returning specified default object instead", ex);
+				if (logger.isTraceEnabled()) {
+					logger.trace("JNDI lookup failed - returning specified default object instead", ex);
 				}
-				else if (logger.isInfoEnabled()) {
-					logger.info("JNDI lookup failed - returning specified default object instead: " + ex);
+				else if (logger.isDebugEnabled()) {
+					logger.debug("JNDI lookup failed - returning specified default object instead: " + ex);
 				}
 				return this.defaultObject;
 			}
@@ -272,6 +273,7 @@ public class JndiObjectFactoryBean extends JndiObjectLocator
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getObjectType() {
 		if (this.proxyInterfaces != null) {
 			if (this.proxyInterfaces.length == 1) {
@@ -367,6 +369,7 @@ public class JndiObjectFactoryBean extends JndiObjectLocator
 		}
 
 		@Override
+		@Nullable
 		public Object invoke(MethodInvocation invocation) throws Throwable {
 			Context ctx = (isEligible(invocation.getMethod()) ? this.jndiTemplate.getContext() : null);
 			try {

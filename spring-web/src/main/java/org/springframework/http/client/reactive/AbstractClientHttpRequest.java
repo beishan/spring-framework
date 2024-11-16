@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,10 +17,12 @@
 package org.springframework.http.client.reactive;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -56,9 +58,14 @@ public abstract class AbstractClientHttpRequest implements ClientHttpRequest {
 
 	private final MultiValueMap<String, HttpCookie> cookies;
 
+	private final Map<String, Object> attributes;
+
 	private final AtomicReference<State> state = new AtomicReference<>(State.NEW);
 
 	private final List<Supplier<? extends Publisher<Void>>> commitActions = new ArrayList<>(4);
+
+	@Nullable
+	private HttpHeaders readOnlyHeaders;
 
 
 	public AbstractClientHttpRequest() {
@@ -69,15 +76,32 @@ public abstract class AbstractClientHttpRequest implements ClientHttpRequest {
 		Assert.notNull(headers, "HttpHeaders must not be null");
 		this.headers = headers;
 		this.cookies = new LinkedMultiValueMap<>();
+		this.attributes = new LinkedHashMap<>();
 	}
 
 
 	@Override
 	public HttpHeaders getHeaders() {
-		if (State.COMMITTED.equals(this.state.get())) {
-			return HttpHeaders.readOnlyHttpHeaders(this.headers);
+		if (this.readOnlyHeaders != null) {
+			return this.readOnlyHeaders;
 		}
-		return this.headers;
+		else if (State.COMMITTED.equals(this.state.get())) {
+			this.readOnlyHeaders = initReadOnlyHeaders();
+			return this.readOnlyHeaders;
+		}
+		else {
+			return this.headers;
+		}
+	}
+
+	/**
+	 * Initialize the read-only headers after the request is committed.
+	 * <p>By default, this method simply applies a read-only wrapper.
+	 * Subclasses can do the same for headers from the native request.
+	 * @since 5.3.15
+	 */
+	protected HttpHeaders initReadOnlyHeaders() {
+		return HttpHeaders.readOnlyHttpHeaders(this.headers);
 	}
 
 	@Override
@@ -86,6 +110,14 @@ public abstract class AbstractClientHttpRequest implements ClientHttpRequest {
 			return CollectionUtils.unmodifiableMultiValueMap(this.cookies);
 		}
 		return this.cookies;
+	}
+
+	@Override
+	public Map<String, Object> getAttributes() {
+		if (State.COMMITTED.equals(this.state.get())) {
+			return Collections.unmodifiableMap(this.attributes);
+		}
+		return this.attributes;
 	}
 
 	@Override
@@ -118,34 +150,45 @@ public abstract class AbstractClientHttpRequest implements ClientHttpRequest {
 			return Mono.empty();
 		}
 
-		this.commitActions.add(() -> {
-			applyHeaders();
-			applyCookies();
-			this.state.set(State.COMMITTED);
-			return Mono.empty();
-		});
+		this.commitActions.add(() ->
+				Mono.fromRunnable(() -> {
+					applyHeaders();
+					applyCookies();
+					applyAttributes();
+					this.state.set(State.COMMITTED);
+				}));
 
 		if (writeAction != null) {
 			this.commitActions.add(writeAction);
 		}
 
-		List<? extends Publisher<Void>> actions = this.commitActions.stream()
-				.map(Supplier::get).collect(Collectors.toList());
+		List<Publisher<Void>> actions = new ArrayList<>(this.commitActions.size());
+		for (Supplier<? extends Publisher<Void>> commitAction : this.commitActions) {
+			actions.add(commitAction.get());
+		}
 
-		return Mono.fromDirect(Flux.concat(actions));
+		return Flux.concat(actions).then();
 	}
 
 
 	/**
-	 * Apply header changes from {@link #getHeaders()} to the underlying response.
+	 * Apply header changes from {@link #getHeaders()} to the underlying request.
 	 * This method is called once only.
 	 */
 	protected abstract void applyHeaders();
 
 	/**
-	 * Add cookies from {@link #getHeaders()} to the underlying response.
+	 * Add cookies from {@link #getHeaders()} to the underlying request.
 	 * This method is called once only.
 	 */
 	protected abstract void applyCookies();
+
+	/**
+	 * Add attributes from {@link #getAttributes()} to the underlying request.
+	 * This method is called once only.
+	 * @since 6.2
+	 */
+	protected void applyAttributes() {
+	}
 
 }

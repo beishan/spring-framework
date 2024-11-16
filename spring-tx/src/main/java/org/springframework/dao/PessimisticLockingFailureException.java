@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,18 +16,20 @@
 
 package org.springframework.dao;
 
+import org.springframework.lang.Nullable;
+
 /**
  * Exception thrown on a pessimistic locking violation.
  * Thrown by Spring's SQLException translation mechanism
  * if a corresponding database error is encountered.
  *
- * <p>Serves as superclass for more specific exceptions, like
- * CannotAcquireLockException and DeadlockLoserDataAccessException.
+ * <p>Serves as a superclass for more specific exceptions, for example,
+ * {@link CannotAcquireLockException}. However, it is generally
+ * recommended to handle {@code PessimisticLockingFailureException}
+ * itself instead of relying on specific exception subclasses.
  *
  * @author Thomas Risberg
  * @since 1.2
- * @see CannotAcquireLockException
- * @see DeadlockLoserDataAccessException
  * @see OptimisticLockingFailureException
  */
 @SuppressWarnings("serial")
@@ -37,7 +39,7 @@ public class PessimisticLockingFailureException extends ConcurrencyFailureExcept
 	 * Constructor for PessimisticLockingFailureException.
 	 * @param msg the detail message
 	 */
-	public PessimisticLockingFailureException(String msg) {
+	public PessimisticLockingFailureException(@Nullable String msg) {
 		super(msg);
 	}
 
@@ -46,7 +48,7 @@ public class PessimisticLockingFailureException extends ConcurrencyFailureExcept
 	 * @param msg the detail message
 	 * @param cause the root cause from the data access API in use
 	 */
-	public PessimisticLockingFailureException(String msg, Throwable cause) {
+	public PessimisticLockingFailureException(@Nullable String msg, @Nullable Throwable cause) {
 		super(msg, cause);
 	}
 

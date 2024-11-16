@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,10 +17,9 @@
 package org.springframework.web.socket.sockjs.transport;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.lang.Nullable;
@@ -40,10 +39,6 @@ public enum TransportType {
 
 	XHR_SEND("xhr_send", HttpMethod.POST, "cors", "jsessionid", "no_cache"),
 
-	JSONP("jsonp", HttpMethod.GET, "jsessionid", "no_cache"),
-
-	JSONP_SEND("jsonp_send", HttpMethod.POST, "jsessionid", "no_cache"),
-
 	XHR_STREAMING("xhr_streaming", HttpMethod.POST, "cors", "jsessionid", "no_cache"),
 
 	EVENT_SOURCE("eventsource", HttpMethod.GET, "origin", "jsessionid", "no_cache"),
@@ -51,15 +46,9 @@ public enum TransportType {
 	HTML_FILE("htmlfile", HttpMethod.GET, "cors", "jsessionid", "no_cache");
 
 
-	private static final Map<String, TransportType> TRANSPORT_TYPES;
+	private static final Map<String, TransportType> TRANSPORT_TYPES =
+			Arrays.stream(values()).collect(Collectors.toUnmodifiableMap(type -> type.value, type -> type));
 
-	static {
-		Map<String, TransportType> transportTypes = new HashMap<>();
-		for (TransportType type : values()) {
-			transportTypes.put(type.value, type);
-		}
-		TRANSPORT_TYPES = Collections.unmodifiableMap(transportTypes);
-	}
 
 	@Nullable
 	public static TransportType fromValue(String value) {

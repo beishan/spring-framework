@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -121,7 +121,7 @@ public class PropertyPathFactoryBean implements FactoryBean<Object>, BeanNameAwa
 	 * Specify the name of a target bean to apply the property path to.
 	 * Alternatively, specify a target object directly.
 	 * @param targetBeanName the bean name to be looked up in the
-	 * containing bean factory (e.g. "testBean")
+	 * containing bean factory (for example, "testBean")
 	 * @see #setTargetObject
 	 */
 	public void setTargetBeanName(String targetBeanName) {
@@ -131,7 +131,7 @@ public class PropertyPathFactoryBean implements FactoryBean<Object>, BeanNameAwa
 	/**
 	 * Specify the property path to apply to the target.
 	 * @param propertyPath the property path, potentially nested
-	 * (e.g. "age" or "spouse.age")
+	 * (for example, "age" or "spouse.age")
 	 */
 	public void setPropertyPath(String propertyPath) {
 		this.propertyPath = StringUtils.trimAllWhitespace(propertyPath);
@@ -162,6 +162,7 @@ public class PropertyPathFactoryBean implements FactoryBean<Object>, BeanNameAwa
 
 
 	@Override
+	@SuppressWarnings("NullAway")
 	public void setBeanFactory(BeanFactory beanFactory) {
 		this.beanFactory = beanFactory;
 
@@ -206,8 +207,8 @@ public class PropertyPathFactoryBean implements FactoryBean<Object>, BeanNameAwa
 		BeanWrapper target = this.targetBeanWrapper;
 		if (target != null) {
 			if (logger.isWarnEnabled() && this.targetBeanName != null &&
-					this.beanFactory instanceof ConfigurableBeanFactory &&
-					((ConfigurableBeanFactory) this.beanFactory).isCurrentlyInCreation(this.targetBeanName)) {
+					this.beanFactory instanceof ConfigurableBeanFactory cbf &&
+					cbf.isCurrentlyInCreation(this.targetBeanName)) {
 				logger.warn("Target bean '" + this.targetBeanName + "' is still in creation due to a circular " +
 						"reference - obtained value for property '" + this.propertyPath + "' may be outdated!");
 			}
@@ -224,6 +225,7 @@ public class PropertyPathFactoryBean implements FactoryBean<Object>, BeanNameAwa
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getObjectType() {
 		return this.resultType;
 	}

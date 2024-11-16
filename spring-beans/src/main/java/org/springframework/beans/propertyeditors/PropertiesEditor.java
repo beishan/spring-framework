@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -68,9 +68,9 @@ public class PropertiesEditor extends PropertyEditorSupport {
 	 */
 	@Override
 	public void setValue(Object value) {
-		if (!(value instanceof Properties) && value instanceof Map) {
+		if (!(value instanceof Properties) && value instanceof Map<?, ?> map) {
 			Properties props = new Properties();
-			props.putAll((Map<?, ?>) value);
+			props.putAll(map);
 			super.setValue(props);
 		}
 		else {

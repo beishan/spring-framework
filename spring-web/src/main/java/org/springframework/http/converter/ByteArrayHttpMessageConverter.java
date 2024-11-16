@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,6 @@
 
 package org.springframework.http.converter;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.springframework.http.HttpInputMessage;
@@ -28,7 +27,7 @@ import org.springframework.util.StreamUtils;
 /**
  * Implementation of {@link HttpMessageConverter} that can read and write byte arrays.
  *
- * <p>By default, this converter supports all media types ({@code &#42;&#47;&#42;}), and
+ * <p>By default, this converter supports all media types (<code>&#42;/&#42;</code>), and
  * writes with a {@code Content-Type} of {@code application/octet-stream}. This can be
  * overridden by setting the {@link #setSupportedMediaTypes supportedMediaTypes} property.
  *
@@ -42,7 +41,7 @@ public class ByteArrayHttpMessageConverter extends AbstractHttpMessageConverter<
 	 * Create a new instance of the {@code ByteArrayHttpMessageConverter}.
 	 */
 	public ByteArrayHttpMessageConverter() {
-		super(new MediaType("application", "octet-stream"), MediaType.ALL);
+		super(MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL);
 	}
 
 
@@ -52,12 +51,10 @@ public class ByteArrayHttpMessageConverter extends AbstractHttpMessageConverter<
 	}
 
 	@Override
-	public byte[] readInternal(Class<? extends byte[]> clazz, HttpInputMessage inputMessage) throws IOException {
-		long contentLength = inputMessage.getHeaders().getContentLength();
-		ByteArrayOutputStream bos =
-				new ByteArrayOutputStream(contentLength >= 0 ? (int) contentLength : StreamUtils.BUFFER_SIZE);
-		StreamUtils.copy(inputMessage.getBody(), bos);
-		return bos.toByteArray();
+	public byte[] readInternal(Class<? extends byte[]> clazz, HttpInputMessage message) throws IOException {
+		long length = message.getHeaders().getContentLength();
+		return (length >= 0 && length < Integer.MAX_VALUE ?
+				message.getBody().readNBytes((int) length) : message.getBody().readAllBytes());
 	}
 
 	@Override
@@ -70,4 +67,8 @@ public class ByteArrayHttpMessageConverter extends AbstractHttpMessageConverter<
 		StreamUtils.copy(bytes, outputMessage.getBody());
 	}
 
+	@Override
+	protected boolean supportsRepeatableWrites(byte[] bytes) {
+		return true;
+	}
 }

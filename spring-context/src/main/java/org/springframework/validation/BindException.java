@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -58,7 +58,7 @@ public class BindException extends Exception implements BindingResult {
 
 	/**
 	 * Create a new BindException instance for a target bean.
-	 * @param target target bean to bind onto
+	 * @param target the target bean to bind onto
 	 * @param objectName the name of the target object
 	 * @see BeanPropertyBindingResult
 	 */
@@ -70,8 +70,6 @@ public class BindException extends Exception implements BindingResult {
 
 	/**
 	 * Return the BindingResult that this BindException wraps.
-	 * Will typically be a BeanPropertyBindingResult.
-	 * @see BeanPropertyBindingResult
 	 */
 	public final BindingResult getBindingResult() {
 		return this.bindingResult;
@@ -130,7 +128,9 @@ public class BindException extends Exception implements BindingResult {
 	}
 
 	@Override
-	public void rejectValue(@Nullable String field, String errorCode, @Nullable Object[] errorArgs, @Nullable String defaultMessage) {
+	public void rejectValue(@Nullable String field, String errorCode,
+			@Nullable Object[] errorArgs, @Nullable String defaultMessage) {
+
 		this.bindingResult.rejectValue(field, errorCode, errorArgs, defaultMessage);
 	}
 
@@ -231,6 +231,7 @@ public class BindException extends Exception implements BindingResult {
 	}
 
 	@Override
+	@Nullable
 	public Object getTarget() {
 		return this.bindingResult.getTarget();
 	}
@@ -275,7 +276,7 @@ public class BindException extends Exception implements BindingResult {
 	}
 
 	@Override
-	public void recordFieldValue(String field, Class<?> type, Object value) {
+	public void recordFieldValue(String field, Class<?> type, @Nullable Object value) {
 		this.bindingResult.recordFieldValue(field, type, value);
 	}
 
@@ -299,7 +300,7 @@ public class BindException extends Exception implements BindingResult {
 	}
 
 	@Override
-	public boolean equals(Object other) {
+	public boolean equals(@Nullable Object other) {
 		return (this == other || this.bindingResult.equals(other));
 	}
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.springframework.util.xml;
 
 import java.util.Iterator;
+
 import javax.xml.namespace.QName;
 import javax.xml.stream.Location;
 import javax.xml.stream.XMLEventReader;
@@ -37,12 +38,12 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.ext.Locator2;
 import org.xml.sax.helpers.AttributesImpl;
 
 import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
@@ -71,14 +72,13 @@ class StaxEventXMLReader extends AbstractStaxXMLReader {
 
 
 	/**
-	 * Constructs a new instance of the {@code StaxEventXmlReader} that reads from the given
-	 * {@code XMLEventReader}. The supplied event reader must be in {@code XMLStreamConstants.START_DOCUMENT} or
-	 * {@code XMLStreamConstants.START_ELEMENT} state.
+	 * Constructs a new instance of the {@code StaxEventXmlReader} that reads from
+	 * the given {@code XMLEventReader}. The supplied event reader must be in
+	 * {@code XMLStreamConstants.START_DOCUMENT} or {@code XMLStreamConstants.START_ELEMENT} state.
 	 * @param reader the {@code XMLEventReader} to read from
 	 * @throws IllegalStateException if the reader is not at the start of a document or element
 	 */
 	StaxEventXMLReader(XMLEventReader reader) {
-		Assert.notNull(reader, "XMLEventReader must not be null");
 		try {
 			XMLEvent event = reader.peek();
 			if (event != null && !(event.isStartDocument() || event.isStartElement())) {
@@ -104,47 +104,33 @@ class StaxEventXMLReader extends AbstractStaxXMLReader {
 				documentStarted = true;
 			}
 			switch (event.getEventType()) {
-				case XMLStreamConstants.START_DOCUMENT:
+				case XMLStreamConstants.START_DOCUMENT -> {
 					handleStartDocument(event);
 					documentStarted = true;
-					break;
-				case XMLStreamConstants.START_ELEMENT:
+				}
+				case XMLStreamConstants.START_ELEMENT -> {
 					elementDepth++;
 					handleStartElement(event.asStartElement());
-					break;
-				case XMLStreamConstants.END_ELEMENT:
+				}
+				case XMLStreamConstants.END_ELEMENT -> {
 					elementDepth--;
 					if (elementDepth >= 0) {
 						handleEndElement(event.asEndElement());
 					}
-					break;
-				case XMLStreamConstants.PROCESSING_INSTRUCTION:
-					handleProcessingInstruction((ProcessingInstruction) event);
-					break;
-				case XMLStreamConstants.CHARACTERS:
-				case XMLStreamConstants.SPACE:
-				case XMLStreamConstants.CDATA:
-					handleCharacters(event.asCharacters());
-					break;
-				case XMLStreamConstants.END_DOCUMENT:
+				}
+				case XMLStreamConstants.PROCESSING_INSTRUCTION ->
+						handleProcessingInstruction((ProcessingInstruction) event);
+				case XMLStreamConstants.CHARACTERS, XMLStreamConstants.SPACE, XMLStreamConstants.CDATA ->
+						handleCharacters(event.asCharacters());
+				case XMLStreamConstants.END_DOCUMENT -> {
 					handleEndDocument();
 					documentEnded = true;
-					break;
-				case XMLStreamConstants.NOTATION_DECLARATION:
-					handleNotationDeclaration((NotationDeclaration) event);
-					break;
-				case XMLStreamConstants.ENTITY_DECLARATION:
-					handleEntityDeclaration((EntityDeclaration) event);
-					break;
-				case XMLStreamConstants.COMMENT:
-					handleComment((Comment) event);
-					break;
-				case XMLStreamConstants.DTD:
-					handleDtd((DTD) event);
-					break;
-				case XMLStreamConstants.ENTITY_REFERENCE:
-					handleEntityReference((EntityReference) event);
-					break;
+				}
+				case XMLStreamConstants.NOTATION_DECLARATION -> handleNotationDeclaration((NotationDeclaration) event);
+				case XMLStreamConstants.ENTITY_DECLARATION -> handleEntityDeclaration((EntityDeclaration) event);
+				case XMLStreamConstants.COMMENT -> handleComment((Comment) event);
+				case XMLStreamConstants.DTD -> handleDtd((DTD) event);
+				case XMLStreamConstants.ENTITY_REFERENCE -> handleEntityReference((EntityReference) event);
 			}
 		}
 		if (documentStarted && !documentEnded) {
@@ -164,9 +150,11 @@ class StaxEventXMLReader extends AbstractStaxXMLReader {
 				this.encoding = startDocument.getCharacterEncodingScheme();
 			}
 		}
-		if (getContentHandler() != null) {
+
+		ContentHandler contentHandler = getContentHandler();
+		if (contentHandler != null) {
 			final Location location = event.getLocation();
-			getContentHandler().setDocumentLocator(new Locator2() {
+			contentHandler.setDocumentLocator(new Locator2() {
 				@Override
 				public int getColumnNumber() {
 					return (location != null ? location.getColumnNumber() : -1);
@@ -195,7 +183,7 @@ class StaxEventXMLReader extends AbstractStaxXMLReader {
 					return encoding;
 				}
 			});
-			getContentHandler().startDocument();
+			contentHandler.startDocument();
 		}
 	}
 
@@ -290,7 +278,7 @@ class StaxEventXMLReader extends AbstractStaxXMLReader {
 
 	private void handleDtd(DTD dtd) throws SAXException {
 		if (getLexicalHandler() != null) {
-			javax.xml.stream.Location location = dtd.getLocation();
+			Location location = dtd.getLocation();
 			getLexicalHandler().startDTD(null, location.getPublicId(), location.getSystemId());
 		}
 		if (getLexicalHandler() != null) {

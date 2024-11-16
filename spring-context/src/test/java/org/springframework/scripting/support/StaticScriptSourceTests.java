@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,66 +16,70 @@
 
 package org.springframework.scripting.support;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
- * Unit tests for the StaticScriptSource class.
+ * Tests for {@link StaticScriptSource}.
  *
  * @author Rick Evans
  * @author Sam Brannen
  */
-public class StaticScriptSourceTests {
+class StaticScriptSourceTests {
 
 	private static final String SCRIPT_TEXT = "print($hello) if $true;";
 
 	private final StaticScriptSource source = new StaticScriptSource(SCRIPT_TEXT);
 
 
-	@Test(expected = IllegalArgumentException.class)
-	public void createWithNullScript() throws Exception {
-		new StaticScriptSource(null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void createWithEmptyScript() throws Exception {
-		new StaticScriptSource("");
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void createWithWhitespaceOnlyScript() throws Exception {
-		new StaticScriptSource("   \n\n\t  \t\n");
+	@Test
+	void createWithNullScript() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				new StaticScriptSource(null));
 	}
 
 	@Test
-	public void isModifiedIsTrueByDefault() throws Exception {
-		assertTrue("Script must be flagged as 'modified' when first created.", source.isModified());
+	void createWithEmptyScript() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				new StaticScriptSource(""));
 	}
 
 	@Test
-	public void gettingScriptTogglesIsModified() throws Exception {
+	void createWithWhitespaceOnlyScript() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				new StaticScriptSource("   \n\n\t  \t\n"));
+	}
+
+	@Test
+	void isModifiedIsTrueByDefault() {
+		assertThat(source.isModified()).as("Script must be flagged as 'modified' when first created.").isTrue();
+	}
+
+	@Test
+	void gettingScriptTogglesIsModified() {
 		source.getScriptAsString();
-		assertFalse("Script must be flagged as 'not modified' after script is read.", source.isModified());
+		assertThat(source.isModified()).as("Script must be flagged as 'not modified' after script is read.").isFalse();
 	}
 
 	@Test
-	public void gettingScriptViaToStringDoesNotToggleIsModified() throws Exception {
+	void gettingScriptViaToStringDoesNotToggleIsModified() {
 		boolean isModifiedState = source.isModified();
 		source.toString();
-		assertEquals("Script's 'modified' flag must not change after script is read via toString().", isModifiedState, source.isModified());
+		assertThat(source.isModified()).as("Script's 'modified' flag must not change after script is read via toString().").isEqualTo(isModifiedState);
 	}
 
 	@Test
-	public void isModifiedToggledWhenDifferentScriptIsSet() throws Exception {
+	void isModifiedToggledWhenDifferentScriptIsSet() {
 		source.setScript("use warnings;");
-		assertTrue("Script must be flagged as 'modified' when different script is passed in.", source.isModified());
+		assertThat(source.isModified()).as("Script must be flagged as 'modified' when different script is passed in.").isTrue();
 	}
 
 	@Test
-	public void isModifiedNotToggledWhenSameScriptIsSet() throws Exception {
+	void isModifiedNotToggledWhenSameScriptIsSet() {
 		source.setScript(SCRIPT_TEXT);
-		assertFalse("Script must not be flagged as 'modified' when same script is passed in.", source.isModified());
+		assertThat(source.isModified()).as("Script must not be flagged as 'modified' when same script is passed in.").isFalse();
 	}
 
 }

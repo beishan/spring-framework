@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,10 +17,11 @@
 package org.springframework.web.filter;
 
 import java.io.IOException;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -35,7 +36,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * and Spring's {@link org.springframework.web.servlet.DispatcherServlet} also expose
  * the same request context to the current thread.
  *
- * <p>This filter is mainly for use with third-party servlets, e.g. the JSF FacesServlet.
+ * <p>This filter is mainly for use with third-party servlets, for example, the JSF FacesServlet.
  * Within Spring's own web support, DispatcherServlet's processing is perfectly sufficient.
  *
  * @author Juergen Hoeller
@@ -61,7 +62,7 @@ public class RequestContextFilter extends OncePerRequestFilter {
 	 * (that is, ending after their initial task, without reuse of the thread).
 	 * <p><b>WARNING:</b> Do not use inheritance for child threads if you are
 	 * accessing a thread pool which is configured to potentially add new threads
-	 * on demand (e.g. a JDK {@link java.util.concurrent.ThreadPoolExecutor}),
+	 * on demand (for example, a JDK {@link java.util.concurrent.ThreadPoolExecutor}),
 	 * since this will expose the inherited context to such a pooled thread.
 	 */
 	public void setThreadContextInheritable(boolean threadContextInheritable) {
@@ -100,8 +101,8 @@ public class RequestContextFilter extends OncePerRequestFilter {
 		}
 		finally {
 			resetContextHolders();
-			if (logger.isDebugEnabled()) {
-				logger.debug("Cleared thread-bound request context: " + request);
+			if (logger.isTraceEnabled()) {
+				logger.trace("Cleared thread-bound request context: " + request);
 			}
 			attributes.requestCompleted();
 		}
@@ -110,8 +111,8 @@ public class RequestContextFilter extends OncePerRequestFilter {
 	private void initContextHolders(HttpServletRequest request, ServletRequestAttributes requestAttributes) {
 		LocaleContextHolder.setLocale(request.getLocale(), this.threadContextInheritable);
 		RequestContextHolder.setRequestAttributes(requestAttributes, this.threadContextInheritable);
-		if (logger.isDebugEnabled()) {
-			logger.debug("Bound request context to thread: " + request);
+		if (logger.isTraceEnabled()) {
+			logger.trace("Bound request context to thread: " + request);
 		}
 	}
 

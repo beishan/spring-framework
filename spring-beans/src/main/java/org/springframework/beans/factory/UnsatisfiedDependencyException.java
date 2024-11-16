@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +33,7 @@ import org.springframework.util.StringUtils;
 public class UnsatisfiedDependencyException extends BeanCreationException {
 
 	@Nullable
-	private InjectionPoint injectionPoint;
+	private final InjectionPoint injectionPoint;
 
 
 	/**
@@ -44,11 +44,12 @@ public class UnsatisfiedDependencyException extends BeanCreationException {
 	 * @param msg the detail message
 	 */
 	public UnsatisfiedDependencyException(
-			@Nullable String resourceDescription, @Nullable String beanName, String propertyName, String msg) {
+			@Nullable String resourceDescription, @Nullable String beanName, String propertyName, @Nullable String msg) {
 
 		super(resourceDescription, beanName,
 				"Unsatisfied dependency expressed through bean property '" + propertyName + "'" +
 				(StringUtils.hasLength(msg) ? ": " + msg : ""));
+		this.injectionPoint = null;
 	}
 
 	/**
@@ -61,7 +62,7 @@ public class UnsatisfiedDependencyException extends BeanCreationException {
 	public UnsatisfiedDependencyException(
 			@Nullable String resourceDescription, @Nullable String beanName, String propertyName, BeansException ex) {
 
-		this(resourceDescription, beanName, propertyName, "");
+		this(resourceDescription, beanName, propertyName, ex.getMessage());
 		initCause(ex);
 	}
 
@@ -74,7 +75,7 @@ public class UnsatisfiedDependencyException extends BeanCreationException {
 	 * @since 4.3
 	 */
 	public UnsatisfiedDependencyException(
-			@Nullable String resourceDescription, @Nullable String beanName, @Nullable InjectionPoint injectionPoint, String msg) {
+			@Nullable String resourceDescription, @Nullable String beanName, @Nullable InjectionPoint injectionPoint, @Nullable String msg) {
 
 		super(resourceDescription, beanName,
 				"Unsatisfied dependency expressed through " + injectionPoint +
@@ -93,7 +94,7 @@ public class UnsatisfiedDependencyException extends BeanCreationException {
 	public UnsatisfiedDependencyException(
 			@Nullable String resourceDescription, @Nullable String beanName, @Nullable InjectionPoint injectionPoint, BeansException ex) {
 
-		this(resourceDescription, beanName, injectionPoint, "");
+		this(resourceDescription, beanName, injectionPoint, ex.getMessage());
 		initCause(ex);
 	}
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,7 @@ import org.springframework.lang.Nullable;
  * Helper class for resolving placeholders in texts. Usually applied to file paths.
  *
  * <p>A text may contain {@code ${...}} placeholders, to be resolved as system properties:
- * e.g. {@code ${user.dir}}. Default values can be supplied using the ":" separator
+ * for example, {@code ${user.dir}}. Default values can be supplied using the ":" separator
  * between key and value.
  *
  * @author Juergen Hoeller
@@ -35,21 +35,26 @@ import org.springframework.lang.Nullable;
  */
 public abstract class SystemPropertyUtils {
 
-	/** Prefix for system property placeholders: "${" */
+	/** Prefix for system property placeholders: {@value}. */
 	public static final String PLACEHOLDER_PREFIX = "${";
 
-	/** Suffix for system property placeholders: "}" */
+	/** Suffix for system property placeholders: {@value}. */
 	public static final String PLACEHOLDER_SUFFIX = "}";
 
-	/** Value separator for system property placeholders: ":" */
+	/** Value separator for system property placeholders: {@value}. */
 	public static final String VALUE_SEPARATOR = ":";
+
+	/** Default escape character: {@code '\'}. */
+	public static final Character ESCAPE_CHARACTER = '\\';
 
 
 	private static final PropertyPlaceholderHelper strictHelper =
-			new PropertyPlaceholderHelper(PLACEHOLDER_PREFIX, PLACEHOLDER_SUFFIX, VALUE_SEPARATOR, false);
+			new PropertyPlaceholderHelper(PLACEHOLDER_PREFIX, PLACEHOLDER_SUFFIX, VALUE_SEPARATOR,
+					ESCAPE_CHARACTER, false);
 
 	private static final PropertyPlaceholderHelper nonStrictHelper =
-			new PropertyPlaceholderHelper(PLACEHOLDER_PREFIX, PLACEHOLDER_SUFFIX, VALUE_SEPARATOR, true);
+			new PropertyPlaceholderHelper(PLACEHOLDER_PREFIX, PLACEHOLDER_SUFFIX, VALUE_SEPARATOR,
+					ESCAPE_CHARACTER, true);
 
 
 	/**
@@ -57,9 +62,9 @@ public abstract class SystemPropertyUtils {
 	 * corresponding system property values.
 	 * @param text the String to resolve
 	 * @return the resolved String
+	 * @throws IllegalArgumentException if there is an unresolvable placeholder
 	 * @see #PLACEHOLDER_PREFIX
 	 * @see #PLACEHOLDER_SUFFIX
-	 * @throws IllegalArgumentException if there is an unresolvable placeholder
 	 */
 	public static String resolvePlaceholders(String text) {
 		return resolvePlaceholders(text, false);
@@ -72,12 +77,15 @@ public abstract class SystemPropertyUtils {
 	 * @param text the String to resolve
 	 * @param ignoreUnresolvablePlaceholders whether unresolved placeholders are to be ignored
 	 * @return the resolved String
+	 * @throws IllegalArgumentException if there is an unresolvable placeholder
 	 * @see #PLACEHOLDER_PREFIX
 	 * @see #PLACEHOLDER_SUFFIX
-	 * @throws IllegalArgumentException if there is an unresolvable placeholder
 	 * and the "ignoreUnresolvablePlaceholders" flag is {@code false}
 	 */
 	public static String resolvePlaceholders(String text, boolean ignoreUnresolvablePlaceholders) {
+		if (text.isEmpty()) {
+			return text;
+		}
 		PropertyPlaceholderHelper helper = (ignoreUnresolvablePlaceholders ? nonStrictHelper : strictHelper);
 		return helper.replacePlaceholders(text, new SystemPropertyPlaceholderResolver(text));
 	}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,10 @@
 package org.springframework.web.servlet.tags;
 
 import java.io.IOException;
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.tagext.BodyContent;
-import javax.servlet.jsp.tagext.BodyTag;
+
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.tagext.BodyContent;
+import jakarta.servlet.jsp.tagext.BodyTag;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -30,7 +31,7 @@ import org.springframework.web.util.JavaScriptUtils;
  * applying HTML escaping and/or JavaScript escaping.
  *
  * <p>Provides a "htmlEscape" property for explicitly specifying whether to
- * apply HTML escaping. If not set, a page-level default (e.g. from the
+ * apply HTML escaping. If not set, a page-level default (for example, from the
  * HtmlEscapeTag) or an application-wide default (the "defaultHtmlEscape"
  * context-param in web.xml) is used.
  *
@@ -41,25 +42,26 @@ import org.springframework.web.util.JavaScriptUtils;
  * <caption>Attribute Summary</caption>
  * <thead>
  * <tr>
- * <th class="colFirst">Attribute</th>
- * <th class="colOne">Required?</th>
- * <th class="colOne">Runtime Expression?</th>
- * <th class="colLast">Description</th>
+ * <th>Attribute</th>
+ * <th>Required?</th>
+ * <th>Runtime Expression?</th>
+ * <th>Description</th>
  * </tr>
+ * </thead>
  * <tbody>
- * <tr class="altColor">
- * <td>htmlEscape</p></td>
- * <td>false</p></td>
- * <td>true</p></td>
+ * <tr>
+ * <td>htmlEscape</td>
+ * <td>false</td>
+ * <td>true</td>
  * <td>Set HTML escaping for this tag, as boolean value.
- * Overrides the default HTML escaping setting for the current page.</p></td>
+ * Overrides the default HTML escaping setting for the current page.</td>
  * </tr>
- * <tr class="rowColor">
- * <td>javaScriptEscape</p></td>
- * <td>false</p></td>
- * <td>true</p></td>
+ * <tr>
+ * <td>javaScriptEscape</td>
+ * <td>false</td>
+ * <td>true</td>
  * <td>Set JavaScript escaping for this tag, as boolean value.
- * Default is false.</p></td>
+ * Default is {@code false}.</td>
  * </tr>
  * </tbody>
  * </table>
@@ -130,7 +132,7 @@ public class EscapeBodyTag extends HtmlEscapingAwareTag implements BodyTag {
 
 	/**
 	 * Write the escaped body content to the page.
-	 * <p>Can be overridden in subclasses, e.g. for testing purposes.
+	 * <p>Can be overridden in subclasses, for example, for testing purposes.
 	 * @param content the content to write
 	 * @throws IOException if writing failed
 	 */

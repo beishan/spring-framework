@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,8 +35,6 @@ import org.springframework.util.Assert;
  *
  * <p>The default constructor uses the default configuration provided by {@link Jackson2ObjectMapperBuilder}.
  *
- * <p>Compatible with Jackson 2.9 and higher.
- *
  * @author Sebastien Deleuze
  * @since 5.0
  */
@@ -64,7 +62,7 @@ public class MappingJackson2SmileHttpMessageConverter extends AbstractJackson2Ht
 
 	/**
 	 * {@inheritDoc}
-	 * The {@code ObjectMapper} must be configured with a {@code SmileFactory} instance.
+	 * <p>The {@code ObjectMapper} must be configured with a {@code SmileFactory} instance.
 	 */
 	@Override
 	public void setObjectMapper(ObjectMapper objectMapper) {

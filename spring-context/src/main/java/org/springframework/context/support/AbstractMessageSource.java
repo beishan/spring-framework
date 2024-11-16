@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -87,7 +87,7 @@ public abstract class AbstractMessageSource extends MessageSourceSupport impleme
 	/**
 	 * Specify locale-independent common messages, with the message code as key
 	 * and the full message String (may contain argument placeholders) as value.
-	 * <p>May also link to an externally defined Properties object, e.g. defined
+	 * <p>May also link to an externally defined Properties object, for example, defined
 	 * through a {@link org.springframework.beans.factory.config.PropertiesFactoryBean}.
 	 */
 	public void setCommonMessages(@Nullable Properties commonMessages) {
@@ -137,6 +137,7 @@ public abstract class AbstractMessageSource extends MessageSourceSupport impleme
 
 
 	@Override
+	@Nullable
 	public final String getMessage(String code, @Nullable Object[] args, @Nullable String defaultMessage, Locale locale) {
 		String msg = getMessageInternal(code, args, locale);
 		if (msg != null) {
@@ -255,10 +256,10 @@ public abstract class AbstractMessageSource extends MessageSourceSupport impleme
 	protected String getMessageFromParent(String code, @Nullable Object[] args, Locale locale) {
 		MessageSource parent = getParentMessageSource();
 		if (parent != null) {
-			if (parent instanceof AbstractMessageSource) {
+			if (parent instanceof AbstractMessageSource abstractMessageSource) {
 				// Call internal method to avoid getting the default code back
 				// in case of "useCodeAsDefaultMessage" being activated.
-				return ((AbstractMessageSource) parent).getMessageInternal(code, args, locale);
+				return abstractMessageSource.getMessageInternal(code, args, locale);
 			}
 			else {
 				// Check parent MessageSource, returning null if not found there.
@@ -287,6 +288,12 @@ public abstract class AbstractMessageSource extends MessageSourceSupport impleme
 		String defaultMessage = resolvable.getDefaultMessage();
 		String[] codes = resolvable.getCodes();
 		if (defaultMessage != null) {
+			if (resolvable instanceof DefaultMessageSourceResolvable defaultMessageSourceResolvable &&
+					!defaultMessageSourceResolvable.shouldRenderDefaultMessage()) {
+				// Given default message does not contain any argument placeholders
+				// (and isn't escaped for alwaysUseMessageFormat either) -> return as-is.
+				return defaultMessage;
+			}
 			if (!ObjectUtils.isEmpty(codes) && defaultMessage.equals(codes[0])) {
 				// Never format a code-as-default-message, even with alwaysUseMessageFormat=true
 				return defaultMessage;
@@ -330,8 +337,8 @@ public abstract class AbstractMessageSource extends MessageSourceSupport impleme
 		}
 		List<Object> resolvedArgs = new ArrayList<>(args.length);
 		for (Object arg : args) {
-			if (arg instanceof MessageSourceResolvable) {
-				resolvedArgs.add(getMessage((MessageSourceResolvable) arg, locale));
+			if (arg instanceof MessageSourceResolvable messageSourceResolvable) {
+				resolvedArgs.add(getMessage(messageSourceResolvable, locale));
 			}
 			else {
 				resolvedArgs.add(arg);

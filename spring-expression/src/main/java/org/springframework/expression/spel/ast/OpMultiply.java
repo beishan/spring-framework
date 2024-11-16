@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,6 +25,8 @@ import org.springframework.expression.Operation;
 import org.springframework.expression.TypedValue;
 import org.springframework.expression.spel.CodeFlow;
 import org.springframework.expression.spel.ExpressionState;
+import org.springframework.expression.spel.SpelEvaluationException;
+import org.springframework.expression.spel.SpelMessage;
 import org.springframework.util.Assert;
 import org.springframework.util.NumberUtils;
 
@@ -32,7 +34,7 @@ import org.springframework.util.NumberUtils;
  * Implements the {@code multiply} operator.
  *
  * <p>Conversions and promotions are handled as defined in
- * <a href="http://java.sun.com/docs/books/jls/third_edition/html/conversions.html">Section 5.6.2 of the
+ * <a href="https://java.sun.com/docs/books/jls/third_edition/html/conversions.html">Section 5.6.2 of the
  * Java Language Specification</a>, with the addiction of {@code BigDecimal}/{@code BigInteger} management:
  *
  * <p>If any of the operands is of a reference type, unboxing conversion (Section 5.1.8)
@@ -52,8 +54,15 @@ import org.springframework.util.NumberUtils;
  */
 public class OpMultiply extends Operator {
 
-	public OpMultiply(int pos, SpelNodeImpl... operands) {
-		super("*", pos, operands);
+	/**
+	 * Maximum number of characters permitted in repeated text.
+	 * @since 5.2.23
+	 */
+	private static final int MAX_REPEATED_TEXT_SIZE = 256;
+
+
+	public OpMultiply(int startPos, int endPos, SpelNodeImpl... operands) {
+		super("*", startPos, endPos, operands);
 	}
 
 
@@ -72,10 +81,7 @@ public class OpMultiply extends Operator {
 		Object leftOperand = getLeftOperand().getValueInternal(state).getValue();
 		Object rightOperand = getRightOperand().getValueInternal(state).getValue();
 
-		if (leftOperand instanceof Number && rightOperand instanceof Number) {
-			Number leftNumber = (Number) leftOperand;
-			Number rightNumber = (Number) rightOperand;
-
+		if (leftOperand instanceof Number leftNumber && rightOperand instanceof Number rightNumber) {
 			if (leftNumber instanceof BigDecimal || rightNumber instanceof BigDecimal) {
 				BigDecimal leftBigDecimal = NumberUtils.convertNumberToTargetClass(leftNumber, BigDecimal.class);
 				BigDecimal rightBigDecimal = NumberUtils.convertNumberToTargetClass(rightNumber, BigDecimal.class);
@@ -108,16 +114,24 @@ public class OpMultiply extends Operator {
 			}
 		}
 
-		if (leftOperand instanceof String && rightOperand instanceof Integer) {
-			int repeats = (Integer) rightOperand;
-			StringBuilder result = new StringBuilder();
-			for (int i = 0; i < repeats; i++) {
-				result.append(leftOperand);
-			}
-			return new TypedValue(result.toString());
+		if (leftOperand instanceof String text && rightOperand instanceof Integer count) {
+			checkRepeatedTextSize(text, count);
+			return new TypedValue(text.repeat(count));
 		}
 
 		return state.operate(Operation.MULTIPLY, leftOperand, rightOperand);
+	}
+
+	private void checkRepeatedTextSize(String text, int count) {
+		if (count < 0) {
+			throw new SpelEvaluationException(getStartPosition(),
+					SpelMessage.NEGATIVE_REPEATED_TEXT_COUNT, count);
+		}
+		int result = text.length() * count;
+		if (result < 0 || result > MAX_REPEATED_TEXT_SIZE) {
+			throw new SpelEvaluationException(getStartPosition(),
+					SpelMessage.MAX_REPEATED_TEXT_SIZE_EXCEEDED, MAX_REPEATED_TEXT_SIZE);
+		}
 	}
 
 	@Override
@@ -126,13 +140,13 @@ public class OpMultiply extends Operator {
 			return false;
 		}
 		if (this.children.length > 1) {
-			 if (!getRightOperand().isCompilable()) {
-				 return false;
-			 }
+			if (!getRightOperand().isCompilable()) {
+				return false;
+			}
 		}
 		return (this.exitTypeDescriptor != null);
 	}
-	
+
 	@Override
 	public void generateCode(MethodVisitor mv, CodeFlow cf) {
 		getLeftOperand().generateCode(mv, cf);
@@ -148,21 +162,12 @@ public class OpMultiply extends Operator {
 			cf.exitCompilationScope();
 			CodeFlow.insertNumericUnboxOrPrimitiveTypeCoercion(mv, rightDesc, targetDesc);
 			switch (targetDesc) {
-				case 'I':
-					mv.visitInsn(IMUL);
-					break;
-				case 'J':
-					mv.visitInsn(LMUL);
-					break;
-				case 'F': 
-					mv.visitInsn(FMUL);
-					break;
-				case 'D':
-					mv.visitInsn(DMUL);
-					break;				
-				default:
-					throw new IllegalStateException(
-							"Unrecognized exit type descriptor: '" + this.exitTypeDescriptor + "'");
+				case 'I' -> mv.visitInsn(IMUL);
+				case 'J' -> mv.visitInsn(LMUL);
+				case 'F' -> mv.visitInsn(FMUL);
+				case 'D' -> mv.visitInsn(DMUL);
+				default -> throw new IllegalStateException(
+						"Unrecognized exit type descriptor: '" + this.exitTypeDescriptor + "'");
 			}
 		}
 		cf.pushDescriptor(this.exitTypeDescriptor);

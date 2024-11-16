@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,8 @@
 
 package org.springframework.jdbc.core.metadata;
 
-import java.util.Arrays;
 import java.util.List;
+
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -33,93 +33,101 @@ import org.springframework.jdbc.support.MetaDataAccessException;
  *
  * @author Thomas Risberg
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 2.5
  */
-public class CallMetaDataProviderFactory {
+public final class CallMetaDataProviderFactory {
 
-	/** List of supported database products for procedure calls */
-	public static final List<String> supportedDatabaseProductsForProcedures = Arrays.asList(
-			"Apache Derby",
-			"DB2",
-			"MySQL",
-			"Microsoft SQL Server",
-			"Oracle",
-			"PostgreSQL",
-			"Sybase"
+	private static final String DB2 = "DB2";
+	private static final String DERBY = "Apache Derby";
+	private static final String HANA = "HDB";
+	private static final String INFORMIX = "Informix Dynamic Server";
+	private static final String MARIA = "MariaDB";
+	private static final String MS_SQL_SERVER = "Microsoft SQL Server";
+	private static final String MYSQL = "MySQL";
+	private static final String ORACLE = "Oracle";
+	private static final String POSTGRES = "PostgreSQL";
+	private static final String SYBASE = "Sybase";
+
+	/** List of supported database products for procedure calls. */
+	public static final List<String> supportedDatabaseProductsForProcedures = List.of(
+			DERBY,
+			DB2,
+			INFORMIX,
+			MARIA,
+			MS_SQL_SERVER,
+			MYSQL,
+			ORACLE,
+			POSTGRES,
+			SYBASE
 		);
 
-	/** List of supported database products for function calls */
-	public static final List<String> supportedDatabaseProductsForFunctions = Arrays.asList(
-			"MySQL",
-			"Microsoft SQL Server",
-			"Oracle",
-			"PostgreSQL"
+	/** List of supported database products for function calls. */
+	public static final List<String> supportedDatabaseProductsForFunctions = List.of(
+			MARIA,
+			MS_SQL_SERVER,
+			MYSQL,
+			ORACLE,
+			POSTGRES
 		);
 
 	private static final Log logger = LogFactory.getLog(CallMetaDataProviderFactory.class);
 
 
+	private CallMetaDataProviderFactory() {
+	}
+
+
 	/**
-	 * Create a {@link CallMetaDataProvider} based on the database meta-data
-	 * @param dataSource used to retrieve meta-data
+	 * Create a {@link CallMetaDataProvider} based on the database meta-data.
+	 * @param dataSource the JDBC DataSource to use for retrieving meta-data
 	 * @param context the class that holds configuration and meta-data
 	 * @return instance of the CallMetaDataProvider implementation to be used
 	 */
 	public static CallMetaDataProvider createMetaDataProvider(DataSource dataSource, final CallMetaDataContext context) {
 		try {
-			return (CallMetaDataProvider) JdbcUtils.extractDatabaseMetaData(dataSource, databaseMetaData -> {
+			return JdbcUtils.extractDatabaseMetaData(dataSource, databaseMetaData -> {
 				String databaseProductName = JdbcUtils.commonDatabaseName(databaseMetaData.getDatabaseProductName());
+				if (databaseProductName == null) {
+					databaseProductName = "";
+				}
+
 				boolean accessProcedureColumnMetaData = context.isAccessCallParameterMetaData();
 				if (context.isFunction()) {
 					if (!supportedDatabaseProductsForFunctions.contains(databaseProductName)) {
-						if (logger.isWarnEnabled()) {
-							logger.warn(databaseProductName + " is not one of the databases fully supported for function calls " +
+						if (logger.isInfoEnabled()) {
+							logger.info(databaseProductName + " is not one of the databases fully supported for function calls " +
 									"-- supported are: " + supportedDatabaseProductsForFunctions);
 						}
 						if (accessProcedureColumnMetaData) {
-							logger.warn("Metadata processing disabled - you must specify all parameters explicitly");
+							logger.info("Metadata processing disabled - you must specify all parameters explicitly");
 							accessProcedureColumnMetaData = false;
 						}
 					}
 				}
 				else {
 					if (!supportedDatabaseProductsForProcedures.contains(databaseProductName)) {
-						if (logger.isWarnEnabled()) {
-							logger.warn(databaseProductName + " is not one of the databases fully supported for procedure calls " +
+						if (logger.isInfoEnabled()) {
+							logger.info(databaseProductName + " is not one of the databases fully supported for procedure calls " +
 									"-- supported are: " + supportedDatabaseProductsForProcedures);
 						}
 						if (accessProcedureColumnMetaData) {
-							logger.warn("Metadata processing disabled - you must specify all parameters explicitly");
+							logger.info("Metadata processing disabled - you must specify all parameters explicitly");
 							accessProcedureColumnMetaData = false;
 						}
 					}
 				}
 
-				CallMetaDataProvider provider;
-				if ("Oracle".equals(databaseProductName)) {
-					provider = new OracleCallMetaDataProvider(databaseMetaData);
-				}
-				else if ("PostgreSQL".equals(databaseProductName)) {
-					provider = new PostgresCallMetaDataProvider((databaseMetaData));
-				}
-				else if ("Apache Derby".equals(databaseProductName)) {
-					provider = new DerbyCallMetaDataProvider((databaseMetaData));
-				}
-				else if ("DB2".equals(databaseProductName)) {
-					provider = new Db2CallMetaDataProvider((databaseMetaData));
-				}
-				else if ("HDB".equals(databaseProductName)) {
-					provider = new HanaCallMetaDataProvider((databaseMetaData));
-				}
-				else if ("Microsoft SQL Server".equals(databaseProductName)) {
-					provider = new SqlServerCallMetaDataProvider((databaseMetaData));
-				}
-				else if ("Sybase".equals(databaseProductName)) {
-					provider = new SybaseCallMetaDataProvider((databaseMetaData));
-				}
-				else {
-					provider = new GenericCallMetaDataProvider(databaseMetaData);
-				}
+				CallMetaDataProvider provider = switch (databaseProductName) {
+					case ORACLE -> new OracleCallMetaDataProvider(databaseMetaData);
+					case POSTGRES -> new PostgresCallMetaDataProvider(databaseMetaData);
+					case DERBY -> new DerbyCallMetaDataProvider(databaseMetaData);
+					case DB2 -> new Db2CallMetaDataProvider(databaseMetaData);
+					case HANA -> new HanaCallMetaDataProvider(databaseMetaData);
+					case MS_SQL_SERVER -> new SqlServerCallMetaDataProvider(databaseMetaData);
+					case SYBASE -> new SybaseCallMetaDataProvider(databaseMetaData);
+					default -> new GenericCallMetaDataProvider(databaseMetaData);
+				};
 
 				if (logger.isDebugEnabled()) {
 					logger.debug("Using " + provider.getClass().getName());

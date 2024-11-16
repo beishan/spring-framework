@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.StringJoiner;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
@@ -80,7 +81,7 @@ import org.springframework.util.StringUtils;
  * {@link MessageCodeFormatter format}.
  *
  * <p>In order to group all codes into a specific category within your resource bundles,
- * e.g. "validation.typeMismatch.name" instead of the default "typeMismatch.name",
+ * for example, "validation.typeMismatch.name" instead of the default "typeMismatch.name",
  * consider specifying a {@link #setPrefix prefix} to be applied.
  *
  * @author Juergen Hoeller
@@ -215,7 +216,7 @@ public class DefaultMessageCodesResolver implements MessageCodesResolver, Serial
 	public enum Format implements MessageCodeFormatter {
 
 		/**
-		 * Prefix the error code at the beginning of the generated message code. e.g.:
+		 * Prefix the error code at the beginning of the generated message code. for example:
 		 * {@code errorCode + "." + object name + "." + field}
 		 */
 		PREFIX_ERROR_CODE {
@@ -226,7 +227,7 @@ public class DefaultMessageCodesResolver implements MessageCodesResolver, Serial
 		},
 
 		/**
-		 * Postfix the error code at the end of the generated message code. e.g.:
+		 * Postfix the error code at the end of the generated message code. for example:
 		 * {@code object name + "." + field + "." + errorCode}
 		 */
 		POSTFIX_ERROR_CODE {
@@ -241,12 +242,12 @@ public class DefaultMessageCodesResolver implements MessageCodesResolver, Serial
 		 * {@link DefaultMessageCodesResolver#CODE_SEPARATOR}, skipping zero-length or
 		 * null elements altogether.
 		 */
-		public static String toDelimitedString(String... elements) {
-			StringBuilder rtn = new StringBuilder();
+		@SuppressWarnings("NullAway")
+		public static String toDelimitedString(@Nullable String... elements) {
+			StringJoiner rtn = new StringJoiner(CODE_SEPARATOR);
 			for (String element : elements) {
 				if (StringUtils.hasLength(element)) {
-					rtn.append(rtn.length() == 0 ? "" : CODE_SEPARATOR);
-					rtn.append(element);
+					rtn.add(element);
 				}
 			}
 			return rtn.toString();

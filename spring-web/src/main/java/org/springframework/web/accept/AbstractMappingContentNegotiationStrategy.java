@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,14 +35,14 @@ import org.springframework.web.context.request.NativeWebRequest;
  * Base class for {@code ContentNegotiationStrategy} implementations with the
  * steps to resolve a request to media types.
  *
- * <p>First a key (e.g. "json", "pdf") must be extracted from the request (e.g.
+ * <p>First a key (for example, "json", "pdf") must be extracted from the request (for example,
  * file extension, query param). The key must then be resolved to media type(s)
  * through the base class {@link MappingMediaTypeFileExtensionResolver} which
  * stores such mappings.
  *
- * <p>The method {@link #handleNoMatch} allow sub-classes to plug in additional
- * ways of looking up media types (e.g. through the Java Activation framework,
- * or {@link javax.servlet.ServletContext#getMimeType}. Media types resolved
+ * <p>The method {@link #handleNoMatch} allow subclasses to plug in additional
+ * ways of looking up media types (for example, through the Java Activation framework,
+ * or {@link jakarta.servlet.ServletContext#getMimeType}). Media types resolved
  * via base classes are then added to the base class
  * {@link MappingMediaTypeFileExtensionResolver}, i.e. cached for new lookups.
  *
@@ -69,7 +69,7 @@ public abstract class AbstractMappingContentNegotiationStrategy extends MappingM
 
 	/**
 	 * Whether to only use the registered mappings to look up file extensions,
-	 * or also to use dynamic resolution (e.g. via {@link MediaTypeFactory}.
+	 * or also to use dynamic resolution (for example, via {@link MediaTypeFactory}).
 	 * <p>By default this is set to {@code false}.
 	 */
 	public void setUseRegisteredExtensionsOnly(boolean useRegisteredExtensionsOnly) {
@@ -122,7 +122,7 @@ public abstract class AbstractMappingContentNegotiationStrategy extends MappingM
 				return Collections.singletonList(mediaType);
 			}
 		}
-		return Collections.emptyList();
+		return MEDIA_TYPE_ALL_LIST;
 	}
 
 
@@ -138,14 +138,11 @@ public abstract class AbstractMappingContentNegotiationStrategy extends MappingM
 	 * {@link #lookupMediaType}.
 	 */
 	protected void handleMatch(String key, MediaType mediaType) {
-		if (logger.isTraceEnabled()) {
-			logger.trace("Requested MediaType='" + mediaType + "' based on key='" + key + "'.");
-		}
 	}
 
 	/**
 	 * Override to provide handling when a key is not resolved via.
-	 * {@link #lookupMediaType}. Sub-classes can take further steps to
+	 * {@link #lookupMediaType}. Subclasses can take further steps to
 	 * determine the media type(s). If a MediaType is returned from
 	 * this method it will be added to the cache in the base class.
 	 */

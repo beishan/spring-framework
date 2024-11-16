@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,33 +17,61 @@
 package org.springframework.expression.spel.ast;
 
 /**
- * Captures primitive types and their corresponding class objects, plus one special entry
- * that represents all reference (non-primitive) types.
+ * Captures primitive types and their corresponding class objects, plus one special
+ * {@link #OBJECT} entry that represents all reference (non-primitive) types.
  *
  * @author Andy Clement
+ * @author Sam Brannen
  */
 public enum TypeCode {
 
+	/**
+	 * An {@link Object}.
+	 */
 	OBJECT(Object.class),
 
-	BOOLEAN(Boolean.TYPE),
+	/**
+	 * A {@code boolean}.
+	 */
+	BOOLEAN(boolean.class),
 
-	BYTE(Byte.TYPE),
+	/**
+	 * A {@code char}.
+	 */
+	CHAR(char.class),
 
-	CHAR(Character.TYPE),
+	/**
+	 * A {@code byte}.
+	 */
+	BYTE(byte.class),
 
-	SHORT(Short.TYPE),
+	/**
+	 * A {@code short}.
+	 */
+	SHORT(short.class),
 
-	INT(Integer.TYPE),
+	/**
+	 * An {@code int}.
+	 */
+	INT(int.class),
 
-	LONG(Long.TYPE),
+	/**
+	 * A {@code long}.
+	 */
+	LONG(long.class),
 
-	FLOAT(Float.TYPE),
+	/**
+	 * A {@code float}.
+	 */
+	FLOAT(float.class),
 
-	DOUBLE(Double.TYPE);
+	/**
+	 * A {@code double}.
+	 */
+	DOUBLE(double.class);
 
 
-	private Class<?> type;
+	private final Class<?> type;
 
 
 	TypeCode(Class<?> type) {
@@ -57,20 +85,17 @@ public enum TypeCode {
 
 
 	public static TypeCode forName(String name) {
-		String searchingFor = name.toUpperCase();
-		TypeCode[] tcs = values();
-		for (int i = 1; i < tcs.length; i++) {
-			if (tcs[i].name().equals(searchingFor)) {
-				return tcs[i];
+		for (TypeCode typeCode : values()) {
+			if (typeCode.name().equalsIgnoreCase(name)) {
+				return typeCode;
 			}
 		}
-		return TypeCode.OBJECT;
+		return OBJECT;
 	}
 
 	public static TypeCode forClass(Class<?> clazz) {
-		TypeCode[] allValues = TypeCode.values();
-		for (TypeCode typeCode : allValues) {
-			if (clazz == typeCode.getType()) {
+		for (TypeCode typeCode : values()) {
+			if (typeCode.getType() == clazz) {
 				return typeCode;
 			}
 		}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.http.converter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
+import java.nio.charset.Charset;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpOutputMessage;
@@ -32,6 +33,7 @@ import org.springframework.lang.Nullable;
  * @author Sebastien Deleuze
  * @author Juergen Hoeller
  * @since 4.2
+ * @param <T> the converted object type
  */
 public abstract class AbstractGenericHttpMessageConverter<T> extends AbstractHttpMessageConverter<T>
 		implements GenericHttpMessageConverter<T> {
@@ -59,6 +61,17 @@ public abstract class AbstractGenericHttpMessageConverter<T> extends AbstractHtt
 		super(supportedMediaTypes);
 	}
 
+	/**
+	 * Construct an {@code AbstractGenericHttpMessageConverter} with a default charset and
+	 * multiple supported media types.
+	 * @param defaultCharset the default character set
+	 * @param supportedMediaTypes the supported media types
+	 * @since 6.2
+	 */
+	protected AbstractGenericHttpMessageConverter(Charset defaultCharset, MediaType... supportedMediaTypes) {
+		super(defaultCharset, supportedMediaTypes);
+	}
+
 
 	@Override
 	protected boolean supports(Class<?> clazz) {
@@ -67,7 +80,7 @@ public abstract class AbstractGenericHttpMessageConverter<T> extends AbstractHtt
 
 	@Override
 	public boolean canRead(Type type, @Nullable Class<?> contextClass, @Nullable MediaType mediaType) {
-		return (type instanceof Class ? canRead((Class<?>) type, mediaType) : canRead(mediaType));
+		return (type instanceof Class<?> clazz ? canRead(clazz, mediaType) : canRead(mediaType));
 	}
 
 	@Override
@@ -79,24 +92,35 @@ public abstract class AbstractGenericHttpMessageConverter<T> extends AbstractHtt
 	 * This implementation sets the default headers by calling {@link #addDefaultHeaders},
 	 * and then calls {@link #writeInternal}.
 	 */
+	@Override
 	public final void write(final T t, @Nullable final Type type, @Nullable MediaType contentType,
 			HttpOutputMessage outputMessage) throws IOException, HttpMessageNotWritableException {
 
 		final HttpHeaders headers = outputMessage.getHeaders();
 		addDefaultHeaders(headers, t, contentType);
 
-		if (outputMessage instanceof StreamingHttpOutputMessage) {
-			StreamingHttpOutputMessage streamingOutputMessage = (StreamingHttpOutputMessage) outputMessage;
-			streamingOutputMessage.setBody(outputStream -> writeInternal(t, type, new HttpOutputMessage() {
+		if (outputMessage instanceof StreamingHttpOutputMessage streamingOutputMessage) {
+			streamingOutputMessage.setBody(new StreamingHttpOutputMessage.Body() {
 				@Override
-				public OutputStream getBody() {
-					return outputStream;
+				public void writeTo(OutputStream outputStream) throws IOException {
+					writeInternal(t, type, new HttpOutputMessage() {
+						@Override
+						public OutputStream getBody() {
+							return outputStream;
+						}
+
+						@Override
+						public HttpHeaders getHeaders() {
+							return headers;
+						}
+					});
 				}
+
 				@Override
-				public HttpHeaders getHeaders() {
-					return headers;
+				public boolean repeatable() {
+					return supportsRepeatableWrites(t);
 				}
-			}));
+			});
 		}
 		else {
 			writeInternal(t, type, outputMessage);

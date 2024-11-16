@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,6 @@ package org.springframework.web.servlet.config.annotation;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.core.OrderComparator;
 import org.springframework.core.Ordered;
@@ -42,7 +41,7 @@ public class InterceptorRegistry {
 	/**
 	 * Adds the provided {@link HandlerInterceptor}.
 	 * @param interceptor the interceptor to add
-	 * @return An {@link InterceptorRegistration} that allows you optionally configure the
+	 * @return an {@link InterceptorRegistration} that allows you optionally configure the
 	 * registered interceptor further for example adding URL patterns it should apply to.
 	 */
 	public InterceptorRegistration addInterceptor(HandlerInterceptor interceptor) {
@@ -54,7 +53,7 @@ public class InterceptorRegistry {
 	/**
 	 * Adds the provided {@link WebRequestInterceptor}.
 	 * @param interceptor the interceptor to add
-	 * @return An {@link InterceptorRegistration} that allows you optionally configure the
+	 * @return an {@link InterceptorRegistration} that allows you optionally configure the
 	 * registered interceptor further for example adding URL patterns it should apply to.
 	 */
 	public InterceptorRegistration addWebRequestInterceptor(WebRequestInterceptor interceptor) {
@@ -71,14 +70,14 @@ public class InterceptorRegistry {
 		return this.registrations.stream()
 				.sorted(INTERCEPTOR_ORDER_COMPARATOR)
 				.map(InterceptorRegistration::getInterceptor)
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 
 	private static final Comparator<Object> INTERCEPTOR_ORDER_COMPARATOR =
 			OrderComparator.INSTANCE.withSourceProvider(object -> {
-				if (object instanceof InterceptorRegistration) {
-					return (Ordered) ((InterceptorRegistration) object)::getOrder;
+				if (object instanceof InterceptorRegistration interceptorRegistration) {
+					return (Ordered) interceptorRegistration::getOrder;
 				}
 				return null;
 			});

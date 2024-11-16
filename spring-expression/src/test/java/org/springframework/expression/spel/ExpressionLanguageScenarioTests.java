@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,30 +17,24 @@
 package org.springframework.expression.spel;
 
 import java.awt.Color;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.expression.AccessException;
 import org.springframework.expression.EvaluationContext;
-import org.springframework.expression.EvaluationException;
 import org.springframework.expression.Expression;
-import org.springframework.expression.ParseException;
 import org.springframework.expression.PropertyAccessor;
 import org.springframework.expression.TypedValue;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static org.junit.Assert.*;
-
-///CLOVER:OFF
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
- * Testcases showing the common scenarios/use-cases for picking up the expression language support.
+ * Test cases showing the common scenarios/use-cases for picking up the expression language support.
  * The first test shows very basic usage, just drop it in and go.  By 'standard infrastructure', it means:<br>
  * <ul>
  * <li>The context classloader is used (so, the default classpath)
@@ -60,77 +54,58 @@ import static org.junit.Assert.*;
  *
  * @author Andy Clement
  */
-public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
+class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 
 	/**
 	 * Scenario: using the standard infrastructure and running simple expression evaluation.
 	 */
 	@Test
-	public void testScenario_UsingStandardInfrastructure() {
-		try {
-			// Create a parser
-			SpelExpressionParser parser = new SpelExpressionParser();
-			// Parse an expression
-			Expression expr = parser.parseRaw("new String('hello world')");
-			// Evaluate it using a 'standard' context
-			Object value = expr.getValue();
-			// They are reusable
-			value = expr.getValue();
+	void testScenario_UsingStandardInfrastructure() {
+		// Create a parser
+		SpelExpressionParser parser = new SpelExpressionParser();
+		// Parse an expression
+		Expression expr = parser.parseRaw("new String('hello world')");
+		// Evaluate it using a 'standard' context
+		Object value = expr.getValue();
+		// They are reusable
+		value = expr.getValue();
 
-			assertEquals("hello world", value);
-			assertEquals(String.class, value.getClass());
-		}
-		catch (EvaluationException ee) {
-			ee.printStackTrace();
-			fail("Unexpected Exception: " + ee.getMessage());
-		}
-		catch (ParseException pe) {
-			pe.printStackTrace();
-			fail("Unexpected Exception: " + pe.getMessage());
-		}
+		assertThat(value).isEqualTo("hello world");
+		assertThat(value.getClass()).isEqualTo(String.class);
 	}
 
 	/**
 	 * Scenario: using the standard context but adding your own variables
 	 */
 	@Test
-	public void testScenario_DefiningVariablesThatWillBeAccessibleInExpressions() throws Exception {
+	void testScenario_DefiningVariablesThatWillBeAccessibleInExpressions() {
 		// Create a parser
 		SpelExpressionParser parser = new SpelExpressionParser();
 		// Use the standard evaluation context
 		StandardEvaluationContext ctx = new StandardEvaluationContext();
 		ctx.setVariable("favouriteColour","blue");
-		List<Integer> primes = new ArrayList<>();
-		primes.addAll(Arrays.asList(2,3,5,7,11,13,17));
-		ctx.setVariable("primes",primes);
+		List<Integer> primes = Arrays.asList(2, 3, 5, 7, 11, 13, 17);
+		ctx.setVariable("primes", primes);
 
 		Expression expr = parser.parseRaw("#favouriteColour");
 		Object value = expr.getValue(ctx);
-		assertEquals("blue", value);
+		assertThat(value).isEqualTo("blue");
 
 		expr = parser.parseRaw("#primes.get(1)");
 		value = expr.getValue(ctx);
-		assertEquals(3, value);
+		assertThat(value).isEqualTo(3);
 
 		// all prime numbers > 10 from the list (using selection ?{...})
 		expr = parser.parseRaw("#primes.?[#this>10]");
 		value = expr.getValue(ctx);
-		assertEquals("[11, 13, 17]", value.toString());
-	}
-
-
-	static class TestClass {
-		public String str;
-		private int property;
-		public int getProperty() { return property; }
-		public void setProperty(int i) { property = i; }
+		assertThat(value.toString()).isEqualTo("[11, 13, 17]");
 	}
 
 	/**
 	 * Scenario: using your own root context object
 	 */
 	@Test
-	public void testScenario_UsingADifferentRootContextObject() throws Exception {
+	void testScenario_UsingADifferentRootContextObject() {
 		// Create a parser
 		SpelExpressionParser parser = new SpelExpressionParser();
 		// Use the standard evaluation context
@@ -144,30 +119,30 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 		// read it, set it, read it again
 		Expression expr = parser.parseRaw("str");
 		Object value = expr.getValue(ctx);
-		assertEquals("wibble", value);
+		assertThat(value).isEqualTo("wibble");
 		expr = parser.parseRaw("str");
 		expr.setValue(ctx, "wobble");
 		expr = parser.parseRaw("str");
 		value = expr.getValue(ctx);
-		assertEquals("wobble", value);
+		assertThat(value).isEqualTo("wobble");
 		// or using assignment within the expression
 		expr = parser.parseRaw("str='wabble'");
 		value = expr.getValue(ctx);
 		expr = parser.parseRaw("str");
 		value = expr.getValue(ctx);
-		assertEquals("wabble", value);
+		assertThat(value).isEqualTo("wabble");
 
 		// private property will be accessed through getter()
 		expr = parser.parseRaw("property");
 		value = expr.getValue(ctx);
-		assertEquals(42, value);
+		assertThat(value).isEqualTo(42);
 
 		// ... and set through setter
 		expr = parser.parseRaw("property=4");
 		value = expr.getValue(ctx);
 		expr = parser.parseRaw("property");
 		value = expr.getValue(ctx);
-		assertEquals(4,value);
+		assertThat(value).isEqualTo(4);
 	}
 
 	public static String repeat(String s) { return s+s; }
@@ -176,34 +151,57 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 	 * Scenario: using your own java methods and calling them from the expression
 	 */
 	@Test
-	public void testScenario_RegisteringJavaMethodsAsFunctionsAndCallingThem() throws SecurityException, NoSuchMethodException {
-		try {
-			// Create a parser
-			SpelExpressionParser parser = new SpelExpressionParser();
-			// Use the standard evaluation context
-			StandardEvaluationContext ctx = new StandardEvaluationContext();
-			ctx.registerFunction("repeat",ExpressionLanguageScenarioTests.class.getDeclaredMethod("repeat",String.class));
+	void testScenario_RegisteringJavaMethodsAsFunctionsAndCallingThem() throws Exception {
+		// Create a parser
+		SpelExpressionParser parser = new SpelExpressionParser();
+		// Use the standard evaluation context
+		StandardEvaluationContext ctx = new StandardEvaluationContext();
+		ctx.registerFunction("repeat", ExpressionLanguageScenarioTests.class.getDeclaredMethod("repeat", String.class));
 
-			Expression expr = parser.parseRaw("#repeat('hello')");
-			Object value = expr.getValue(ctx);
-			assertEquals("hellohello", value);
+		Expression expr = parser.parseRaw("#repeat('hello')");
+		Object value = expr.getValue(ctx);
+		assertThat(value).isEqualTo("hellohello");
+	}
 
-		}
-		catch (EvaluationException ee) {
-			ee.printStackTrace();
-			fail("Unexpected Exception: " + ee.getMessage());
-		}
-		catch (ParseException pe) {
-			pe.printStackTrace();
-			fail("Unexpected Exception: " + pe.getMessage());
-		}
+	/**
+	 * Scenario: looking up your own MethodHandles and calling them from the expression
+	 */
+	@Test
+	void testScenario_RegisteringJavaMethodsAsMethodHandlesAndCallingThem() throws Exception {
+		// Create a parser
+		SpelExpressionParser parser = new SpelExpressionParser();
+		//this.context is already populated with all relevant MethodHandle examples
+
+		Expression expr = parser.parseRaw("#message('Message with %s words: <%s>', 2, 'Hello World', 'ignored')");
+		Object value = expr.getValue(this.context);
+		assertThat(value).isEqualTo("Message with 2 words: <Hello World>");
+
+		expr = parser.parseRaw("#messageTemplate('bound', 2, 'Hello World', 'ignored')");
+		value = expr.getValue(this.context);
+		assertThat(value).isEqualTo("This is a bound message with 2 words: <Hello World>");
+
+		expr = parser.parseRaw("#messageBound()");
+		value = expr.getValue(this.context);
+		assertThat(value).isEqualTo("This is a prerecorded message with 3 words: <Oh Hello World>");
+
+		Expression staticExpr = parser.parseRaw("#messageStatic('Message with %s words: <%s>', 2, 'Hello World', 'ignored')");
+		Object staticValue = staticExpr.getValue(this.context);
+		assertThat(staticValue).isEqualTo("Message with 2 words: <Hello World>");
+
+		staticExpr = parser.parseRaw("#messageStaticTemplate('bound', 2, 'Hello World', 'ignored')");
+		staticValue = staticExpr.getValue(this.context);
+		assertThat(staticValue).isEqualTo("This is a bound message with 2 words: <Hello World>");
+
+		staticExpr = parser.parseRaw("#messageStaticBound()");
+		staticValue = staticExpr.getValue(this.context);
+		assertThat(staticValue).isEqualTo("This is a prerecorded message with 3 words: <Oh Hello World>");
 	}
 
 	/**
 	 * Scenario: add a property resolver that will get called in the resolver chain, this one only supports reading.
 	 */
 	@Test
-	public void testScenario_AddingYourOwnPropertyResolvers_1() throws Exception {
+	void testScenario_AddingYourOwnPropertyResolvers_1() {
 		// Create a parser
 		SpelExpressionParser parser = new SpelExpressionParser();
 		// Use the standard evaluation context
@@ -212,19 +210,14 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 		ctx.addPropertyAccessor(new FruitColourAccessor());
 		Expression expr = parser.parseRaw("orange");
 		Object value = expr.getValue(ctx);
-		assertEquals(Color.orange, value);
-
-		try {
-			expr.setValue(ctx, Color.blue);
-			fail("Should not be allowed to set oranges to be blue !");
-		}
-		catch (SpelEvaluationException ee) {
-			assertEquals(SpelMessage.PROPERTY_OR_FIELD_NOT_WRITABLE_ON_NULL, ee.getMessageCode());
-		}
+		assertThat(value).isEqualTo(Color.orange);
+		assertThatExceptionOfType(SpelEvaluationException.class)
+			.isThrownBy(() -> expr.setValue(ctx, Color.blue))
+			.satisfies(ex -> assertThat(ex.getMessageCode()).isEqualTo(SpelMessage.PROPERTY_OR_FIELD_NOT_WRITABLE_ON_NULL));
 	}
 
 	@Test
-	public void testScenario_AddingYourOwnPropertyResolvers_2() throws Exception {
+	void testScenario_AddingYourOwnPropertyResolvers_2() {
 		// Create a parser
 		SpelExpressionParser parser = new SpelExpressionParser();
 		// Use the standard evaluation context
@@ -233,15 +226,19 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 		ctx.addPropertyAccessor(new VegetableColourAccessor());
 		Expression expr = parser.parseRaw("pea");
 		Object value = expr.getValue(ctx);
-		assertEquals(Color.green, value);
+		assertThat(value).isEqualTo(Color.green);
 
-		try {
-			expr.setValue(ctx, Color.blue);
-			fail("Should not be allowed to set peas to be blue !");
-		}
-		catch (SpelEvaluationException ee) {
-			assertEquals(SpelMessage.PROPERTY_OR_FIELD_NOT_WRITABLE_ON_NULL, ee.getMessageCode());
-		}
+		assertThatExceptionOfType(SpelEvaluationException.class)
+			.isThrownBy(() -> expr.setValue(ctx, Color.blue))
+			.satisfies(ex -> assertThat(ex.getMessageCode()).isEqualTo(SpelMessage.PROPERTY_OR_FIELD_NOT_WRITABLE_ON_NULL));
+	}
+
+
+	static class TestClass {
+		public String str;
+		private int property;
+		public int getProperty() { return property; }
+		public void setProperty(int i) { property = i; }
 	}
 
 
@@ -251,13 +248,11 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 	 */
 	private static class FruitColourAccessor implements PropertyAccessor {
 
-		private static Map<String,Color> propertyMap = new HashMap<>();
-
-		static {
-			propertyMap.put("banana",Color.yellow);
-			propertyMap.put("apple",Color.red);
-			propertyMap.put("orange",Color.orange);
-		}
+		private static final Map<String,Color> propertyMap = Map.of(
+				"banana", Color.yellow,
+				"apple", Color.red,
+				"orange", Color.orange
+			);
 
 		/**
 		 * Null means you might be able to read any property, if an earlier property resolver hasn't beaten you to it
@@ -268,25 +263,23 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 		}
 
 		@Override
-		public boolean canRead(EvaluationContext context, Object target, String name) throws AccessException {
+		public boolean canRead(EvaluationContext context, Object target, String name) {
 			return propertyMap.containsKey(name);
 		}
 
 		@Override
-		public TypedValue read(EvaluationContext context, Object target, String name) throws AccessException {
+		public TypedValue read(EvaluationContext context, Object target, String name) {
 			return new TypedValue(propertyMap.get(name));
 		}
 
 		@Override
-		public boolean canWrite(EvaluationContext context, Object target, String name) throws AccessException {
+		public boolean canWrite(EvaluationContext context, Object target, String name) {
 			return false;
 		}
 
 		@Override
-		public void write(EvaluationContext context, Object target, String name, Object newValue)
-				throws AccessException {
+		public void write(EvaluationContext context, Object target, String name, Object newValue) {
 		}
-
 	}
 
 
@@ -296,12 +289,10 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 	 */
 	private static class VegetableColourAccessor implements PropertyAccessor {
 
-		private static Map<String,Color> propertyMap = new HashMap<>();
-
-		static {
-			propertyMap.put("carrot",Color.orange);
-			propertyMap.put("pea",Color.green);
-		}
+		private static Map<String,Color> propertyMap = Map.of(
+				"carrot", Color.orange,
+				"pea", Color.green
+			);
 
 		/**
 		 * Null means you might be able to read any property, if an earlier property resolver hasn't beaten you to it
@@ -312,23 +303,23 @@ public class ExpressionLanguageScenarioTests extends AbstractExpressionTests {
 		}
 
 		@Override
-		public boolean canRead(EvaluationContext context, Object target, String name) throws AccessException {
+		public boolean canRead(EvaluationContext context, Object target, String name) {
 			return propertyMap.containsKey(name);
 		}
 
 		@Override
-		public TypedValue read(EvaluationContext context, Object target, String name) throws AccessException {
+		public TypedValue read(EvaluationContext context, Object target, String name) {
 			return new TypedValue(propertyMap.get(name));
 		}
 
 		@Override
-		public boolean canWrite(EvaluationContext context, Object target, String name) throws AccessException {
+		public boolean canWrite(EvaluationContext context, Object target, String name) {
 			return false;
 		}
 
 		@Override
-		public void write(EvaluationContext context, Object target, String name, Object newValue) throws AccessException {
+		public void write(EvaluationContext context, Object target, String name, Object newValue) {
 		}
-
 	}
+
 }

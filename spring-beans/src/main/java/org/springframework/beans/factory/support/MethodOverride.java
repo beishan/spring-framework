@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.springframework.beans.factory.support;
 
 import java.lang.reflect.Method;
+import java.util.Objects;
 
 import org.springframework.beans.BeanMetadataElement;
 import org.springframework.lang.Nullable;
@@ -105,23 +106,15 @@ public abstract class MethodOverride implements BeanMetadataElement {
 
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof MethodOverride)) {
-			return false;
-		}
-		MethodOverride that = (MethodOverride) other;
-		return (ObjectUtils.nullSafeEquals(this.methodName, that.methodName) &&
-				ObjectUtils.nullSafeEquals(this.source, that.source));
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof MethodOverride that &&
+				this.methodName.equals(that.methodName) &&
+				ObjectUtils.nullSafeEquals(this.source, that.source)));
 	}
 
 	@Override
 	public int hashCode() {
-		int hashCode = ObjectUtils.nullSafeHashCode(this.methodName);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.source);
-		return hashCode;
+		return Objects.hash(this.methodName, this.source);
 	}
 
 }

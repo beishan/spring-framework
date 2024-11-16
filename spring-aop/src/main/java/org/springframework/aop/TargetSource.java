@@ -1,11 +1,11 @@
-/*<
- * Copyright 2002-2017 the original author or authors.
+/*
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,10 +49,13 @@ public interface TargetSource extends TargetClassAware {
 	 * Will all calls to {@link #getTarget()} return the same object?
 	 * <p>In that case, there will be no need to invoke {@link #releaseTarget(Object)},
 	 * and the AOP framework can cache the return value of {@link #getTarget()}.
+	 * <p>The default implementation returns {@code false}.
 	 * @return {@code true} if the target is immutable
 	 * @see #getTarget
 	 */
-	boolean isStatic();
+	default boolean isStatic() {
+		return false;
+	}
 
 	/**
 	 * Return a target instance. Invoked immediately before the
@@ -67,9 +70,11 @@ public interface TargetSource extends TargetClassAware {
 	/**
 	 * Release the given target object obtained from the
 	 * {@link #getTarget()} method, if any.
+	 * <p>The default implementation is empty.
 	 * @param target object obtained from a call to {@link #getTarget()}
 	 * @throws Exception if the object can't be released
 	 */
-	void releaseTarget(Object target) throws Exception;
+	default void releaseTarget(Object target) throws Exception {
+	}
 
 }

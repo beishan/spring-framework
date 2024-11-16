@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.springframework.http.client.reactive;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import org.reactivestreams.Publisher;
@@ -32,13 +33,13 @@ import org.springframework.util.MultiValueMap;
 
 /**
  * Wraps another {@link ClientHttpRequest} and delegates all methods to it.
- * Sub-classes can override specific methods selectively.
+ * Subclasses can override specific methods selectively.
  *
  * @author Rossen Stoyanchev
  * @since 5.0
  */
 public class ClientHttpRequestDecorator implements ClientHttpRequest {
-	
+
 	private final ClientHttpRequest delegate;
 
 
@@ -76,8 +77,18 @@ public class ClientHttpRequestDecorator implements ClientHttpRequest {
 	}
 
 	@Override
+	public Map<String, Object> getAttributes() {
+		return this.delegate.getAttributes();
+	}
+
+	@Override
 	public DataBufferFactory bufferFactory() {
 		return this.delegate.bufferFactory();
+	}
+
+	@Override
+	public <T> T getNativeRequest() {
+		return this.delegate.getNativeRequest();
 	}
 
 	@Override

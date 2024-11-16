@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import org.springframework.scheduling.TaskScheduler;
  * Registration class for configuring a {@link SimpleBrokerMessageHandler}.
  *
  * @author Rossen Stoyanchev
+ * @author Sam Brannen
  * @since 4.0
  */
 public class SimpleBrokerRegistration extends AbstractBrokerRegistration {
@@ -36,9 +37,20 @@ public class SimpleBrokerRegistration extends AbstractBrokerRegistration {
 	@Nullable
 	private long[] heartbeat;
 
+	@Nullable
+	private String selectorHeaderName;
 
-	public SimpleBrokerRegistration(SubscribableChannel inChannel, MessageChannel outChannel, String[] prefixes) {
-		super(inChannel, outChannel, prefixes);
+
+	/**
+	 * Create a new {@code SimpleBrokerRegistration}.
+	 * @param clientInboundChannel the inbound channel
+	 * @param clientOutboundChannel the outbound channel
+	 * @param destinationPrefixes the destination prefixes
+	 */
+	public SimpleBrokerRegistration(SubscribableChannel clientInboundChannel,
+			MessageChannel clientOutboundChannel, String[] destinationPrefixes) {
+
+		super(clientInboundChannel, clientOutboundChannel, destinationPrefixes);
 	}
 
 
@@ -68,6 +80,27 @@ public class SimpleBrokerRegistration extends AbstractBrokerRegistration {
 		return this;
 	}
 
+	/**
+	 * Configure the name of a header that a subscription message can have for
+	 * the purpose of filtering messages matched to the subscription.
+	 * <p>The header value is expected to be a Spring Expression Language (SpEL)
+	 * boolean expression to be applied to the headers of messages matched to the
+	 * subscription.
+	 * <p>For example:
+	 * <pre style="code">
+	 * headers.foo == 'bar'
+	 * </pre>
+	 * <p>By default the selector header name is set to {@code null} which disables
+	 * this feature. You can set it to {@code "selector"} or a different name to
+	 * enable support for a selector header.
+	 * @param selectorHeaderName the name to use for a selector header, or {@code null}
+	 * or blank to disable selector header support
+	 * @since 4.3.17
+	 */
+	public void setSelectorHeaderName(@Nullable String selectorHeaderName) {
+		this.selectorHeaderName = selectorHeaderName;
+	}
+
 
 	@Override
 	protected SimpleBrokerMessageHandler getMessageHandler(SubscribableChannel brokerChannel) {
@@ -79,6 +112,7 @@ public class SimpleBrokerRegistration extends AbstractBrokerRegistration {
 		if (this.heartbeat != null) {
 			handler.setHeartbeatValue(this.heartbeat);
 		}
+		handler.setSelectorHeaderName(this.selectorHeaderName);
 		return handler;
 	}
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,20 +16,15 @@
 
 package org.springframework.cache.aspectj;
 
-import org.junit.After;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.beans.factory.BeanCreationException;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.CacheTestUtils;
-import org.springframework.cache.annotation.CachingConfigurerSupport;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.config.AnnotatedClassCacheableService;
-import org.springframework.cache.config.CacheableService;
-import org.springframework.cache.config.DefaultCacheableService;
-import org.springframework.cache.config.SomeCustomKeyGenerator;
-import org.springframework.cache.config.SomeKeyGenerator;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.cache.interceptor.CacheResolver;
 import org.springframework.cache.interceptor.KeyGenerator;
@@ -42,13 +37,19 @@ import org.springframework.context.annotation.AdviceMode;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.testfixture.cache.CacheTestUtils;
+import org.springframework.context.testfixture.cache.SomeCustomKeyGenerator;
+import org.springframework.context.testfixture.cache.SomeKeyGenerator;
+import org.springframework.context.testfixture.cache.beans.AnnotatedClassCacheableService;
+import org.springframework.context.testfixture.cache.beans.CacheableService;
+import org.springframework.context.testfixture.cache.beans.DefaultCacheableService;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Stephane Nicoll
  */
-public class AspectJEnableCachingIsolatedTests {
+class AspectJEnableCachingIsolatedTests {
 
 	private ConfigurableApplicationContext ctx;
 
@@ -57,7 +58,7 @@ public class AspectJEnableCachingIsolatedTests {
 		this.ctx = new AnnotationConfigApplicationContext(config);
 	}
 
-	@After
+	@AfterEach
 	public void closeContext() {
 		if (this.ctx != null) {
 			this.ctx.close();
@@ -66,88 +67,88 @@ public class AspectJEnableCachingIsolatedTests {
 
 
 	@Test
-	public void testKeyStrategy() {
+	void testKeyStrategy() {
 		load(EnableCachingConfig.class);
 		AnnotationCacheAspect aspect = this.ctx.getBean(AnnotationCacheAspect.class);
-		assertSame(this.ctx.getBean("keyGenerator", KeyGenerator.class), aspect.getKeyGenerator());
+		assertThat(aspect.getKeyGenerator()).isSameAs(this.ctx.getBean("keyGenerator", KeyGenerator.class));
 	}
 
 	@Test
-	public void testCacheErrorHandler() {
+	void testCacheErrorHandler() {
 		load(EnableCachingConfig.class);
 		AnnotationCacheAspect aspect = this.ctx.getBean(AnnotationCacheAspect.class);
-		assertSame(this.ctx.getBean("errorHandler", CacheErrorHandler.class), aspect.getErrorHandler());
+		assertThat(aspect.getErrorHandler()).isSameAs(this.ctx.getBean("errorHandler", CacheErrorHandler.class));
 	}
 
 
 	// --- local tests -------
 
 	@Test
-	public void singleCacheManagerBean() {
+	void singleCacheManagerBean() {
 		load(SingleCacheManagerConfig.class);
 	}
 
 	@Test
-	public void multipleCacheManagerBeans() {
+	void multipleCacheManagerBeans() {
 		try {
 			load(MultiCacheManagerConfig.class);
 		}
-		catch (IllegalStateException ex) {
-			assertTrue(ex.getMessage().contains("bean of type CacheManager"));
+		catch (NoUniqueBeanDefinitionException ex) {
+			assertThat(ex.getMessage()).contains(
+					"no CacheResolver specified and expected single matching CacheManager but found 2: cm1,cm2");
+			assertThat(ex.getNumberOfBeansFound()).isEqualTo(2);
+			assertThat(ex.getBeanNamesFound()).containsExactly("cm1", "cm2");
 		}
 	}
 
 	@Test
-	public void multipleCacheManagerBeans_implementsCachingConfigurer() {
+	void multipleCacheManagerBeans_implementsCachingConfigurer() {
 		load(MultiCacheManagerConfigurer.class); // does not throw
 	}
 
 	@Test
-	public void multipleCachingConfigurers() {
+	void multipleCachingConfigurers() {
 		try {
 			load(MultiCacheManagerConfigurer.class, EnableCachingConfig.class);
 		}
-		catch (BeanCreationException ex) {
-			Throwable root = ex.getRootCause();
-			assertTrue(root instanceof IllegalStateException);
-			assertTrue(ex.getMessage().contains("implementations of CachingConfigurer"));
+		catch (IllegalStateException ex) {
+			assertThat(ex.getMessage()).contains("implementations of CachingConfigurer");
 		}
 	}
 
 	@Test
-	public void noCacheManagerBeans() {
+	void noCacheManagerBeans() {
 		try {
 			load(EmptyConfig.class);
 		}
-		catch (IllegalStateException ex) {
-			assertTrue(ex.getMessage().contains("No bean of type CacheManager"));
+		catch (NoSuchBeanDefinitionException ex) {
+			assertThat(ex.getMessage()).contains("no CacheResolver specified");
 		}
 	}
 
 	@Test
-	@Ignore("AspectJ has some sort of caching that makes this one fail")
+	@Disabled("AspectJ has some sort of caching that makes this one fail")
 	public void emptyConfigSupport() {
 		load(EmptyConfigSupportConfig.class);
 		AnnotationCacheAspect aspect = this.ctx.getBean(AnnotationCacheAspect.class);
-		assertNotNull(aspect.getCacheResolver());
-		assertEquals(SimpleCacheResolver.class, aspect.getCacheResolver().getClass());
-		assertSame(this.ctx.getBean(CacheManager.class),
-				((SimpleCacheResolver) aspect.getCacheResolver()).getCacheManager());
+		assertThat(aspect.getCacheResolver()).isNotNull();
+		assertThat(aspect.getCacheResolver().getClass()).isEqualTo(SimpleCacheResolver.class);
+		assertThat(((SimpleCacheResolver) aspect.getCacheResolver()).getCacheManager()).isSameAs(this.ctx.getBean(CacheManager.class));
 	}
 
 	@Test
-	public void bothSetOnlyResolverIsUsed() {
+	void bothSetOnlyResolverIsUsed() {
 		load(FullCachingConfig.class);
 
 		AnnotationCacheAspect aspect = this.ctx.getBean(AnnotationCacheAspect.class);
-		assertSame(this.ctx.getBean("cacheResolver"), aspect.getCacheResolver());
-		assertSame(this.ctx.getBean("keyGenerator"), aspect.getKeyGenerator());
+		assertThat(aspect.getCacheResolver()).isSameAs(this.ctx.getBean("cacheResolver"));
+		assertThat(aspect.getKeyGenerator()).isSameAs(this.ctx.getBean("keyGenerator"));
 	}
 
 
 	@Configuration
 	@EnableCaching(mode = AdviceMode.ASPECTJ)
-	static class EnableCachingConfig extends CachingConfigurerSupport {
+	static class EnableCachingConfig implements CachingConfigurer {
 
 		@Override
 		@Bean
@@ -224,7 +225,7 @@ public class AspectJEnableCachingIsolatedTests {
 
 	@Configuration
 	@EnableCaching(mode = AdviceMode.ASPECTJ)
-	static class MultiCacheManagerConfigurer extends CachingConfigurerSupport {
+	static class MultiCacheManagerConfigurer implements CachingConfigurer {
 
 		@Bean
 		public CacheManager cm1() {
@@ -250,7 +251,7 @@ public class AspectJEnableCachingIsolatedTests {
 
 	@Configuration
 	@EnableCaching(mode = AdviceMode.ASPECTJ)
-	static class EmptyConfigSupportConfig extends CachingConfigurerSupport {
+	static class EmptyConfigSupportConfig implements CachingConfigurer {
 
 		@Bean
 		public CacheManager cm() {
@@ -262,7 +263,7 @@ public class AspectJEnableCachingIsolatedTests {
 
 	@Configuration
 	@EnableCaching(mode = AdviceMode.ASPECTJ)
-	static class FullCachingConfig extends CachingConfigurerSupport {
+	static class FullCachingConfig implements CachingConfigurer {
 
 		@Override
 		@Bean

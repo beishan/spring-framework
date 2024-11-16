@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,10 @@
 
 package org.springframework.util.xml;
 
+import java.io.InputStream;
 import java.util.List;
+import java.util.function.Supplier;
+
 import javax.xml.stream.XMLEventFactory;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLEventWriter;
@@ -35,7 +38,6 @@ import org.xml.sax.ContentHandler;
 import org.xml.sax.XMLReader;
 
 import org.springframework.lang.Nullable;
-import org.springframework.util.StreamUtils;
 
 /**
  * Convenience methods for working with the StAX API. Partly historic due to JAXP 1.3
@@ -52,17 +54,27 @@ import org.springframework.util.StreamUtils;
 public abstract class StaxUtils {
 
 	private static final XMLResolver NO_OP_XML_RESOLVER =
-			(publicID, systemID, base, ns) -> StreamUtils.emptyInput();
+			(publicID, systemID, base, ns) -> InputStream.nullInputStream();
 
 
 	/**
 	 * Create an {@link XMLInputFactory} with Spring's defensive setup,
 	 * i.e. no support for the resolution of DTDs and external entities.
-	 * @return a new input factory to use
+	 * @return a new defensively initialized input factory instance to use
 	 * @since 5.0
 	 */
 	public static XMLInputFactory createDefensiveInputFactory() {
-		XMLInputFactory inputFactory = XMLInputFactory.newInstance();
+		return createDefensiveInputFactory(XMLInputFactory::newInstance);
+	}
+
+	/**
+	 * Variant of {@link #createDefensiveInputFactory()} with a custom instance.
+	 * @param instanceSupplier supplier for the input factory instance
+	 * @return a new defensively initialized input factory instance to use
+	 * @since 5.0.12
+	 */
+	public static <T extends XMLInputFactory> T createDefensiveInputFactory(Supplier<T> instanceSupplier) {
+		T inputFactory = instanceSupplier.get();
 		inputFactory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
 		inputFactory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
 		inputFactory.setXMLResolver(NO_OP_XML_RESOLVER);
@@ -124,11 +136,11 @@ public abstract class StaxUtils {
 	 */
 	@Nullable
 	public static XMLStreamReader getXMLStreamReader(Source source) {
-		if (source instanceof StAXSource) {
-			return ((StAXSource) source).getXMLStreamReader();
+		if (source instanceof StAXSource stAXSource) {
+			return stAXSource.getXMLStreamReader();
 		}
-		else if (source instanceof StaxSource) {
-			return ((StaxSource) source).getXMLStreamReader();
+		else if (source instanceof StaxSource staxSource) {
+			return staxSource.getXMLStreamReader();
 		}
 		else {
 			throw new IllegalArgumentException("Source '" + source + "' is neither StaxSource nor StAXSource");
@@ -144,11 +156,11 @@ public abstract class StaxUtils {
 	 */
 	@Nullable
 	public static XMLEventReader getXMLEventReader(Source source) {
-		if (source instanceof StAXSource) {
-			return ((StAXSource) source).getXMLEventReader();
+		if (source instanceof StAXSource stAXSource) {
+			return stAXSource.getXMLEventReader();
 		}
-		else if (source instanceof StaxSource) {
-			return ((StaxSource) source).getXMLEventReader();
+		else if (source instanceof StaxSource staxSource) {
+			return staxSource.getXMLEventReader();
 		}
 		else {
 			throw new IllegalArgumentException("Source '" + source + "' is neither StaxSource nor StAXSource");
@@ -210,11 +222,11 @@ public abstract class StaxUtils {
 	 */
 	@Nullable
 	public static XMLStreamWriter getXMLStreamWriter(Result result) {
-		if (result instanceof StAXResult) {
-			return ((StAXResult) result).getXMLStreamWriter();
+		if (result instanceof StAXResult stAXResult) {
+			return stAXResult.getXMLStreamWriter();
 		}
-		else if (result instanceof StaxResult) {
-			return ((StaxResult) result).getXMLStreamWriter();
+		else if (result instanceof StaxResult staxResult) {
+			return staxResult.getXMLStreamWriter();
 		}
 		else {
 			throw new IllegalArgumentException("Result '" + result + "' is neither StaxResult nor StAXResult");
@@ -230,11 +242,11 @@ public abstract class StaxUtils {
 	 */
 	@Nullable
 	public static XMLEventWriter getXMLEventWriter(Result result) {
-		if (result instanceof StAXResult) {
-			return ((StAXResult) result).getXMLEventWriter();
+		if (result instanceof StAXResult stAXResult) {
+			return stAXResult.getXMLEventWriter();
 		}
-		else if (result instanceof StaxResult) {
-			return ((StaxResult) result).getXMLEventWriter();
+		else if (result instanceof StaxResult staxResult) {
+			return staxResult.getXMLEventWriter();
 		}
 		else {
 			throw new IllegalArgumentException("Result '" + result + "' is neither StaxResult nor StAXResult");
@@ -243,7 +255,7 @@ public abstract class StaxUtils {
 
 	/**
 	 * Create a {@link XMLEventReader} from the given list of {@link XMLEvent}.
-	 * @param events the list of {@link XMLEvent}s.
+	 * @param events the list of {@link XMLEvent XMLEvents}.
 	 * @return an {@code XMLEventReader} that reads from the given events
 	 * @since 5.0
 	 */

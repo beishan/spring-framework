@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,11 +17,13 @@
 package org.springframework.web.servlet.view;
 
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.springframework.web.servlet.support.RequestContext;
 
@@ -45,7 +47,7 @@ public abstract class AbstractTemplateView extends AbstractUrlBasedView {
 
 	/**
 	 * Variable name of the RequestContext instance in the template model,
-	 * available to Spring's macros: e.g. for creating BindStatus objects.
+	 * available to Spring's macros: for example, for creating BindStatus objects.
 	 */
 	public static final String SPRING_MACRO_REQUEST_CONTEXT_ATTRIBUTE = "springMacroRequestContext";
 
@@ -64,6 +66,8 @@ public abstract class AbstractTemplateView extends AbstractUrlBasedView {
 	/**
 	 * Set whether all request attributes should be added to the
 	 * model prior to merging with the template. Default is "false".
+	 * <p>Note that some templates may make request attributes visible
+	 * on their own, for example, FreeMarker, without exposure in the MVC model.
 	 */
 	public void setExposeRequestAttributes(boolean exposeRequestAttributes) {
 		this.exposeRequestAttributes = exposeRequestAttributes;
@@ -71,7 +75,7 @@ public abstract class AbstractTemplateView extends AbstractUrlBasedView {
 
 	/**
 	 * Set whether HttpServletRequest attributes are allowed to override (hide)
-	 * controller generated model attributes of the same name. Default is "false",
+	 * controller generated model attributes of the same name. Default is "false"
 	 * which causes an exception to be thrown if request attributes of the same
 	 * name as model attributes are found.
 	 */
@@ -115,36 +119,44 @@ public abstract class AbstractTemplateView extends AbstractUrlBasedView {
 			Map<String, Object> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
 
 		if (this.exposeRequestAttributes) {
+			Map<String, Object> exposed = null;
 			for (Enumeration<String> en = request.getAttributeNames(); en.hasMoreElements();) {
 				String attribute = en.nextElement();
 				if (model.containsKey(attribute) && !this.allowRequestOverride) {
 					throw new ServletException("Cannot expose request attribute '" + attribute +
-						"' because of an existing model object of the same name");
+							"' because of an existing model object of the same name");
 				}
 				Object attributeValue = request.getAttribute(attribute);
 				if (logger.isDebugEnabled()) {
-					logger.debug("Exposing request attribute '" + attribute +
-							"' with value [" + attributeValue + "] to model");
+					exposed = (exposed != null ? exposed : new LinkedHashMap<>());
+					exposed.put(attribute, attributeValue);
 				}
 				model.put(attribute, attributeValue);
+			}
+			if (logger.isTraceEnabled() && exposed != null) {
+				logger.trace("Exposed request attributes to model: " + exposed);
 			}
 		}
 
 		if (this.exposeSessionAttributes) {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
+				Map<String, Object> exposed = null;
 				for (Enumeration<String> en = session.getAttributeNames(); en.hasMoreElements();) {
 					String attribute = en.nextElement();
 					if (model.containsKey(attribute) && !this.allowSessionOverride) {
 						throw new ServletException("Cannot expose session attribute '" + attribute +
-							"' because of an existing model object of the same name");
+								"' because of an existing model object of the same name");
 					}
 					Object attributeValue = session.getAttribute(attribute);
 					if (logger.isDebugEnabled()) {
-						logger.debug("Exposing session attribute '" + attribute +
-								"' with value [" + attributeValue + "] to model");
+						exposed = (exposed != null ? exposed : new LinkedHashMap<>());
+						exposed.put(attribute, attributeValue);
 					}
 					model.put(attribute, attributeValue);
+				}
+				if (logger.isTraceEnabled() && exposed != null) {
+					logger.trace("Exposed session attributes to model: " + exposed);
 				}
 			}
 		}
@@ -162,6 +174,10 @@ public abstract class AbstractTemplateView extends AbstractUrlBasedView {
 
 		applyContentType(response);
 
+		if (logger.isDebugEnabled()) {
+			logger.debug("Rendering [" + getUrl() + "]");
+		}
+
 		renderMergedTemplateModel(model, request, response);
 	}
 
@@ -174,7 +190,7 @@ public abstract class AbstractTemplateView extends AbstractUrlBasedView {
 	 * @param response current HTTP response
 	 * @see #setContentType
 	 */
-	protected void applyContentType(HttpServletResponse response)	{
+	protected void applyContentType(HttpServletResponse response) {
 		if (response.getContentType() == null) {
 			response.setContentType(getContentType());
 		}

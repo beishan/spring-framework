@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,19 +18,23 @@ package org.springframework.expression.spel;
 
 import java.text.MessageFormat;
 
+import org.springframework.lang.Nullable;
+
 /**
  * Contains all the messages that can be produced by the Spring Expression Language.
- * Each message has a kind (info, warn, error) and a code number. Tests can be written to
+ *
+ * <p>Each message has a kind (info, warn, error) and a code number. Tests can be written to
  * expect particular code numbers rather than particular text, enabling the message text
  * to more easily be modified and the tests to run successfully in different locales.
  *
  * <p>When a message is formatted, it will have this kind of form, capturing the prefix
  * and the error kind:
  *
- * <pre class="code">EL1004E: Type cannot be found 'String'</pre>
+ * <pre class="code">EL1005E: Type cannot be found 'String'</pre>
  *
  * @author Andy Clement
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 3.0
  */
 public enum SpelMessage {
@@ -45,25 +49,25 @@ public enum SpelMessage {
 			"A problem occurred whilst attempting to construct an object of type ''{0}'' using arguments ''{1}''"),
 
 	METHOD_NOT_FOUND(Kind.ERROR, 1004,
-			"Method call: Method {0} cannot be found on {1} type"),
+			"Method call: Method {0} cannot be found on type {1}"),
 
 	TYPE_NOT_FOUND(Kind.ERROR, 1005,
 			"Type cannot be found ''{0}''"),
 
 	FUNCTION_NOT_DEFINED(Kind.ERROR, 1006,
-			"The function ''{0}'' could not be found"),
+			"Function ''{0}'' could not be found"),
 
 	PROPERTY_OR_FIELD_NOT_READABLE_ON_NULL(Kind.ERROR, 1007,
 			"Property or field ''{0}'' cannot be found on null"),
 
 	PROPERTY_OR_FIELD_NOT_READABLE(Kind.ERROR, 1008,
-			"Property or field ''{0}'' cannot be found on object of type ''{1}'' - maybe not public?"),
+			"Property or field ''{0}'' cannot be found on object of type ''{1}'' - maybe not public or not valid?"),
 
 	PROPERTY_OR_FIELD_NOT_WRITABLE_ON_NULL(Kind.ERROR, 1009,
 			"Property or field ''{0}'' cannot be set on null"),
 
 	PROPERTY_OR_FIELD_NOT_WRITABLE(Kind.ERROR, 1010,
-			"Property or field ''{0}'' cannot be set on object of type ''{1}'' - maybe not public?"),
+			"Property or field ''{0}'' cannot be set on object of type ''{1}'' - maybe not public or not writable?"),
 
 	METHOD_CALL_ON_NULL_OBJECT_NOT_ALLOWED(Kind.ERROR, 1011,
 			"Method call: Attempted to call method {0} on null context object"),
@@ -75,7 +79,7 @@ public enum SpelMessage {
 			"Cannot compare instances of {0} and {1}"),
 
 	INCORRECT_NUMBER_OF_ARGUMENTS_TO_FUNCTION(Kind.ERROR, 1014,
-			"Incorrect number of arguments for function, {0} supplied but function takes {1}"),
+			"Incorrect number of arguments for function ''{0}'': {1} supplied but function takes {2}"),
 
 	INVALID_TYPE_FOR_SELECTION(Kind.ERROR, 1015,
 			"Cannot perform selection on input data of type ''{0}''"),
@@ -99,7 +103,7 @@ public enum SpelMessage {
 			"A problem occurred whilst attempting to access the property ''{0}'': ''{1}''"),
 
 	FUNCTION_REFERENCE_CANNOT_BE_INVOKED(Kind.ERROR, 1022,
-			"The function ''{0}'' mapped to an object of type ''{1}'' which cannot be invoked"),
+			"The function ''{0}'' mapped to an object of type ''{1}'' cannot be invoked"),
 
 	EXCEPTION_DURING_FUNCTION_CALL(Kind.ERROR, 1023,
 			"A problem occurred whilst attempting to invoke the function ''{0}'': ''{1}''"),
@@ -128,7 +132,7 @@ public enum SpelMessage {
 	PROBLEM_LOCATING_METHOD(Kind.ERROR, 1031,
 			"Problem locating method {0} on type {1}"),
 
-	SETVALUE_NOT_SUPPORTED(	Kind.ERROR, 1032,
+	SETVALUE_NOT_SUPPORTED(Kind.ERROR, 1032,
 			"setValue(ExpressionState, Object) not supported for ''{0}''"),
 
 	MULTIPLE_POSSIBLE_METHODS(Kind.ERROR, 1033,
@@ -156,7 +160,7 @@ public enum SpelMessage {
 	NOT_A_REAL(Kind.ERROR, 1040,
 			"The value ''{0}'' cannot be parsed as a double"),
 
-	MORE_INPUT(Kind.ERROR,1041,
+	MORE_INPUT(Kind.ERROR, 1041,
 			"After parsing a valid expression, there is still more data in the expression: ''{0}''"),
 
 	RIGHT_OPERAND_PROBLEM(Kind.ERROR, 1042,
@@ -208,7 +212,7 @@ public enum SpelMessage {
 			"No bean resolver registered in the context to resolve access to bean ''{0}''"),
 
 	EXCEPTION_DURING_BEAN_RESOLUTION(Kind.ERROR, 1058,
-			"A problem occurred when trying to resolve bean ''{0}'':''{1}''"),
+			"A problem occurred when trying to resolve bean ''{0}'': ''{1}''"),
 
 	INVALID_BEAN_REFERENCE(Kind.ERROR, 1059,
 			"@ or & can only be followed by an identifier or a quoted name"),
@@ -226,21 +230,22 @@ public enum SpelMessage {
 			"A required array dimension has not been specified"),
 
 	INITIALIZER_LENGTH_INCORRECT(Kind.ERROR, 1064,
-			"array initializer size does not match array dimensions"),
+			"Array initializer size does not match array dimensions"),
 
-	UNEXPECTED_ESCAPE_CHAR(Kind.ERROR, 1065, "unexpected escape character."),
+	UNEXPECTED_ESCAPE_CHAR(Kind.ERROR, 1065,
+			"Unexpected escape character"),
 
 	OPERAND_NOT_INCREMENTABLE(Kind.ERROR, 1066,
-			"the expression component ''{0}'' does not support increment"),
+			"The expression component ''{0}'' does not support increment"),
 
 	OPERAND_NOT_DECREMENTABLE(Kind.ERROR, 1067,
-			"the expression component ''{0}'' does not support decrement"),
+			"The expression component ''{0}'' does not support decrement"),
 
 	NOT_ASSIGNABLE(Kind.ERROR, 1068,
-			"the expression component ''{0}'' is not assignable"),
+			"The expression component ''{0}'' is not assignable"),
 
 	MISSING_CHARACTER(Kind.ERROR, 1069,
-			"missing expected character ''{0}''"),
+			"Missing expected character ''{0}''"),
 
 	LEFT_OPERAND_PROBLEM(Kind.ERROR, 1070,
 			"Problem parsing left operand"),
@@ -248,8 +253,58 @@ public enum SpelMessage {
 	MISSING_SELECTION_EXPRESSION(Kind.ERROR, 1071,
 			"A required selection expression has not been specified"),
 
-	EXCEPTION_RUNNING_COMPILED_EXPRESSION(Kind.ERROR,1072,
-			"An exception occurred whilst evaluating a compiled expression");
+	/** @since 4.1 */
+	EXCEPTION_RUNNING_COMPILED_EXPRESSION(Kind.ERROR, 1072,
+			"An exception occurred whilst evaluating a compiled expression"),
+
+	/** @since 4.3.17 */
+	FLAWED_PATTERN(Kind.ERROR, 1073,
+			"Failed to efficiently evaluate pattern ''{0}'': consider redesigning it"),
+
+	/** @since 5.3.17 */
+	EXCEPTION_COMPILING_EXPRESSION(Kind.ERROR, 1074,
+			"An exception occurred while compiling an expression"),
+
+	/** @since 5.3.17 */
+	MAX_ARRAY_ELEMENTS_THRESHOLD_EXCEEDED(Kind.ERROR, 1075,
+			"Array declares too many elements, exceeding the threshold of ''{0}''"),
+
+	/** @since 5.2.23 */
+	MAX_REPEATED_TEXT_SIZE_EXCEEDED(Kind.ERROR, 1076,
+			"Repeated text is too long, exceeding the threshold of ''{0}'' characters"),
+
+	/** @since 5.2.23 */
+	MAX_REGEX_LENGTH_EXCEEDED(Kind.ERROR, 1077,
+			"Regular expression is too long, exceeding the threshold of ''{0}'' characters"),
+
+	/** @since 5.2.24 */
+	MAX_CONCATENATED_STRING_LENGTH_EXCEEDED(Kind.ERROR, 1078,
+			"Concatenated string is too long, exceeding the threshold of ''{0}'' characters"),
+
+	/** @since 5.2.24 */
+	MAX_EXPRESSION_LENGTH_EXCEEDED(Kind.ERROR, 1079,
+			"SpEL expression is too long, exceeding the threshold of ''{0}'' characters"),
+
+	/** @since 5.2.24 */
+	VARIABLE_ASSIGNMENT_NOT_SUPPORTED(Kind.ERROR, 1080,
+			"Assignment to variable ''{0}'' is not supported"),
+
+	/** @since 6.0.13 */
+	NEGATIVE_REPEATED_TEXT_COUNT(Kind.ERROR, 1081,
+			"Repeat count ''{0}'' must not be negative"),
+
+	/** @since 6.1.15 */
+	UNSUPPORTED_CHARACTER(Kind.ERROR, 1082,
+			"Unsupported character ''{0}'' ({1}) encountered in expression"),
+
+	/** @since 6.2 */
+	EXCEPTION_DURING_INDEX_READ(Kind.ERROR, 1083,
+			"A problem occurred while attempting to read index ''{0}'' in ''{1}''"),
+
+	/** @since 6.2 */
+	EXCEPTION_DURING_INDEX_WRITE(Kind.ERROR, 1084,
+			"A problem occurred while attempting to write index ''{0}'' in ''{1}''");
+
 
 
 	private final Kind kind;
@@ -273,13 +328,11 @@ public enum SpelMessage {
 	 * @return a formatted message
 	 * @since 4.3.5
 	 */
-	public String formatMessage(Object... inserts) {
+	public String formatMessage(@Nullable Object... inserts) {
 		StringBuilder formattedMessage = new StringBuilder();
 		formattedMessage.append("EL").append(this.code);
-		switch (this.kind) {
-			case ERROR:
-				formattedMessage.append("E");
-				break;
+		if (this.kind == Kind.ERROR) {
+			formattedMessage.append('E');
 		}
 		formattedMessage.append(": ");
 		formattedMessage.append(MessageFormat.format(this.message, inserts));
@@ -287,6 +340,9 @@ public enum SpelMessage {
 	}
 
 
+	/**
+	 * Message kinds.
+	 */
 	public enum Kind { INFO, WARNING, ERROR }
 
 }

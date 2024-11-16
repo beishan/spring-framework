@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import org.hibernate.JDBCException;
 
 import org.springframework.dao.UncategorizedDataAccessException;
+import org.springframework.lang.Nullable;
 
 /**
  * Hibernate-specific subclass of UncategorizedDataAccessException,
@@ -41,6 +42,7 @@ public class HibernateJdbcException extends UncategorizedDataAccessException {
 	/**
 	 * Return the underlying SQLException.
 	 */
+	@SuppressWarnings("NullAway")
 	public SQLException getSQLException() {
 		return ((JDBCException) getCause()).getSQLException();
 	}
@@ -48,6 +50,8 @@ public class HibernateJdbcException extends UncategorizedDataAccessException {
 	/**
 	 * Return the SQL that led to the problem.
 	 */
+	@Nullable
+	@SuppressWarnings("NullAway")
 	public String getSql() {
 		return ((JDBCException) getCause()).getSQL();
 	}

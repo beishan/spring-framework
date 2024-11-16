@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,22 +16,24 @@
 
 package org.springframework.jms.support.destination;
 
-import javax.jms.Destination;
-import javax.jms.Session;
 import javax.naming.NamingException;
 
-import org.junit.Test;
+import jakarta.jms.Destination;
+import jakarta.jms.Session;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.jms.StubTopic;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author Rick Evans
  * @author Chris Beams
  */
-public class JndiDestinationResolverTests {
+class JndiDestinationResolverTests {
 
 	private static final String DESTINATION_NAME = "foo";
 
@@ -39,40 +41,40 @@ public class JndiDestinationResolverTests {
 
 
 	@Test
-	public void testHitsCacheSecondTimeThrough() throws Exception {
+	void testHitsCacheSecondTimeThrough() throws Exception {
 
-		Session session = mock(Session.class);
+		Session session = mock();
 
 		JndiDestinationResolver resolver = new OneTimeLookupJndiDestinationResolver();
 		Destination destination = resolver.resolveDestinationName(session, DESTINATION_NAME, true);
-		assertNotNull(destination);
-		assertSame(DESTINATION, destination);
+		assertThat(destination).isNotNull();
+		assertThat(destination).isSameAs(DESTINATION);
 	}
 
 	@Test
-	public void testDoesNotUseCacheIfCachingIsTurnedOff() throws Exception {
+	void testDoesNotUseCacheIfCachingIsTurnedOff() throws Exception {
 
-		Session session = mock(Session.class);
+		Session session = mock();
 
 		CountingCannedJndiDestinationResolver resolver
 				= new CountingCannedJndiDestinationResolver();
 		resolver.setCache(false);
 		Destination destination = resolver.resolveDestinationName(session, DESTINATION_NAME, true);
-		assertNotNull(destination);
-		assertSame(DESTINATION, destination);
-		assertEquals(1, resolver.getCallCount());
+		assertThat(destination).isNotNull();
+		assertThat(destination).isSameAs(DESTINATION);
+		assertThat(resolver.getCallCount()).isEqualTo(1);
 
 		destination = resolver.resolveDestinationName(session, DESTINATION_NAME, true);
-		assertNotNull(destination);
-		assertSame(DESTINATION, destination);
-		assertEquals(2, resolver.getCallCount());
+		assertThat(destination).isNotNull();
+		assertThat(destination).isSameAs(DESTINATION);
+		assertThat(resolver.getCallCount()).isEqualTo(2);
 	}
 
 	@Test
-	public void testDelegatesToFallbackIfNotResolvedInJndi() throws Exception {
-		Session session = mock(Session.class);
+	void testDelegatesToFallbackIfNotResolvedInJndi() throws Exception {
+		Session session = mock();
 
-		DestinationResolver dynamicResolver = mock(DestinationResolver.class);
+		DestinationResolver dynamicResolver = mock();
 		given(dynamicResolver.resolveDestinationName(session, DESTINATION_NAME,
 				true)).willReturn(DESTINATION);
 
@@ -86,14 +88,14 @@ public class JndiDestinationResolverTests {
 		resolver.setDynamicDestinationResolver(dynamicResolver);
 		Destination destination = resolver.resolveDestinationName(session, DESTINATION_NAME, true);
 
-		assertNotNull(destination);
-		assertSame(DESTINATION, destination);
+		assertThat(destination).isNotNull();
+		assertThat(destination).isSameAs(DESTINATION);
 	}
 
 	@Test
-	public void testDoesNotDelegateToFallbackIfNotResolvedInJndi() throws Exception {
-		final Session session = mock(Session.class);
-		DestinationResolver dynamicResolver = mock(DestinationResolver.class);
+	void testDoesNotDelegateToFallbackIfNotResolvedInJndi() {
+		final Session session = mock();
+		DestinationResolver dynamicResolver = mock();
 
 		final JndiDestinationResolver resolver = new JndiDestinationResolver() {
 			@Override
@@ -103,13 +105,8 @@ public class JndiDestinationResolverTests {
 		};
 		resolver.setDynamicDestinationResolver(dynamicResolver);
 
-		try {
-			resolver.resolveDestinationName(session, DESTINATION_NAME, true);
-			fail("expected DestinationResolutionException");
-		}
-		catch (DestinationResolutionException ex) {
-			// expected
-		}
+		assertThatExceptionOfType(DestinationResolutionException.class).isThrownBy(() ->
+				resolver.resolveDestinationName(session, DESTINATION_NAME, true));
 	}
 
 
@@ -118,11 +115,9 @@ public class JndiDestinationResolverTests {
 		private boolean called;
 
 		@Override
-		protected <T> T lookup(String jndiName, Class<T> requiredType) throws NamingException {
-			if (called) {
-				fail("Must not be delegating to lookup(..), must be resolving from cache.");
-			}
-			assertEquals(DESTINATION_NAME, jndiName);
+		protected <T> T lookup(String jndiName, Class<T> requiredType) {
+			assertThat(called).as("delegating to lookup(..) not cache").isFalse();
+			assertThat(jndiName).isEqualTo(DESTINATION_NAME);
 			called = true;
 			return requiredType.cast(DESTINATION);
 		}
@@ -137,7 +132,7 @@ public class JndiDestinationResolverTests {
 		}
 
 		@Override
-		protected <T> T lookup(String jndiName, Class<T> requiredType) throws NamingException {
+		protected <T> T lookup(String jndiName, Class<T> requiredType) {
 			++this.callCount;
 			return requiredType.cast(DESTINATION);
 		}

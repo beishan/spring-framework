@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -89,7 +89,7 @@ public class BindStatus {
 	 * Create a new BindStatus instance, representing a field or object status.
 	 * @param requestContext the current RequestContext
 	 * @param path the bean and property path for which values and errors
-	 * will be resolved (e.g. "customer.address.street")
+	 * will be resolved (for example, "customer.address.street")
 	 * @param htmlEscape whether to HTML-escape error messages and string values
 	 * @throws IllegalStateException if no corresponding Errors object found
 	 */
@@ -128,8 +128,8 @@ public class BindStatus {
 					this.objectErrors = this.errors.getFieldErrors(this.expression);
 					this.value = this.errors.getFieldValue(this.expression);
 					this.valueType = this.errors.getFieldType(this.expression);
-					if (this.errors instanceof BindingResult) {
-						this.bindingResult = (BindingResult) this.errors;
+					if (this.errors instanceof BindingResult br) {
+						this.bindingResult = br;
 						this.actualValue = this.bindingResult.getRawFieldValue(this.expression);
 						this.editor = this.bindingResult.findEditor(this.expression, null);
 					}
@@ -163,8 +163,8 @@ public class BindStatus {
 			this.errorMessages = new String[0];
 		}
 
-		if (htmlEscape && this.value instanceof String) {
-			this.value = HtmlUtils.htmlEscape((String) this.value);
+		if (htmlEscape && this.value instanceof String text) {
+			this.value = HtmlUtils.htmlEscape(text);
 		}
 	}
 
@@ -183,7 +183,7 @@ public class BindStatus {
 
 	/**
 	 * Return the bean and property path for which values and errors
-	 * will be resolved (e.g. "customer.address.street").
+	 * will be resolved (for example, "customer.address.street").
 	 */
 	public String getPath() {
 		return this.path;
@@ -192,7 +192,7 @@ public class BindStatus {
 	/**
 	 * Return a bind expression that can be used in HTML forms as input name
 	 * for the respective field, or {@code null} if not field-specific.
-	 * <p>Returns a bind path appropriate for resubmission, e.g. "address.street".
+	 * <p>Returns a bind path appropriate for resubmission, for example, "address.street".
 	 * Note that the complete bind path as required by the bind tag is
 	 * "customer.address.street", if bound to a "customer" bean.
 	 */
@@ -239,8 +239,8 @@ public class BindStatus {
 	 * will get HTML-escaped.
 	 */
 	public String getDisplayValue() {
-		if (this.value instanceof String) {
-			return (String) this.value;
+		if (this.value instanceof String displayValue) {
+			return displayValue;
 		}
 		if (this.value != null) {
 			return (this.htmlEscape ? HtmlUtils.htmlEscape(this.value.toString()) : this.value.toString());
@@ -289,7 +289,7 @@ public class BindStatus {
 	/**
 	 * Return an error message string, concatenating all messages
 	 * separated by the given delimiter.
-	 * @param delimiter separator string, e.g. ", " or "<br>"
+	 * @param delimiter separator string, for example, ", " or "<br>"
 	 * @return the error message string
 	 */
 	public String getErrorMessagesAsString(String delimiter) {
@@ -352,7 +352,7 @@ public class BindStatus {
 	public String toString() {
 		StringBuilder sb = new StringBuilder("BindStatus: ");
 		sb.append("expression=[").append(this.expression).append("]; ");
-		sb.append("value=[").append(this.value).append("]");
+		sb.append("value=[").append(this.value).append(']');
 		if (!ObjectUtils.isEmpty(this.errorCodes)) {
 			sb.append("; errorCodes=").append(Arrays.asList(this.errorCodes));
 		}

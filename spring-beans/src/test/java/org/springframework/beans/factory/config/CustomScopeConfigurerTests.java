@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,40 +19,38 @@ package org.springframework.beans.factory.config;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.mockito.Mockito.mock;
 
 /**
- * Unit tests for {@link CustomScopeConfigurer}.
+ * Tests for {@link CustomScopeConfigurer}.
  *
  * @author Rick Evans
  * @author Juergen Hoeller
  * @author Chris Beams
  */
-public class CustomScopeConfigurerTests {
+class CustomScopeConfigurerTests {
 
 	private static final String FOO_SCOPE = "fooScope";
-	private ConfigurableListableBeanFactory factory;
 
-	@Before
-	public void setUp() {
-		factory = new DefaultListableBeanFactory();
-	}
+	private final ConfigurableListableBeanFactory factory = new DefaultListableBeanFactory();
+
 
 	@Test
-	public void testWithNoScopes() throws Exception {
+	void testWithNoScopes() {
 		CustomScopeConfigurer figurer = new CustomScopeConfigurer();
 		figurer.postProcessBeanFactory(factory);
 	}
 
 	@Test
-	public void testSunnyDayWithBonaFideScopeInstance() throws Exception {
-		Scope scope = mock(Scope.class);
+	void testSunnyDayWithBonaFideScopeInstance() {
+		Scope scope = mock();
 		factory.registerScope(FOO_SCOPE, scope);
 		Map<String, Object> scopes = new HashMap<>();
 		scopes.put(FOO_SCOPE, scope);
@@ -62,51 +60,54 @@ public class CustomScopeConfigurerTests {
 	}
 
 	@Test
-	public void testSunnyDayWithBonaFideScopeClass() throws Exception {
+	void testSunnyDayWithBonaFideScopeClass() {
 		Map<String, Object> scopes = new HashMap<>();
 		scopes.put(FOO_SCOPE, NoOpScope.class);
 		CustomScopeConfigurer figurer = new CustomScopeConfigurer();
 		figurer.setScopes(scopes);
 		figurer.postProcessBeanFactory(factory);
-		assertTrue(factory.getRegisteredScope(FOO_SCOPE) instanceof NoOpScope);
+		assertThat(factory.getRegisteredScope(FOO_SCOPE)).isInstanceOf(NoOpScope.class);
 	}
 
 	@Test
-	public void testSunnyDayWithBonaFideScopeClassname() throws Exception {
+	void testSunnyDayWithBonaFideScopeClassName() {
 		Map<String, Object> scopes = new HashMap<>();
 		scopes.put(FOO_SCOPE, NoOpScope.class.getName());
 		CustomScopeConfigurer figurer = new CustomScopeConfigurer();
 		figurer.setScopes(scopes);
 		figurer.postProcessBeanFactory(factory);
-		assertTrue(factory.getRegisteredScope(FOO_SCOPE) instanceof NoOpScope);
+		assertThat(factory.getRegisteredScope(FOO_SCOPE)).isInstanceOf(NoOpScope.class);
 	}
 
-	@Test(expected = IllegalArgumentException.class)
-	public void testWhereScopeMapHasNullScopeValueInEntrySet() throws Exception {
+	@Test
+	void testWhereScopeMapHasNullScopeValueInEntrySet() {
 		Map<String, Object> scopes = new HashMap<>();
 		scopes.put(FOO_SCOPE, null);
 		CustomScopeConfigurer figurer = new CustomScopeConfigurer();
 		figurer.setScopes(scopes);
-		figurer.postProcessBeanFactory(factory);
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				figurer.postProcessBeanFactory(factory));
 	}
 
-	@Test(expected = IllegalArgumentException.class)
-	public void testWhereScopeMapHasNonScopeInstanceInEntrySet() throws Exception {
+	@Test
+	void testWhereScopeMapHasNonScopeInstanceInEntrySet() {
 		Map<String, Object> scopes = new HashMap<>();
-		scopes.put(FOO_SCOPE, this); // <-- not a valid value...
+		scopes.put(FOO_SCOPE, this);  // <-- not a valid value...
 		CustomScopeConfigurer figurer = new CustomScopeConfigurer();
 		figurer.setScopes(scopes);
-		figurer.postProcessBeanFactory(factory);
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				figurer.postProcessBeanFactory(factory));
 	}
 
-	@SuppressWarnings("unchecked")
-	@Test(expected = ClassCastException.class)
-	public void testWhereScopeMapHasNonStringTypedScopeNameInKeySet() throws Exception {
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@Test
+	void testWhereScopeMapHasNonStringTypedScopeNameInKeySet() {
 		Map scopes = new HashMap();
-		scopes.put(this, new NoOpScope()); // <-- not a valid value (the key)...
+		scopes.put(this, new NoOpScope());  // <-- not a valid value (the key)...
 		CustomScopeConfigurer figurer = new CustomScopeConfigurer();
 		figurer.setScopes(scopes);
-		figurer.postProcessBeanFactory(factory);
+		assertThatExceptionOfType(ClassCastException.class).isThrownBy(() ->
+				figurer.postProcessBeanFactory(factory));
 	}
 
 }

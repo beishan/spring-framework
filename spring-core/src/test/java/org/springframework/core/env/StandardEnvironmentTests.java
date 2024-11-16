@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,29 +16,32 @@
 
 package org.springframework.core.env;
 
-import java.lang.reflect.Field;
-import java.security.AccessControlException;
-import java.security.Permission;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.core.SpringProperties;
-import org.springframework.mock.env.MockPropertySource;
+import org.springframework.core.testfixture.env.MockPropertySource;
+import org.springframework.util.PlaceholderResolutionException;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-import static org.springframework.core.env.AbstractEnvironment.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.springframework.core.env.AbstractEnvironment.ACTIVE_PROFILES_PROPERTY_NAME;
+import static org.springframework.core.env.AbstractEnvironment.DEFAULT_PROFILES_PROPERTY_NAME;
+import static org.springframework.core.env.AbstractEnvironment.RESERVED_DEFAULT_PROFILE_NAME;
 
 /**
- * Unit tests for {@link StandardEnvironment}.
+ * Tests for {@link StandardEnvironment}.
  *
  * @author Chris Beams
  * @author Juergen Hoeller
+ * @author Sam Brannen
  */
-public class StandardEnvironmentTests {
+class StandardEnvironmentTests {
 
 	private static final String ALLOWED_PROPERTY_NAME = "theanswer";
 	private static final String ALLOWED_PROPERTY_VALUE = "42";
@@ -51,10 +54,11 @@ public class StandardEnvironmentTests {
 	private static final Object NON_STRING_PROPERTY_NAME = new Object();
 	private static final Object NON_STRING_PROPERTY_VALUE = new Object();
 
-	private ConfigurableEnvironment environment = new StandardEnvironment();
+	private final ConfigurableEnvironment environment = new StandardEnvironment();
+
 
 	@Test
-	public void merge() {
+	void merge() {
 		ConfigurableEnvironment child = new StandardEnvironment();
 		child.setActiveProfiles("c1", "c2");
 		child.getPropertySources().addLast(
@@ -69,482 +73,494 @@ public class StandardEnvironmentTests {
 						.withProperty("parentKey", "parentVal")
 						.withProperty("bothKey", "parentBothVal"));
 
-		assertThat(child.getProperty("childKey"), is("childVal"));
-		assertThat(child.getProperty("parentKey"), nullValue());
-		assertThat(child.getProperty("bothKey"), is("childBothVal"));
+		assertThat(child.getProperty("childKey")).isEqualTo("childVal");
+		assertThat(child.getProperty("parentKey")).isNull();
+		assertThat(child.getProperty("bothKey")).isEqualTo("childBothVal");
 
-		assertThat(parent.getProperty("childKey"), nullValue());
-		assertThat(parent.getProperty("parentKey"), is("parentVal"));
-		assertThat(parent.getProperty("bothKey"), is("parentBothVal"));
+		assertThat(parent.getProperty("childKey")).isNull();
+		assertThat(parent.getProperty("parentKey")).isEqualTo("parentVal");
+		assertThat(parent.getProperty("bothKey")).isEqualTo("parentBothVal");
 
-		assertThat(child.getActiveProfiles(), equalTo(new String[]{"c1","c2"}));
-		assertThat(parent.getActiveProfiles(), equalTo(new String[]{"p1","p2"}));
+		assertThat(child.getActiveProfiles()).containsExactly("c1", "c2");
+		assertThat(parent.getActiveProfiles()).containsExactly("p1", "p2");
 
 		child.merge(parent);
 
-		assertThat(child.getProperty("childKey"), is("childVal"));
-		assertThat(child.getProperty("parentKey"), is("parentVal"));
-		assertThat(child.getProperty("bothKey"), is("childBothVal"));
+		assertThat(child.getProperty("childKey")).isEqualTo("childVal");
+		assertThat(child.getProperty("parentKey")).isEqualTo("parentVal");
+		assertThat(child.getProperty("bothKey")).isEqualTo("childBothVal");
 
-		assertThat(parent.getProperty("childKey"), nullValue());
-		assertThat(parent.getProperty("parentKey"), is("parentVal"));
-		assertThat(parent.getProperty("bothKey"), is("parentBothVal"));
+		assertThat(parent.getProperty("childKey")).isNull();
+		assertThat(parent.getProperty("parentKey")).isEqualTo("parentVal");
+		assertThat(parent.getProperty("bothKey")).isEqualTo("parentBothVal");
 
-		assertThat(child.getActiveProfiles(), equalTo(new String[]{"c1","c2","p1","p2"}));
-		assertThat(parent.getActiveProfiles(), equalTo(new String[]{"p1","p2"}));
+		assertThat(child.getActiveProfiles()).containsExactly("c1", "c2", "p1", "p2");
+		assertThat(parent.getActiveProfiles()).containsExactly("p1", "p2");
 	}
 
 	@Test
-	public void propertySourceOrder() {
+	void propertySourceOrder() {
 		ConfigurableEnvironment env = new StandardEnvironment();
 		MutablePropertySources sources = env.getPropertySources();
-		assertThat(sources.precedenceOf(PropertySource.named(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME)), equalTo(0));
-		assertThat(sources.precedenceOf(PropertySource.named(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME)), equalTo(1));
-		assertThat(sources.size(), is(2));
+		assertThat(sources.precedenceOf(PropertySource.named(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME))).isEqualTo(0);
+		assertThat(sources.precedenceOf(PropertySource.named(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME))).isEqualTo(1);
+		assertThat(sources).hasSize(2);
 	}
 
 	@Test
-	public void propertySourceTypes() {
+	void propertySourceTypes() {
 		ConfigurableEnvironment env = new StandardEnvironment();
 		MutablePropertySources sources = env.getPropertySources();
-		assertThat(sources.get(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME), instanceOf(SystemEnvironmentPropertySource.class));
+		assertThat(sources.get(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME)).isInstanceOf(SystemEnvironmentPropertySource.class);
 	}
 
 	@Test
-	public void activeProfilesIsEmptyByDefault() {
-		assertThat(environment.getActiveProfiles().length, is(0));
+	void activeProfilesIsEmptyByDefault() {
+		assertThat(environment.getActiveProfiles()).isEmpty();
 	}
 
 	@Test
-	public void defaultProfilesContainsDefaultProfileByDefault() {
-		assertThat(environment.getDefaultProfiles().length, is(1));
-		assertThat(environment.getDefaultProfiles()[0], equalTo("default"));
+	void defaultProfilesContainsDefaultProfileByDefault() {
+		assertThat(environment.getDefaultProfiles()).containsExactly("default");
 	}
 
 	@Test
-	public void setActiveProfiles() {
+	void setActiveProfiles() {
 		environment.setActiveProfiles("local", "embedded");
 		String[] activeProfiles = environment.getActiveProfiles();
-		assertThat(Arrays.asList(activeProfiles), hasItems("local", "embedded"));
-		assertThat(activeProfiles.length, is(2));
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setActiveProfiles_withNullProfileArray() {
-		environment.setActiveProfiles((String[])null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setActiveProfiles_withNullProfile() {
-		environment.setActiveProfiles((String)null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setActiveProfiles_withEmptyProfile() {
-		environment.setActiveProfiles("");
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setActiveProfiles_withNotOperator() {
-		environment.setActiveProfiles("p1", "!p2");
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setDefaultProfiles_withNullProfileArray() {
-		environment.setDefaultProfiles((String[])null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setDefaultProfiles_withNullProfile() {
-		environment.setDefaultProfiles((String)null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setDefaultProfiles_withEmptyProfile() {
-		environment.setDefaultProfiles("");
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void setDefaultProfiles_withNotOperator() {
-		environment.setDefaultProfiles("d1", "!d2");
+		assertThat(activeProfiles).containsExactly("local", "embedded");
 	}
 
 	@Test
-	public void addActiveProfile() {
-		assertThat(environment.getActiveProfiles().length, is(0));
+	void setActiveProfiles_withNullProfileArray() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setActiveProfiles((String[]) null));
+	}
+
+	@Test
+	void setActiveProfiles_withNullProfile() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setActiveProfiles((String) null));
+	}
+
+	@Test
+	void setActiveProfiles_withEmptyProfile() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setActiveProfiles(""));
+	}
+
+	@Test
+	void setActiveProfiles_withNotOperator() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setActiveProfiles("p1", "!p2"));
+	}
+
+	@Test
+	void setDefaultProfiles_withNullProfileArray() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setDefaultProfiles((String[]) null));
+	}
+
+	@Test
+	void setDefaultProfiles_withNullProfile() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setDefaultProfiles((String) null));
+	}
+
+	@Test
+	void setDefaultProfiles_withEmptyProfile() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setDefaultProfiles(""));
+	}
+
+	@Test
+	void setDefaultProfiles_withNotOperator() {
+		assertThatIllegalArgumentException().isThrownBy(() -> environment.setDefaultProfiles("d1", "!d2"));
+	}
+
+	@Test
+	void addActiveProfile() {
+		assertThat(environment.getActiveProfiles()).isEmpty();
 		environment.setActiveProfiles("local", "embedded");
-		assertThat(Arrays.asList(environment.getActiveProfiles()), hasItems("local", "embedded"));
-		assertThat(environment.getActiveProfiles().length, is(2));
+		assertThat(environment.getActiveProfiles()).containsExactly("local", "embedded");
 		environment.addActiveProfile("p1");
-		assertThat(Arrays.asList(environment.getActiveProfiles()), hasItems("p1"));
-		assertThat(environment.getActiveProfiles().length, is(3));
+		assertThat(environment.getActiveProfiles()).containsExactly("local", "embedded", "p1");
 		environment.addActiveProfile("p2");
 		environment.addActiveProfile("p3");
-		assertThat(Arrays.asList(environment.getActiveProfiles()), hasItems("p2", "p3"));
-		assertThat(environment.getActiveProfiles().length, is(5));
+		assertThat(environment.getActiveProfiles()).containsExactly("local", "embedded", "p1", "p2", "p3");
 	}
 
 	@Test
-	public void addActiveProfile_whenActiveProfilesPropertyIsAlreadySet() {
+	void addActiveProfile_whenActiveProfilesPropertyIsAlreadySet() {
 		ConfigurableEnvironment env = new StandardEnvironment();
-		assertThat(env.getProperty(ACTIVE_PROFILES_PROPERTY_NAME), nullValue());
+		assertThat(env.getProperty(ACTIVE_PROFILES_PROPERTY_NAME)).isNull();
 		env.getPropertySources().addFirst(new MockPropertySource().withProperty(ACTIVE_PROFILES_PROPERTY_NAME, "p1"));
-		assertThat(env.getProperty(ACTIVE_PROFILES_PROPERTY_NAME), equalTo("p1"));
+		assertThat(env.getProperty(ACTIVE_PROFILES_PROPERTY_NAME)).isEqualTo("p1");
 		env.addActiveProfile("p2");
-		assertThat(env.getActiveProfiles(), arrayContaining("p1", "p2"));
+		assertThat(env.getActiveProfiles()).containsExactly("p1", "p2");
 	}
 
 	@Test
-	public void reservedDefaultProfile() {
-		assertThat(environment.getDefaultProfiles(), equalTo(new String[]{RESERVED_DEFAULT_PROFILE_NAME}));
-		System.setProperty(DEFAULT_PROFILES_PROPERTY_NAME, "d0");
-		assertThat(environment.getDefaultProfiles(), equalTo(new String[]{"d0"}));
-		environment.setDefaultProfiles("d1", "d2");
-		assertThat(environment.getDefaultProfiles(), equalTo(new String[]{"d1","d2"}));
-		System.getProperties().remove(DEFAULT_PROFILES_PROPERTY_NAME);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void defaultProfileWithCircularPlaceholder() {
-		System.setProperty(DEFAULT_PROFILES_PROPERTY_NAME, "${spring.profiles.default}");
+	void reservedDefaultProfile() {
+		assertThat(environment.getDefaultProfiles()).containsExactly(RESERVED_DEFAULT_PROFILE_NAME);
 		try {
-			environment.getDefaultProfiles();
+			System.setProperty(DEFAULT_PROFILES_PROPERTY_NAME, "d0");
+			assertThat(environment.getDefaultProfiles()).containsExactly("d0");
+			environment.setDefaultProfiles("d1", "d2");
+			assertThat(environment.getDefaultProfiles()).containsExactly("d1","d2");
 		}
 		finally {
-			System.getProperties().remove(DEFAULT_PROFILES_PROPERTY_NAME);
+			System.clearProperty(DEFAULT_PROFILES_PROPERTY_NAME);
 		}
 	}
 
 	@Test
-	public void getActiveProfiles_systemPropertiesEmpty() {
-		assertThat(environment.getActiveProfiles().length, is(0));
-		System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, "");
-		assertThat(environment.getActiveProfiles().length, is(0));
-		System.getProperties().remove(ACTIVE_PROFILES_PROPERTY_NAME);
+	void defaultProfileWithCircularPlaceholder() {
+		try {
+			System.setProperty(DEFAULT_PROFILES_PROPERTY_NAME, "${spring.profiles.default}");
+			assertThatExceptionOfType(PlaceholderResolutionException.class)
+				.isThrownBy(environment::getDefaultProfiles)
+				.withMessageContaining("Circular placeholder reference 'spring.profiles.default'");
+		}
+		finally {
+			System.clearProperty(DEFAULT_PROFILES_PROPERTY_NAME);
+		}
 	}
 
 	@Test
-	public void getActiveProfiles_fromSystemProperties() {
-		System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, "foo");
-		assertThat(Arrays.asList(environment.getActiveProfiles()), hasItem("foo"));
-		System.getProperties().remove(ACTIVE_PROFILES_PROPERTY_NAME);
-	}
-
-	@Test
-	public void getActiveProfiles_fromSystemProperties_withMultipleProfiles() {
-		System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, "foo,bar");
-		assertThat(Arrays.asList(environment.getActiveProfiles()), hasItems("foo", "bar"));
-		System.getProperties().remove(ACTIVE_PROFILES_PROPERTY_NAME);
-	}
-
-	@Test
-	public void getActiveProfiles_fromSystemProperties_withMulitpleProfiles_withWhitespace() {
-		System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, " bar , baz "); // notice whitespace
-		assertThat(Arrays.asList(environment.getActiveProfiles()), hasItems("bar", "baz"));
-		System.getProperties().remove(ACTIVE_PROFILES_PROPERTY_NAME);
-	}
-
-	@Test
-	public void getDefaultProfiles() {
-		assertThat(environment.getDefaultProfiles(), equalTo(new String[] {RESERVED_DEFAULT_PROFILE_NAME}));
+	void getDefaultProfiles() {
+		assertThat(environment.getDefaultProfiles()).containsExactly(RESERVED_DEFAULT_PROFILE_NAME);
 		environment.getPropertySources().addFirst(new MockPropertySource().withProperty(DEFAULT_PROFILES_PROPERTY_NAME, "pd1"));
-		assertThat(environment.getDefaultProfiles().length, is(1));
-		assertThat(Arrays.asList(environment.getDefaultProfiles()), hasItem("pd1"));
+		assertThat(environment.getDefaultProfiles()).containsExactly("pd1");
 	}
 
 	@Test
-	public void setDefaultProfiles() {
+	void setDefaultProfiles() {
 		environment.setDefaultProfiles();
-		assertThat(environment.getDefaultProfiles().length, is(0));
+		assertThat(environment.getDefaultProfiles()).isEmpty();
 		environment.setDefaultProfiles("pd1");
-		assertThat(Arrays.asList(environment.getDefaultProfiles()), hasItem("pd1"));
+		assertThat(environment.getDefaultProfiles()).containsExactly("pd1");
 		environment.setDefaultProfiles("pd2", "pd3");
-		assertThat(Arrays.asList(environment.getDefaultProfiles()), not(hasItem("pd1")));
-		assertThat(Arrays.asList(environment.getDefaultProfiles()), hasItems("pd2", "pd3"));
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void acceptsProfiles_withEmptyArgumentList() {
-		environment.acceptsProfiles();
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void acceptsProfiles_withNullArgumentList() {
-		environment.acceptsProfiles((String[])null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void acceptsProfiles_withNullArgument() {
-		environment.acceptsProfiles((String)null);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void acceptsProfiles_withEmptyArgument() {
-		environment.acceptsProfiles("");
-	}
-
-
-	@Test
-	public void acceptsProfiles_activeProfileSetProgrammatically() {
-		assertThat(environment.acceptsProfiles("p1", "p2"), is(false));
-		environment.setActiveProfiles("p1");
-		assertThat(environment.acceptsProfiles("p1", "p2"), is(true));
-		environment.setActiveProfiles("p2");
-		assertThat(environment.acceptsProfiles("p1", "p2"), is(true));
-		environment.setActiveProfiles("p1", "p2");
-		assertThat(environment.acceptsProfiles("p1", "p2"), is(true));
+		assertThat(environment.getDefaultProfiles()).containsExactly("pd2", "pd3");
 	}
 
 	@Test
-	public void acceptsProfiles_activeProfileSetViaProperty() {
-		assertThat(environment.acceptsProfiles("p1"), is(false));
-		environment.getPropertySources().addFirst(new MockPropertySource().withProperty(ACTIVE_PROFILES_PROPERTY_NAME, "p1"));
-		assertThat(environment.acceptsProfiles("p1"), is(true));
-	}
-
-	@Test
-	public void acceptsProfiles_defaultProfile() {
-		assertThat(environment.acceptsProfiles("pd"), is(false));
-		environment.setDefaultProfiles("pd");
-		assertThat(environment.acceptsProfiles("pd"), is(true));
-		environment.setActiveProfiles("p1");
-		assertThat(environment.acceptsProfiles("pd"), is(false));
-		assertThat(environment.acceptsProfiles("p1"), is(true));
-	}
-
-	@Test
-	public void acceptsProfiles_withNotOperator() {
-		assertThat(environment.acceptsProfiles("p1"), is(false));
-		assertThat(environment.acceptsProfiles("!p1"), is(true));
-		environment.addActiveProfile("p1");
-		assertThat(environment.acceptsProfiles("p1"), is(true));
-		assertThat(environment.acceptsProfiles("!p1"), is(false));
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void acceptsProfiles_withInvalidNotOperator() {
-		environment.acceptsProfiles("p1", "!");
-	}
-
-	@Test
-	public void environmentSubclass_withCustomProfileValidation() {
+	void environmentSubclass_withCustomProfileValidation() {
 		ConfigurableEnvironment env = new AbstractEnvironment() {
 			@Override
 			protected void validateProfile(String profile) {
 				super.validateProfile(profile);
 				if (profile.contains("-")) {
-					throw new IllegalArgumentException(
-							"Invalid profile [" + profile + "]: must not contain dash character");
+					throw new IllegalArgumentException("Invalid profile [" + profile + "]: must not contain dash character");
 				}
 			}
 		};
 
 		env.addActiveProfile("validProfile"); // succeeds
 
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> env.addActiveProfile("invalid-profile"))
+			.withMessage("Invalid profile [invalid-profile]: must not contain dash character");
+	}
+
+	@Test
+	void suppressGetenvAccessThroughSystemProperty() {
 		try {
-			env.addActiveProfile("invalid-profile");
-			fail("expected validation exception");
+			System.setProperty("spring.getenv.ignore", "true");
+			assertThat(environment.getSystemEnvironment()).isEmpty();
 		}
-		catch (IllegalArgumentException ex) {
-			assertThat(ex.getMessage(),
-					equalTo("Invalid profile [invalid-profile]: must not contain dash character"));
+		finally {
+			System.clearProperty("spring.getenv.ignore");
 		}
 	}
 
 	@Test
-	public void suppressGetenvAccessThroughSystemProperty() {
-		System.setProperty("spring.getenv.ignore", "true");
-		assertTrue(environment.getSystemEnvironment().isEmpty());
-		System.clearProperty("spring.getenv.ignore");
+	void suppressGetenvAccessThroughSpringProperty() {
+		try {
+			SpringProperties.setProperty("spring.getenv.ignore", "true");
+			assertThat(environment.getSystemEnvironment()).isEmpty();
+		}
+		finally {
+			SpringProperties.setProperty("spring.getenv.ignore", null);
+		}
 	}
 
 	@Test
-	public void suppressGetenvAccessThroughSpringProperty() {
-		SpringProperties.setProperty("spring.getenv.ignore", "true");
-		assertTrue(environment.getSystemEnvironment().isEmpty());
-		SpringProperties.setProperty("spring.getenv.ignore", null);
+	void suppressGetenvAccessThroughSpringFlag() {
+		try {
+			SpringProperties.setFlag("spring.getenv.ignore");
+			assertThat(environment.getSystemEnvironment()).isEmpty();
+		}
+		finally {
+			SpringProperties.setProperty("spring.getenv.ignore", null);
+		}
 	}
 
 	@Test
-	public void suppressGetenvAccessThroughSpringFlag() {
-		SpringProperties.setFlag("spring.getenv.ignore");
-		assertTrue(environment.getSystemEnvironment().isEmpty());
-		SpringProperties.setProperty("spring.getenv.ignore", null);
-	}
+	void getSystemProperties() {
+		try {
+			System.setProperty(ALLOWED_PROPERTY_NAME, ALLOWED_PROPERTY_VALUE);
+			System.setProperty(DISALLOWED_PROPERTY_NAME, DISALLOWED_PROPERTY_VALUE);
+			System.getProperties().put(STRING_PROPERTY_NAME, NON_STRING_PROPERTY_VALUE);
+			System.getProperties().put(NON_STRING_PROPERTY_NAME, STRING_PROPERTY_VALUE);
 
-	@Test
-	public void getSystemProperties_withAndWithoutSecurityManager() {
-		System.setProperty(ALLOWED_PROPERTY_NAME, ALLOWED_PROPERTY_VALUE);
-		System.setProperty(DISALLOWED_PROPERTY_NAME, DISALLOWED_PROPERTY_VALUE);
-		System.getProperties().put(STRING_PROPERTY_NAME, NON_STRING_PROPERTY_VALUE);
-		System.getProperties().put(NON_STRING_PROPERTY_NAME, STRING_PROPERTY_VALUE);
-
-		{
 			Map<?, ?> systemProperties = environment.getSystemProperties();
-			assertThat(systemProperties, notNullValue());
-			assertSame(systemProperties, System.getProperties());
-			assertThat(systemProperties.get(ALLOWED_PROPERTY_NAME), equalTo((Object)ALLOWED_PROPERTY_VALUE));
-			assertThat(systemProperties.get(DISALLOWED_PROPERTY_NAME), equalTo((Object)DISALLOWED_PROPERTY_VALUE));
+			assertThat(systemProperties).isNotNull();
+			assertThat(System.getProperties()).isSameAs(systemProperties);
+			assertThat(systemProperties.get(ALLOWED_PROPERTY_NAME)).isEqualTo(ALLOWED_PROPERTY_VALUE);
+			assertThat(systemProperties.get(DISALLOWED_PROPERTY_NAME)).isEqualTo(DISALLOWED_PROPERTY_VALUE);
+			assertThat(systemProperties.get(STRING_PROPERTY_NAME)).isEqualTo(NON_STRING_PROPERTY_VALUE);
+			assertThat(systemProperties.get(NON_STRING_PROPERTY_NAME)).isEqualTo(STRING_PROPERTY_VALUE);
 
-			// non-string keys and values work fine... until the security manager is introduced below
-			assertThat(systemProperties.get(STRING_PROPERTY_NAME), equalTo(NON_STRING_PROPERTY_VALUE));
-			assertThat(systemProperties.get(NON_STRING_PROPERTY_NAME), equalTo((Object)STRING_PROPERTY_VALUE));
+			PropertiesPropertySource systemPropertySource = (PropertiesPropertySource)
+					environment.getPropertySources().get(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
+			Set<String> expectedKeys = new HashSet<>(System.getProperties().stringPropertyNames());
+			expectedKeys.add(STRING_PROPERTY_NAME);  // filtered out by stringPropertyNames due to non-String value
+			assertThat(Set.of(systemPropertySource.getPropertyNames())).isEqualTo(expectedKeys);
 		}
+		finally {
+			System.clearProperty(ALLOWED_PROPERTY_NAME);
+			System.clearProperty(DISALLOWED_PROPERTY_NAME);
+			System.getProperties().remove(STRING_PROPERTY_NAME);
+			System.getProperties().remove(NON_STRING_PROPERTY_NAME);
+		}
+	}
 
-		SecurityManager oldSecurityManager = System.getSecurityManager();
-		SecurityManager securityManager = new SecurityManager() {
-			@Override
-			public void checkPropertiesAccess() {
-				// see http://download.oracle.com/javase/1.5.0/docs/api/java/lang/System.html#getProperties()
-				throw new AccessControlException("Accessing the system properties is disallowed");
-			}
-			@Override
-			public void checkPropertyAccess(String key) {
-				// see http://download.oracle.com/javase/1.5.0/docs/api/java/lang/System.html#getProperty(java.lang.String)
-				if (DISALLOWED_PROPERTY_NAME.equals(key)) {
-					throw new AccessControlException(
-							String.format("Accessing the system property [%s] is disallowed", DISALLOWED_PROPERTY_NAME));
-				}
-			}
-			@Override
-			public void checkPermission(Permission perm) {
-				// allow everything else
-			}
-		};
-		System.setSecurityManager(securityManager);
+	@Test
+	void getSystemEnvironment() {
+		Map<String, Object> systemEnvironment = environment.getSystemEnvironment();
+		assertThat(systemEnvironment).isNotNull();
+		assertThat(System.getenv()).isSameAs(systemEnvironment);
+	}
 
-		{
-			Map<?, ?> systemProperties = environment.getSystemProperties();
-			assertThat(systemProperties, notNullValue());
-			assertThat(systemProperties, instanceOf(ReadOnlySystemAttributesMap.class));
-			assertThat((String)systemProperties.get(ALLOWED_PROPERTY_NAME), equalTo(ALLOWED_PROPERTY_VALUE));
-			assertThat(systemProperties.get(DISALLOWED_PROPERTY_NAME), equalTo(null));
 
-			// nothing we can do here in terms of warning the user that there was
-			// actually a (non-string) value available. By this point, we only
-			// have access to calling System.getProperty(), which itself returns null
-			// if the value is non-string.  So we're stuck with returning a potentially
-			// misleading null.
-			assertThat(systemProperties.get(STRING_PROPERTY_NAME), nullValue());
+	@Nested
+	class GetActiveProfiles {
 
-			// in the case of a non-string *key*, however, we can do better.  Alert
-			// the user that under these very special conditions (non-object key +
-			// SecurityManager that disallows access to system properties), they
-			// cannot do what they're attempting.
+		@Test
+		void systemPropertiesEmpty() {
+			assertThat(environment.getActiveProfiles()).isEmpty();
 			try {
-				systemProperties.get(NON_STRING_PROPERTY_NAME);
-				fail("Expected IllegalArgumentException when searching with non-string key against ReadOnlySystemAttributesMap");
+				System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, "");
+				assertThat(environment.getActiveProfiles()).isEmpty();
 			}
-			catch (IllegalArgumentException ex) {
-				// expected
+			finally {
+				System.clearProperty(ACTIVE_PROFILES_PROPERTY_NAME);
 			}
 		}
 
-		System.setSecurityManager(oldSecurityManager);
-		System.clearProperty(ALLOWED_PROPERTY_NAME);
-		System.clearProperty(DISALLOWED_PROPERTY_NAME);
-		System.getProperties().remove(STRING_PROPERTY_NAME);
-		System.getProperties().remove(NON_STRING_PROPERTY_NAME);
+		@Test
+		void fromSystemProperties() {
+			try {
+				System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, "foo");
+				assertThat(environment.getActiveProfiles()).containsExactly("foo");
+			}
+			finally {
+				System.clearProperty(ACTIVE_PROFILES_PROPERTY_NAME);
+			}
+		}
+
+		@Test
+		void fromSystemProperties_withMultipleProfiles() {
+			try {
+				System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, "foo,bar");
+				assertThat(environment.getActiveProfiles()).containsExactly("foo", "bar");
+			}
+			finally {
+				System.clearProperty(ACTIVE_PROFILES_PROPERTY_NAME);
+			}
+		}
+
+		@Test
+		void fromSystemProperties_withMultipleProfiles_withWhitespace() {
+			try {
+				System.setProperty(ACTIVE_PROFILES_PROPERTY_NAME, " bar , baz "); // notice whitespace
+				assertThat(environment.getActiveProfiles()).containsExactly("bar", "baz");
+			}
+			finally {
+				System.clearProperty(ACTIVE_PROFILES_PROPERTY_NAME);
+			}
+		}
 	}
 
-	@Test
-	public void getSystemEnvironment_withAndWithoutSecurityManager() {
-		getModifiableSystemEnvironment().put(ALLOWED_PROPERTY_NAME, ALLOWED_PROPERTY_VALUE);
-		getModifiableSystemEnvironment().put(DISALLOWED_PROPERTY_NAME, DISALLOWED_PROPERTY_VALUE);
 
-		{
-			Map<String, Object> systemEnvironment = environment.getSystemEnvironment();
-			assertThat(systemEnvironment, notNullValue());
-			assertSame(systemEnvironment, System.getenv());
+	@Nested
+	class AcceptsProfilesTests {
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void withEmptyArgumentList() {
+			assertThatIllegalArgumentException().isThrownBy(environment::acceptsProfiles);
 		}
 
-		SecurityManager oldSecurityManager = System.getSecurityManager();
-		SecurityManager securityManager = new SecurityManager() {
-			@Override
-			public void checkPermission(Permission perm) {
-				//see http://download.oracle.com/javase/1.5.0/docs/api/java/lang/System.html#getenv()
-				if ("getenv.*".equals(perm.getName())) {
-					throw new AccessControlException("Accessing the system environment is disallowed");
-				}
-				//see http://download.oracle.com/javase/1.5.0/docs/api/java/lang/System.html#getenv(java.lang.String)
-				if (("getenv."+DISALLOWED_PROPERTY_NAME).equals(perm.getName())) {
-					throw new AccessControlException(
-							String.format("Accessing the system environment variable [%s] is disallowed", DISALLOWED_PROPERTY_NAME));
-				}
-			}
-		};
-		System.setSecurityManager(securityManager);
-
-		{
-			Map<String, Object> systemEnvironment = environment.getSystemEnvironment();
-			assertThat(systemEnvironment, notNullValue());
-			assertThat(systemEnvironment, instanceOf(ReadOnlySystemAttributesMap.class));
-			assertThat(systemEnvironment.get(ALLOWED_PROPERTY_NAME), equalTo((Object)ALLOWED_PROPERTY_VALUE));
-			assertThat(systemEnvironment.get(DISALLOWED_PROPERTY_NAME), nullValue());
+		@Test
+		@SuppressWarnings("deprecation")
+		void withNullArgumentList() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.acceptsProfiles((String[]) null));
 		}
 
-		System.setSecurityManager(oldSecurityManager);
-		getModifiableSystemEnvironment().remove(ALLOWED_PROPERTY_NAME);
-		getModifiableSystemEnvironment().remove(DISALLOWED_PROPERTY_NAME);
+		@Test
+		@SuppressWarnings("deprecation")
+		void withNullArgument() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.acceptsProfiles((String) null));
+		}
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void withEmptyArgument() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.acceptsProfiles(""));
+		}
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void activeProfileSetProgrammatically() {
+			assertThat(environment.acceptsProfiles("p1", "p2")).isFalse();
+			environment.setActiveProfiles("p1");
+			assertThat(environment.acceptsProfiles("p1", "p2")).isTrue();
+			environment.setActiveProfiles("p2");
+			assertThat(environment.acceptsProfiles("p1", "p2")).isTrue();
+			environment.setActiveProfiles("p1", "p2");
+			assertThat(environment.acceptsProfiles("p1", "p2")).isTrue();
+		}
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void activeProfileSetViaProperty() {
+			assertThat(environment.acceptsProfiles("p1")).isFalse();
+			environment.getPropertySources().addFirst(new MockPropertySource().withProperty(ACTIVE_PROFILES_PROPERTY_NAME, "p1"));
+			assertThat(environment.acceptsProfiles("p1")).isTrue();
+		}
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void defaultProfile() {
+			assertThat(environment.acceptsProfiles("pd")).isFalse();
+			environment.setDefaultProfiles("pd");
+			assertThat(environment.acceptsProfiles("pd")).isTrue();
+			environment.setActiveProfiles("p1");
+			assertThat(environment.acceptsProfiles("pd")).isFalse();
+			assertThat(environment.acceptsProfiles("p1")).isTrue();
+		}
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void withNotOperator() {
+			assertThat(environment.acceptsProfiles("p1")).isFalse();
+			assertThat(environment.acceptsProfiles("!p1")).isTrue();
+			environment.addActiveProfile("p1");
+			assertThat(environment.acceptsProfiles("p1")).isTrue();
+			assertThat(environment.acceptsProfiles("!p1")).isFalse();
+		}
+
+		@Test
+		@SuppressWarnings("deprecation")
+		void withInvalidNotOperator() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.acceptsProfiles("p1", "!"));
+		}
+
+		@Test
+		void withProfileExpression() {
+			assertThat(environment.acceptsProfiles(Profiles.of("p1 & p2"))).isFalse();
+			environment.addActiveProfile("p1");
+			assertThat(environment.acceptsProfiles(Profiles.of("p1 & p2"))).isFalse();
+			environment.addActiveProfile("p2");
+			assertThat(environment.acceptsProfiles(Profiles.of("p1 & p2"))).isTrue();
+		}
 	}
 
-	@SuppressWarnings("unchecked")
-	public static Map<String, String> getModifiableSystemEnvironment() {
-		// for os x / linux
-		Class<?>[] classes = Collections.class.getDeclaredClasses();
-		Map<String, String> env = System.getenv();
-		for (Class<?> cl : classes) {
-			if ("java.util.Collections$UnmodifiableMap".equals(cl.getName())) {
-				try {
-					Field field = cl.getDeclaredField("m");
-					field.setAccessible(true);
-					Object obj = field.get(env);
-					if (obj != null && obj.getClass().getName().equals("java.lang.ProcessEnvironment$StringEnvironment")) {
-						return (Map<String, String>) obj;
-					}
-				}
-				catch (Exception ex) {
-					throw new RuntimeException(ex);
-				}
-			}
+
+	@Nested
+	class MatchesProfilesTests {
+
+		@Test
+		void withEmptyArgumentList() {
+			assertThatIllegalArgumentException().isThrownBy(environment::matchesProfiles);
 		}
 
-		// for windows
-		Class<?> processEnvironmentClass;
-		try {
-			processEnvironmentClass = Class.forName("java.lang.ProcessEnvironment");
-		}
-		catch (Exception ex) {
-			throw new IllegalStateException(ex);
+		@Test
+		void withNullArgumentList() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles((String[]) null));
 		}
 
-		try {
-			Field theCaseInsensitiveEnvironmentField = processEnvironmentClass.getDeclaredField("theCaseInsensitiveEnvironment");
-			theCaseInsensitiveEnvironmentField.setAccessible(true);
-			Object obj = theCaseInsensitiveEnvironmentField.get(null);
-			return (Map<String, String>) obj;
-		}
-		catch (NoSuchFieldException ex) {
-			// do nothing
-		}
-		catch (Exception ex) {
-			throw new IllegalStateException(ex);
+		@Test
+		void withNullArgument() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles((String) null));
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1", null));
 		}
 
-		try {
-			Field theEnvironmentField = processEnvironmentClass.getDeclaredField("theEnvironment");
-			theEnvironmentField.setAccessible(true);
-			Object obj = theEnvironmentField.get(null);
-			return (Map<String, String>) obj;
-		}
-		catch (NoSuchFieldException ex) {
-			// do nothing
-		}
-		catch (Exception ex) {
-			throw new IllegalStateException(ex);
+		@Test
+		void withEmptyArgument() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles(""));
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1", ""));
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1", "      "));
 		}
 
-		throw new IllegalStateException();
+		@Test
+		void withInvalidNotOperator() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1", "!"));
+		}
+
+		@Test
+		void withInvalidCompoundExpressionGrouping() {
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1 | p2 & p3"));
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1 & p2 | p3"));
+			assertThatIllegalArgumentException().isThrownBy(() -> environment.matchesProfiles("p1 & (p2 | p3) | p4"));
+		}
+
+		@Test
+		void activeProfileSetProgrammatically() {
+			assertThat(environment.matchesProfiles("p1", "p2")).isFalse();
+
+			environment.setActiveProfiles("p1");
+			assertThat(environment.matchesProfiles("p1", "p2")).isTrue();
+
+			environment.setActiveProfiles("p2");
+			assertThat(environment.matchesProfiles("p1", "p2")).isTrue();
+
+			environment.setActiveProfiles("p1", "p2");
+			assertThat(environment.matchesProfiles("p1", "p2")).isTrue();
+		}
+
+		@Test
+		void activeProfileSetViaProperty() {
+			assertThat(environment.matchesProfiles("p1")).isFalse();
+
+			environment.getPropertySources().addFirst(new MockPropertySource().withProperty(ACTIVE_PROFILES_PROPERTY_NAME, "p1"));
+			assertThat(environment.matchesProfiles("p1")).isTrue();
+		}
+
+		@Test
+		void defaultProfile() {
+			assertThat(environment.matchesProfiles("pd")).isFalse();
+
+			environment.setDefaultProfiles("pd");
+			assertThat(environment.matchesProfiles("pd")).isTrue();
+
+			environment.setActiveProfiles("p1");
+			assertThat(environment.matchesProfiles("pd")).isFalse();
+			assertThat(environment.matchesProfiles("p1")).isTrue();
+		}
+
+		@Test
+		void withNotOperator() {
+			assertThat(environment.matchesProfiles("p1")).isFalse();
+			assertThat(environment.matchesProfiles("!p1")).isTrue();
+
+			environment.addActiveProfile("p1");
+			assertThat(environment.matchesProfiles("p1")).isTrue();
+			assertThat(environment.matchesProfiles("!p1")).isFalse();
+		}
+
+		@Test
+		void withProfileExpressions() {
+			assertThat(environment.matchesProfiles("p1 & p2")).isFalse();
+
+			environment.addActiveProfile("p1");
+			assertThat(environment.matchesProfiles("p1 | p2")).isTrue();
+			assertThat(environment.matchesProfiles("p1 & p2")).isFalse();
+
+			environment.addActiveProfile("p2");
+			assertThat(environment.matchesProfiles("p1 & p2")).isTrue();
+			assertThat(environment.matchesProfiles("p1 | p2")).isTrue();
+			assertThat(environment.matchesProfiles("foo | p1", "p2")).isTrue();
+			assertThat(environment.matchesProfiles("foo | p2", "p1")).isTrue();
+			assertThat(environment.matchesProfiles("foo | (p2 & p1)")).isTrue();
+			assertThat(environment.matchesProfiles("p2 & (foo | p1)")).isTrue();
+			assertThat(environment.matchesProfiles("foo", "(p2 & p1)")).isTrue();
+		}
 	}
 
 }

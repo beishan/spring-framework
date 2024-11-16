@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,11 +27,13 @@ import org.apache.commons.logging.LogFactory;
 
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.EmbeddedValueResolverAware;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.PatternMatchUtils;
+import org.springframework.util.StringValueResolver;
 
 /**
  * Simple {@link TransactionAttributeSource} implementation that
@@ -44,14 +46,17 @@ import org.springframework.util.PatternMatchUtils;
  * @see NameMatchTransactionAttributeSource
  */
 public class MethodMapTransactionAttributeSource
-		implements TransactionAttributeSource, BeanClassLoaderAware, InitializingBean {
+		implements TransactionAttributeSource, EmbeddedValueResolverAware, BeanClassLoaderAware, InitializingBean {
 
-	/** Logger available to subclasses */
+	/** Logger available to subclasses. */
 	protected final Log logger = LogFactory.getLog(getClass());
 
-	/** Map from method name to attribute value */
+	/** Map from method name to attribute value. */
 	@Nullable
 	private Map<String, TransactionAttribute> methodMap;
+
+	@Nullable
+	private StringValueResolver embeddedValueResolver;
 
 	@Nullable
 	private ClassLoader beanClassLoader = ClassUtils.getDefaultClassLoader();
@@ -60,16 +65,16 @@ public class MethodMapTransactionAttributeSource
 
 	private boolean initialized = false;
 
-	/** Map from Method to TransactionAttribute */
+	/** Map from Method to TransactionAttribute. */
 	private final Map<Method, TransactionAttribute> transactionAttributeMap = new HashMap<>();
 
-	/** Map from Method to name pattern used for registration */
+	/** Map from Method to name pattern used for registration. */
 	private final Map<Method, String> methodNameMap = new HashMap<>();
 
 
 	/**
-	 * Set a name/attribute map, consisting of "FQCN.method" method names
-	 * (e.g. "com.mycompany.mycode.MyClass.myMethod") and
+	 * Set a name/attribute map, consisting of "{@code <fully-qualified class name>.<method-name>}"
+	 * method names (for example, "com.mycompany.mycode.MyClass.myMethod") and
 	 * {@link TransactionAttribute} instances (or Strings to be converted
 	 * to {@code TransactionAttribute} instances).
 	 * <p>Intended for configuration via setter injection, typically within
@@ -81,6 +86,11 @@ public class MethodMapTransactionAttributeSource
 	 */
 	public void setMethodMap(Map<String, TransactionAttribute> methodMap) {
 		this.methodMap = methodMap;
+	}
+
+	@Override
+	public void setEmbeddedValueResolver(StringValueResolver resolver) {
+		this.embeddedValueResolver = resolver;
 	}
 
 	@Override
@@ -103,7 +113,7 @@ public class MethodMapTransactionAttributeSource
 
 	/**
 	 * Initialize the specified {@link #setMethodMap(java.util.Map) "methodMap"}, if any.
-	 * @param methodMap Map from method names to {@code TransactionAttribute} instances
+	 * @param methodMap a Map from method names to {@code TransactionAttribute} instances
 	 * @see #setMethodMap
 	 */
 	protected void initMethodMap(@Nullable Map<String, TransactionAttribute> methodMap) {
@@ -124,7 +134,8 @@ public class MethodMapTransactionAttributeSource
 		Assert.notNull(name, "Name must not be null");
 		int lastDotIndex = name.lastIndexOf('.');
 		if (lastDotIndex == -1) {
-			throw new IllegalArgumentException("'" + name + "' is not a valid method name: format is FQN.methodName");
+			throw new IllegalArgumentException(
+					"'" + name + "' is not a valid method name: format is <fully-qualified class name>.<method-name>");
 		}
 		String className = name.substring(0, lastDotIndex);
 		String methodName = name.substring(lastDotIndex + 1);
@@ -142,7 +153,7 @@ public class MethodMapTransactionAttributeSource
 	public void addTransactionalMethod(Class<?> clazz, String mappedName, TransactionAttribute attr) {
 		Assert.notNull(clazz, "Class must not be null");
 		Assert.notNull(mappedName, "Mapped name must not be null");
-		String name = clazz.getName() + '.'  + mappedName;
+		String name = clazz.getName() + '.' + mappedName;
 
 		Method[] methods = clazz.getDeclaredMethods();
 		List<Method> matchingMethods = new ArrayList<>();
@@ -153,10 +164,10 @@ public class MethodMapTransactionAttributeSource
 		}
 		if (matchingMethods.isEmpty()) {
 			throw new IllegalArgumentException(
-					"Couldn't find method '" + mappedName + "' on class [" + clazz.getName() + "]");
+					"Could not find method '" + mappedName + "' on class [" + clazz.getName() + "]");
 		}
 
-		// register all matching methods
+		// Register all matching methods
 		for (Method method : matchingMethods) {
 			String regMethodName = this.methodNameMap.get(method);
 			if (regMethodName == null || (!regMethodName.equals(name) && regMethodName.length() <= name.length())) {
@@ -188,6 +199,9 @@ public class MethodMapTransactionAttributeSource
 		Assert.notNull(attr, "TransactionAttribute must not be null");
 		if (logger.isDebugEnabled()) {
 			logger.debug("Adding transactional method [" + method + "] with attribute [" + attr + "]");
+		}
+		if (this.embeddedValueResolver != null && attr instanceof DefaultTransactionAttribute dta) {
+			dta.resolveAttributeStrings(this.embeddedValueResolver);
 		}
 		this.transactionAttributeMap.put(method, attr);
 	}
@@ -225,15 +239,9 @@ public class MethodMapTransactionAttributeSource
 
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof MethodMapTransactionAttributeSource)) {
-			return false;
-		}
-		MethodMapTransactionAttributeSource otherTas = (MethodMapTransactionAttributeSource) other;
-		return ObjectUtils.nullSafeEquals(this.methodMap, otherTas.methodMap);
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof MethodMapTransactionAttributeSource otherTas &&
+				ObjectUtils.nullSafeEquals(this.methodMap, otherTas.methodMap)));
 	}
 
 	@Override

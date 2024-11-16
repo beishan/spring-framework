@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package org.springframework.web.servlet.tags;
 
-import javax.servlet.jsp.JspException;
+import jakarta.servlet.jsp.JspException;
 
 import org.springframework.lang.Nullable;
 import org.springframework.web.util.HtmlUtils;
@@ -25,7 +25,7 @@ import org.springframework.web.util.HtmlUtils;
  * Superclass for tags that output content that might get HTML-escaped.
  *
  * <p>Provides a "htmlEscape" property for explicitly specifying whether to
- * apply HTML escaping. If not set, a page-level default (e.g. from the
+ * apply HTML escaping. If not set, a page-level default (for example, from the
  * HtmlEscapeTag) or an application-wide default (the "defaultHtmlEscape"
  * context-param in {@code web.xml}) is used.
  *
@@ -61,7 +61,7 @@ public abstract class HtmlEscapingAwareTag extends RequestContextAwareTag {
 	 */
 	protected boolean isHtmlEscape() {
 		if (this.htmlEscape != null) {
-			return this.htmlEscape.booleanValue();
+			return this.htmlEscape;
 		}
 		else {
 			return isDefaultHtmlEscape();

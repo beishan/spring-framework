@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,10 +24,11 @@ import java.sql.Types;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import javax.sql.DataSource;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
@@ -35,55 +36,54 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.Customer;
 import org.springframework.jdbc.datasource.TestDataSourceWrapper;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * @author Thomas Risberg
  * @author Juergen Hoeller
  */
-public class GenericSqlQueryTests {
+class GenericSqlQueryTests {
 
 	private static final String SELECT_ID_FORENAME_NAMED_PARAMETERS_PARSED =
 			"select id, forename from custmr where id = ? and country = ?";
 
-	private DefaultListableBeanFactory beanFactory;
 
-	private Connection connection;
+	private DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
 
-	private PreparedStatement preparedStatement;
+	private Connection connection = mock();
 
-	private ResultSet resultSet;
+	private PreparedStatement preparedStatement = mock();
+
+	private ResultSet resultSet = mock();
 
 
-	@Before
-	public void setUp() throws Exception {
-		this.beanFactory = new DefaultListableBeanFactory();
+	@BeforeEach
+	void setUp() throws Exception {
 		new XmlBeanDefinitionReader(this.beanFactory).loadBeanDefinitions(
 				new ClassPathResource("org/springframework/jdbc/object/GenericSqlQueryTests-context.xml"));
-		DataSource dataSource = mock(DataSource.class);
-		this.connection = mock(Connection.class);
-		this.preparedStatement = mock(PreparedStatement.class);
-		this.resultSet = mock(ResultSet.class);
+		DataSource dataSource = mock();
 		given(dataSource.getConnection()).willReturn(connection);
 		TestDataSourceWrapper testDataSource = (TestDataSourceWrapper) beanFactory.getBean("dataSource");
 		testDataSource.setTarget(dataSource);
 	}
 
 	@Test
-	public void testCustomerQueryWithPlaceholders() throws SQLException {
+	void testCustomerQueryWithPlaceholders() throws SQLException {
 		SqlQuery<?> query = (SqlQuery<?>) beanFactory.getBean("queryWithPlaceholders");
 		doTestCustomerQuery(query, false);
 	}
 
 	@Test
-	public void testCustomerQueryWithNamedParameters() throws SQLException {
+	void testCustomerQueryWithNamedParameters() throws SQLException {
 		SqlQuery<?> query = (SqlQuery<?>) beanFactory.getBean("queryWithNamedParameters");
 		doTestCustomerQuery(query, true);
 	}
 
 	@Test
-	public void testCustomerQueryWithRowMapperInstance() throws SQLException {
+	void testCustomerQueryWithRowMapperInstance() throws SQLException {
 		SqlQuery<?> query = (SqlQuery<?>) beanFactory.getBean("queryWithRowMapperBean");
 		doTestCustomerQuery(query, true);
 	}
@@ -107,10 +107,10 @@ public class GenericSqlQueryTests {
 			Object[] params = new Object[] {1, "UK"};
 			queryResults = query.execute(params);
 		}
-		assertTrue("Customer was returned correctly", queryResults.size() == 1);
+		assertThat(queryResults).as("Customer was returned correctly").hasSize(1);
 		Customer cust = (Customer) queryResults.get(0);
-		assertTrue("Customer id was assigned correctly", cust.getId() == 1);
-		assertTrue("Customer forename was assigned correctly", cust.getForename().equals("rod"));
+		assertThat(cust.getId()).as("Customer id was assigned correctly").isEqualTo(1);
+		assertThat(cust.getForename()).as("Customer forename was assigned correctly").isEqualTo("rod");
 
 		verify(resultSet).close();
 		verify(preparedStatement).setObject(1, 1, Types.INTEGER);

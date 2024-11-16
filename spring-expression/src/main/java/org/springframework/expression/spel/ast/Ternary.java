@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,12 +32,13 @@ import org.springframework.util.ObjectUtils;
  *
  * @author Andy Clement
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 3.0
  */
 public class Ternary extends SpelNodeImpl {
 
-	public Ternary(int pos, SpelNodeImpl... args) {
-		super(pos, args);
+	public Ternary(int startPos, int endPos, SpelNodeImpl... args) {
+		super(startPos, endPos, args);
 	}
 
 
@@ -59,10 +60,10 @@ public class Ternary extends SpelNodeImpl {
 		computeExitTypeDescriptor();
 		return result;
 	}
-	
+
 	@Override
 	public String toStringAST() {
-		return getChild(0).toStringAST() + " ? " + getChild(1).toStringAST() + " : " + getChild(2).toStringAST();
+		return "(" + getChild(0).toStringAST() + " ? " + getChild(1).toStringAST() + " : " + getChild(2).toStringAST() + ")";
 	}
 
 	private void computeExitTypeDescriptor() {
@@ -74,7 +75,7 @@ public class Ternary extends SpelNodeImpl {
 				this.exitTypeDescriptor = leftDescriptor;
 			}
 			else {
-				// Use the easiest to compute common super type
+				// Use the easiest to compute common supertype
 				this.exitTypeDescriptor = "Ljava/lang/Object";
 			}
 		}
@@ -89,7 +90,7 @@ public class Ternary extends SpelNodeImpl {
 				CodeFlow.isBooleanCompatible(condition.exitTypeDescriptor) &&
 				left.exitTypeDescriptor != null && right.exitTypeDescriptor != null);
 	}
-	
+
 	@Override
 	public void generateCode(MethodVisitor mv, CodeFlow cf) {
 		// May reach here without it computed if all elements are literals

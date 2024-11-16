@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2011 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,12 +19,13 @@ package org.springframework.context;
 import org.springframework.beans.factory.Aware;
 
 /**
- * Interface to be implemented by any object that wishes to be notified
- * of the MessageSource (typically the ApplicationContext) that it runs in.
+ * Interface to be implemented by any object that wishes to be notified of the
+ * {@link MessageSource} (typically the ApplicationContext) that it runs in.
  *
- * <p>Note that the MessageSource can usually also be passed on as bean
- * reference (to arbitrary bean properties or constructor arguments), because
- * it is defined as bean with name "messageSource" in the application context.
+ * <p>Note that the {@code MessageSource} can usually also be passed in as a bean
+ * reference (via arbitrary bean properties or constructor arguments), because
+ * it is defined as a bean with name {@code "messageSource"} in the application
+ * context.
  *
  * @author Juergen Hoeller
  * @author Chris Beams
@@ -34,11 +35,11 @@ import org.springframework.beans.factory.Aware;
 public interface MessageSourceAware extends Aware {
 
 	/**
-	 * Set the MessageSource that this object runs in.
+	 * Set the {@link MessageSource} that this object runs in.
 	 * <p>Invoked after population of normal bean properties but before an init
 	 * callback like InitializingBean's afterPropertiesSet or a custom init-method.
 	 * Invoked before ApplicationContextAware's setApplicationContext.
-	 * @param messageSource message sourceto be used by this object
+	 * @param messageSource message source to be used by this object
 	 */
 	void setMessageSource(MessageSource messageSource);
 

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.context.request;
 
 /**
@@ -21,7 +22,7 @@ package org.springframework.web.context.request;
  *
  * <p>When a handler starts asynchronous request handling, the DispatcherServlet
  * exits without invoking {@code postHandle} and {@code afterCompletion}, as it
- * normally does, since the results of request handling (e.g. ModelAndView) are
+ * normally does, since the results of request handling (for example, ModelAndView) are
  * not available in the current thread and handling is not yet complete.
  * In such scenarios, the {@link #afterConcurrentHandlingStarted(WebRequest)}
  * method is invoked instead allowing implementations to perform tasks such as
@@ -41,7 +42,6 @@ public interface AsyncWebRequestInterceptor extends WebRequestInterceptor{
 	/**
 	 * Called instead of {@code postHandle} and {@code afterCompletion}, when the
 	 * handler started handling the request concurrently.
-	 *
 	 * @param request the current request
 	 */
 	void afterConcurrentHandlingStarted(WebRequest request);

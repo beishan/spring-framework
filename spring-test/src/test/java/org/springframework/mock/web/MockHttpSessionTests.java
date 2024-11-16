@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,131 +16,154 @@
 
 package org.springframework.mock.web;
 
-import org.junit.Test;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
+import jakarta.servlet.http.HttpSessionBindingEvent;
+import jakarta.servlet.http.HttpSessionBindingListener;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
- * Unit tests for {@link MockHttpSession}.
+ * Tests for {@link MockHttpSession}.
  *
  * @author Sam Brannen
+ * @author Vedran Pavic
  * @since 3.2
  */
-public class MockHttpSessionTests {
+class MockHttpSessionTests {
 
 	private final MockHttpSession session = new MockHttpSession();
 
 
 	@Test
-	public void invalidateOnce() {
-		assertFalse(session.isInvalid());
+	void invalidateOnce() {
+		assertThat(session.isInvalid()).isFalse();
 		session.invalidate();
-		assertTrue(session.isInvalid());
+		assertThat(session.isInvalid()).isTrue();
 	}
 
-	@Test(expected = IllegalStateException.class)
-	public void invalidateTwice() {
+	@Test
+	void invalidateTwice() {
 		session.invalidate();
-		session.invalidate();
+		assertThatIllegalStateException().isThrownBy(
+				session::invalidate);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void getCreationTimeOnInvalidatedSession() {
+	@Test
+	void getCreationTimeOnInvalidatedSession() {
 		session.invalidate();
-		session.getCreationTime();
+		assertThatIllegalStateException().isThrownBy(
+				session::getCreationTime);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void getLastAccessedTimeOnInvalidatedSession() {
+	@Test
+	void getLastAccessedTimeOnInvalidatedSession() {
 		session.invalidate();
-		session.getLastAccessedTime();
+		assertThatIllegalStateException().isThrownBy(
+				session::getLastAccessedTime);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void getAttributeOnInvalidatedSession() {
+	@Test
+	void getAttributeOnInvalidatedSession() {
 		session.invalidate();
-		session.getAttribute("foo");
+		assertThatIllegalStateException().isThrownBy(() ->
+				session.getAttribute("foo"));
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void getAttributeNamesOnInvalidatedSession() {
+	@Test
+	void getAttributeNamesOnInvalidatedSession() {
 		session.invalidate();
-		session.getAttributeNames();
+		assertThatIllegalStateException().isThrownBy(
+				session::getAttributeNames);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void getValueOnInvalidatedSession() {
+	@Test
+	void setAttributeOnInvalidatedSession() {
 		session.invalidate();
-		session.getValue("foo");
+		assertThatIllegalStateException().isThrownBy(() ->
+				session.setAttribute("name", "value"));
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void getValueNamesOnInvalidatedSession() {
+	@Test
+	void removeAttributeOnInvalidatedSession() {
 		session.invalidate();
-		session.getValueNames();
+		assertThatIllegalStateException().isThrownBy(() ->
+				session.removeAttribute("name"));
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void setAttributeOnInvalidatedSession() {
+	@Test
+	void isNewOnInvalidatedSession() {
 		session.invalidate();
-		session.setAttribute("name", "value");
+		assertThatIllegalStateException().isThrownBy(
+				session::isNew);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void putValueOnInvalidatedSession() {
-		session.invalidate();
-		session.putValue("name", "value");
+	@Test
+	void bindingListenerBindListener() {
+		String bindingListenerName = "bindingListener";
+		CountingHttpSessionBindingListener bindingListener = new CountingHttpSessionBindingListener();
+
+		session.setAttribute(bindingListenerName, bindingListener);
+
+		assertThat(bindingListener.getCounter()).isEqualTo(1);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void removeAttributeOnInvalidatedSession() {
-		session.invalidate();
-		session.removeAttribute("name");
+	@Test
+	void bindingListenerBindListenerThenUnbind() {
+		String bindingListenerName = "bindingListener";
+		CountingHttpSessionBindingListener bindingListener = new CountingHttpSessionBindingListener();
+
+		session.setAttribute(bindingListenerName, bindingListener);
+		session.removeAttribute(bindingListenerName);
+
+		assertThat(bindingListener.getCounter()).isEqualTo(0);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void removeValueOnInvalidatedSession() {
-		session.invalidate();
-		session.removeValue("name");
+	@Test
+	void bindingListenerBindSameListenerTwice() {
+		String bindingListenerName = "bindingListener";
+		CountingHttpSessionBindingListener bindingListener = new CountingHttpSessionBindingListener();
+
+		session.setAttribute(bindingListenerName, bindingListener);
+		session.setAttribute(bindingListenerName, bindingListener);
+
+		assertThat(bindingListener.getCounter()).isEqualTo(1);
 	}
 
-	/**
-	 * @since 4.0
-	 */
-	@Test(expected = IllegalStateException.class)
-	public void isNewOnInvalidatedSession() {
-		session.invalidate();
-		session.isNew();
+	@Test
+	void bindingListenerBindListenerOverwrite() {
+		String bindingListenerName = "bindingListener";
+		CountingHttpSessionBindingListener bindingListener1 = new CountingHttpSessionBindingListener();
+		CountingHttpSessionBindingListener bindingListener2 = new CountingHttpSessionBindingListener();
+
+		session.setAttribute(bindingListenerName, bindingListener1);
+		session.setAttribute(bindingListenerName, bindingListener2);
+
+		assertThat(bindingListener1.getCounter()).isEqualTo(0);
+		assertThat(bindingListener2.getCounter()).isEqualTo(1);
+	}
+
+	private static class CountingHttpSessionBindingListener
+			implements HttpSessionBindingListener {
+
+		private final AtomicInteger counter = new AtomicInteger();
+
+		@Override
+		public void valueBound(HttpSessionBindingEvent event) {
+			this.counter.incrementAndGet();
+		}
+
+		@Override
+		public void valueUnbound(HttpSessionBindingEvent event) {
+			this.counter.decrementAndGet();
+		}
+
+		int getCounter() {
+			return this.counter.get();
+		}
+
 	}
 
 }

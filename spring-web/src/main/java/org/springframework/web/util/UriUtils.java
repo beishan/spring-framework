@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,10 +20,13 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.lang.Nullable;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
 /**
@@ -31,7 +34,7 @@ import org.springframework.util.StringUtils;
  *
  * <p>There are two types of encode methods:
  * <ul>
- * <li>{@code "encodeXyz"} -- these encode a specific URI component (e.g. path,
+ * <li>{@code "encodeXyz"} -- these encode a specific URI component (for example, path,
  * query) by percent encoding illegal characters, which includes non-US-ASCII
  * characters, and also characters that are otherwise illegal within the given
  * URI component type, as defined in RFC 3986. The effect of this method, with
@@ -46,7 +49,7 @@ import org.springframework.util.StringUtils;
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev
  * @since 3.0
- * @see <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>
+ * @see <a href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>
  */
 public abstract class UriUtils {
 
@@ -225,7 +228,6 @@ public abstract class UriUtils {
 	 * @return the encoded query parameter
 	 */
 	public static String encodeQueryParam(String queryParam, String encoding) {
-
 		return encode(queryParam, encoding, HierarchicalUriComponents.Type.QUERY_PARAM);
 	}
 
@@ -238,6 +240,34 @@ public abstract class UriUtils {
 	 */
 	public static String encodeQueryParam(String queryParam, Charset charset) {
 		return encode(queryParam, charset, HierarchicalUriComponents.Type.QUERY_PARAM);
+	}
+
+	/**
+	 * Encode the query parameters from the given {@code MultiValueMap} with UTF-8.
+	 * <p>This can be used with {@link UriComponentsBuilder#queryParams(MultiValueMap)}
+	 * when building a URI from an already encoded template.
+	 * <pre class="code">{@code
+	 * MultiValueMap<String, String> params = new LinkedMultiValueMap<>(2);
+	 * // add to params...
+	 *
+	 * ServletUriComponentsBuilder.fromCurrentRequest()
+	 *         .queryParams(UriUtils.encodeQueryParams(params))
+	 *         .build(true)
+	 *         .toUriString();
+	 * }</pre>
+	 * @param params the parameters to encode
+	 * @return a new {@code MultiValueMap} with the encoded names and values
+	 * @since 5.2.3
+	 */
+	public static MultiValueMap<String, String> encodeQueryParams(MultiValueMap<String, String> params) {
+		Charset charset = StandardCharsets.UTF_8;
+		MultiValueMap<String, String> result = new LinkedMultiValueMap<>(params.size());
+		for (Map.Entry<String, List<String>> entry : params.entrySet()) {
+			for (String value : entry.getValue()) {
+				result.add(encodeQueryParam(entry.getKey(), charset), encodeQueryParam(value, charset));
+			}
+		}
+		return result;
 	}
 
 	/**
@@ -263,7 +293,7 @@ public abstract class UriUtils {
 
 
 	/**
-	 * Variant of {@link #decode(String, Charset)} with a String charset.
+	 * Variant of {@link #encode(String, Charset)} with a String charset.
 	 * @param source the String to be encoded
 	 * @param encoding the character encoding to encode to
 	 * @return the encoded String
@@ -277,7 +307,7 @@ public abstract class UriUtils {
 	 * meaning, anywhere within a URI, as defined in
 	 * <a href="https://tools.ietf.org/html/rfc3986">RFC 3986</a>.
 	 * This is useful to ensure that the given String will be preserved as-is
-	 * and will not have any o impact on the structure or meaning of the URI.
+	 * and will not have any impact on the structure or meaning of the URI.
 	 * @param source the String to be encoded
 	 * @param charset the character encoding to encode to
 	 * @return the encoded String
@@ -295,7 +325,7 @@ public abstract class UriUtils {
 	 * @since 5.0
 	 */
 	public static Map<String, String> encodeUriVariables(Map<String, ?> uriVariables) {
-		Map<String, String> result = new LinkedHashMap<>(uriVariables.size());
+		Map<String, String> result = CollectionUtils.newLinkedHashMap(uriVariables.size());
 		uriVariables.forEach((key, value) -> {
 			String stringValue = (value != null ? value.toString() : "");
 			result.put(key, encode(stringValue, StandardCharsets.UTF_8));
@@ -359,8 +389,8 @@ public abstract class UriUtils {
 
 	/**
 	 * Extract the file extension from the given URI path.
-	 * @param path the URI path (e.g. "/products/index.html")
-	 * @return the extracted file extension (e.g. "html")
+	 * @param path the URI path (for example, "/products/index.html")
+	 * @return the extracted file extension (for example, "html")
 	 * @since 4.3.2
 	 */
 	@Nullable
@@ -377,7 +407,7 @@ public abstract class UriUtils {
 		int paramIndex = path.indexOf(';', begin);
 		end = (paramIndex != -1 && paramIndex < end ? paramIndex : end);
 		int extIndex = path.lastIndexOf('.', end);
-		if (extIndex != -1 && extIndex > begin) {
+		if (extIndex != -1 && extIndex >= begin) {
 			return path.substring(extIndex + 1, end);
 		}
 		return null;

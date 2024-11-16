@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,117 +16,117 @@
 
 package org.springframework.beans.factory.xml;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.stream.Stream;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.xml.sax.InputSource;
 
 import org.springframework.beans.factory.BeanDefinitionStoreException;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry;
+import org.springframework.beans.testfixture.beans.TestBean;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.tests.sample.beans.TestBean;
-import org.springframework.util.ObjectUtils;
+import org.springframework.util.ReflectionUtils;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 
 /**
+ * Tests for {@link XmlBeanDefinitionReader}.
+ *
  * @author Rick Evans
  * @author Juergen Hoeller
  * @author Sam Brannen
  */
-public class XmlBeanDefinitionReaderTests {
+class XmlBeanDefinitionReaderTests {
+
+	private final SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
+
+	private final XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(registry);
+
 
 	@Test
-	public void setParserClassSunnyDay() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
-		new XmlBeanDefinitionReader(registry).setDocumentReaderClass(DefaultBeanDefinitionDocumentReader.class);
-	}
-
-	@Test(expected = BeanDefinitionStoreException.class)
-	public void withOpenInputStream() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
-		Resource resource = new InputStreamResource(getClass().getResourceAsStream("test.xml"));
-		new XmlBeanDefinitionReader(registry).loadBeanDefinitions(resource);
+	void setReaderClass() {
+		assertThatNoException().isThrownBy(() -> reader.setDocumentReaderClass(DefaultBeanDefinitionDocumentReader.class));
 	}
 
 	@Test
-	public void withOpenInputStreamAndExplicitValidationMode() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
+	void withInputStreamResourceWithoutExplicitValidationMode() {
 		Resource resource = new InputStreamResource(getClass().getResourceAsStream("test.xml"));
-		XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(registry);
+		assertThatExceptionOfType(BeanDefinitionStoreException.class).isThrownBy(() -> reader.loadBeanDefinitions(resource));
+	}
+
+	@Test
+	void withInputStreamResourceAndExplicitValidationMode() {
+		Resource resource = new InputStreamResource(getClass().getResourceAsStream("test.xml"));
 		reader.setValidationMode(XmlBeanDefinitionReader.VALIDATION_DTD);
 		reader.loadBeanDefinitions(resource);
-		testBeanDefinitions(registry);
+		assertBeanDefinitions(registry);
 	}
 
 	@Test
-	public void withImport() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
+	void withImport() {
 		Resource resource = new ClassPathResource("import.xml", getClass());
-		new XmlBeanDefinitionReader(registry).loadBeanDefinitions(resource);
-		testBeanDefinitions(registry);
+		reader.loadBeanDefinitions(resource);
+		assertBeanDefinitions(registry);
 	}
 
 	@Test
-	public void withWildcardImport() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
+	void withWildcardImport() {
 		Resource resource = new ClassPathResource("importPattern.xml", getClass());
-		new XmlBeanDefinitionReader(registry).loadBeanDefinitions(resource);
-		testBeanDefinitions(registry);
-	}
-
-	@Test(expected = BeanDefinitionStoreException.class)
-	public void withInputSource() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
-		InputSource resource = new InputSource(getClass().getResourceAsStream("test.xml"));
-		new XmlBeanDefinitionReader(registry).loadBeanDefinitions(resource);
+		reader.loadBeanDefinitions(resource);
+		assertBeanDefinitions(registry);
 	}
 
 	@Test
-	public void withInputSourceAndExplicitValidationMode() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
+	void withInputSourceWithoutExplicitValidationMode() {
 		InputSource resource = new InputSource(getClass().getResourceAsStream("test.xml"));
-		XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(registry);
+		assertThatExceptionOfType(BeanDefinitionStoreException.class)
+				.isThrownBy(() -> reader.loadBeanDefinitions(resource))
+				.withMessageStartingWith("Unable to determine validation mode for [resource loaded through SAX InputSource]:");
+	}
+
+	@Test
+	void withInputSourceAndExplicitValidationMode() {
+		InputSource resource = new InputSource(getClass().getResourceAsStream("test.xml"));
 		reader.setValidationMode(XmlBeanDefinitionReader.VALIDATION_DTD);
 		reader.loadBeanDefinitions(resource);
-		testBeanDefinitions(registry);
+		assertBeanDefinitions(registry);
 	}
 
 	@Test
-	public void withFreshInputStream() {
-		SimpleBeanDefinitionRegistry registry = new SimpleBeanDefinitionRegistry();
+	void withClassPathResource() {
 		Resource resource = new ClassPathResource("test.xml", getClass());
-		new XmlBeanDefinitionReader(registry).loadBeanDefinitions(resource);
-		testBeanDefinitions(registry);
+		reader.loadBeanDefinitions(resource);
+		assertBeanDefinitions(registry);
 	}
 
-	private void testBeanDefinitions(BeanDefinitionRegistry registry) {
-		assertEquals(24, registry.getBeanDefinitionCount());
-		assertEquals(24, registry.getBeanDefinitionNames().length);
-		assertTrue(Arrays.asList(registry.getBeanDefinitionNames()).contains("rod"));
-		assertTrue(Arrays.asList(registry.getBeanDefinitionNames()).contains("aliased"));
-		assertTrue(registry.containsBeanDefinition("rod"));
-		assertTrue(registry.containsBeanDefinition("aliased"));
-		assertEquals(TestBean.class.getName(), registry.getBeanDefinition("rod").getBeanClassName());
-		assertEquals(TestBean.class.getName(), registry.getBeanDefinition("aliased").getBeanClassName());
-		assertTrue(registry.isAlias("youralias"));
-		String[] aliases = registry.getAliases("aliased");
-		assertEquals(2, aliases.length);
-		assertTrue(ObjectUtils.containsElement(aliases, "myalias"));
-		assertTrue(ObjectUtils.containsElement(aliases, "youralias"));
+	private void assertBeanDefinitions(BeanDefinitionRegistry registry) {
+		assertThat(registry.getBeanDefinitionCount()).isEqualTo(24);
+		assertThat(registry.getBeanDefinitionNames()).hasSize(24);
+		assertThat(registry.getBeanDefinitionNames()).contains("rod", "aliased");
+		assertThat(registry.containsBeanDefinition("rod")).isTrue();
+		assertThat(registry.containsBeanDefinition("aliased")).isTrue();
+		assertThat(registry.getBeanDefinition("rod").getBeanClassName()).isEqualTo(TestBean.class.getName());
+		assertThat(registry.getBeanDefinition("aliased").getBeanClassName()).isEqualTo(TestBean.class.getName());
+		assertThat(registry.isAlias("youralias")).isTrue();
+		assertThat(registry.getAliases("aliased")).containsExactly("myalias", "youralias");
 	}
 
 	@Test
-	public void dtdValidationAutodetect() {
+	void dtdValidationAutodetect() {
 		doTestValidation("validateWithDtd.xml");
 	}
 
 	@Test
-	public void xsdValidationAutodetect() {
+	void xsdValidationAutodetect() {
 		doTestValidation("validateWithXsd.xml");
 	}
 
@@ -134,8 +134,42 @@ public class XmlBeanDefinitionReaderTests {
 		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
 		Resource resource = new ClassPathResource(resourceName, getClass());
 		new XmlBeanDefinitionReader(factory).loadBeanDefinitions(resource);
-		TestBean bean = (TestBean) factory.getBean("testBean");
-		assertNotNull(bean);
+		assertThat((TestBean) factory.getBean("testBean")).isNotNull();
+	}
+
+	@Test
+	void setValidationModeNameToUnsupportedValues() {
+		assertThatIllegalArgumentException().isThrownBy(() -> reader.setValidationModeName(null));
+		assertThatIllegalArgumentException().isThrownBy(() -> reader.setValidationModeName("   "));
+		assertThatIllegalArgumentException().isThrownBy(() -> reader.setValidationModeName("bogus"));
+	}
+
+	/**
+	 * This test effectively verifies that the internal 'constants' map is properly
+	 * configured for all VALIDATION_ constants defined in {@link XmlBeanDefinitionReader}.
+	 */
+	@Test
+	void setValidationModeNameToAllSupportedValues() {
+		streamValidationModeConstants()
+				.map(Field::getName)
+				.forEach(name -> assertThatNoException().as(name).isThrownBy(() -> reader.setValidationModeName(name)));
+	}
+
+	@Test
+	void setValidationMode() {
+		assertThatIllegalArgumentException().isThrownBy(() -> reader.setValidationMode(999));
+
+		assertThatNoException().isThrownBy(() -> reader.setValidationMode(XmlBeanDefinitionReader.VALIDATION_NONE));
+		assertThatNoException().isThrownBy(() -> reader.setValidationMode(XmlBeanDefinitionReader.VALIDATION_AUTO));
+		assertThatNoException().isThrownBy(() -> reader.setValidationMode(XmlBeanDefinitionReader.VALIDATION_DTD));
+		assertThatNoException().isThrownBy(() -> reader.setValidationMode(XmlBeanDefinitionReader.VALIDATION_XSD));
+	}
+
+
+	private static Stream<Field> streamValidationModeConstants() {
+		return Arrays.stream(XmlBeanDefinitionReader.class.getFields())
+				.filter(ReflectionUtils::isPublicStaticFinal)
+				.filter(field -> field.getName().startsWith("VALIDATION_"));
 	}
 
 }

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Strategy interface for creating {@link BeanInfo} instances for Spring beans.
- * Can be used to plug in custom bean property resolution strategies (e.g. for other
+ * Can be used to plug in custom bean property resolution strategies (for example, for other
  * languages on the JVM) or more efficient {@link BeanInfo} retrieval algorithms.
  *
  * <p>BeanInfoFactories are instantiated by the {@link CachedIntrospectionResults},

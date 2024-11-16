@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,9 @@
 package org.springframework.web.servlet.mvc.annotation;
 
 import java.io.IOException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.MessageSource;
 import org.springframework.context.MessageSourceAware;
@@ -60,19 +61,19 @@ public class ResponseStatusExceptionResolver extends AbstractHandlerExceptionRes
 
 
 	@Override
-	public void setMessageSource(MessageSource messageSource) {
+	public void setMessageSource(@Nullable MessageSource messageSource) {
 		this.messageSource = messageSource;
 	}
 
 
 	@Override
 	@Nullable
-	protected ModelAndView doResolveException(HttpServletRequest request, HttpServletResponse response,
-			@Nullable Object handler, Exception ex) {
+	protected ModelAndView doResolveException(
+			HttpServletRequest request, HttpServletResponse response, @Nullable Object handler, Exception ex) {
 
 		try {
-			if (ex instanceof ResponseStatusException) {
-				return resolveResponseStatusException((ResponseStatusException) ex, request, response, handler);
+			if (ex instanceof ResponseStatusException rse) {
+				return resolveResponseStatusException(rse, request, response, handler);
 			}
 
 			ResponseStatus status = AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
@@ -80,13 +81,14 @@ public class ResponseStatusExceptionResolver extends AbstractHandlerExceptionRes
 				return resolveResponseStatus(status, request, response, handler, ex);
 			}
 
-			if (ex.getCause() instanceof Exception) {
-				ex = (Exception) ex.getCause();
-				return doResolveException(request, response, handler, ex);
+			if (ex.getCause() instanceof Exception cause) {
+				return doResolveException(request, response, handler, cause);
 			}
 		}
 		catch (Exception resolveEx) {
-			logger.warn("Handling of @ResponseStatus resulted in Exception", resolveEx);
+			if (logger.isWarnEnabled()) {
+				logger.warn("Failure while trying to resolve exception [" + ex.getClass().getName() + "]", resolveEx);
+			}
 		}
 		return null;
 	}
@@ -99,7 +101,7 @@ public class ResponseStatusExceptionResolver extends AbstractHandlerExceptionRes
 	 * @param request current HTTP request
 	 * @param response current HTTP response
 	 * @param handler the executed handler, or {@code null} if none chosen at the
-	 * time of the exception, e.g. if multipart resolution failed
+	 * time of the exception, for example, if multipart resolution failed
 	 * @param ex the exception
 	 * @return an empty ModelAndView, i.e. exception resolved
 	 */
@@ -113,22 +115,23 @@ public class ResponseStatusExceptionResolver extends AbstractHandlerExceptionRes
 
 	/**
 	 * Template method that handles an {@link ResponseStatusException}.
-	 * <p>The default implementation delegates to {@link #applyStatusAndReason}
-	 * with the status code and reason from the exception.
+	 * <p>The default implementation applies the headers from
+	 * {@link ResponseStatusException#getHeaders()} and delegates to
+	 * {@link #applyStatusAndReason} with the status code and reason from the
+	 * exception.
 	 * @param ex the exception
 	 * @param request current HTTP request
 	 * @param response current HTTP response
 	 * @param handler the executed handler, or {@code null} if none chosen at the
-	 * time of the exception, e.g. if multipart resolution failed
+	 * time of the exception, for example, if multipart resolution failed
 	 * @return an empty ModelAndView, i.e. exception resolved
 	 * @since 5.0
 	 */
 	protected ModelAndView resolveResponseStatusException(ResponseStatusException ex,
 			HttpServletRequest request, HttpServletResponse response, @Nullable Object handler) throws Exception {
 
-		int statusCode = ex.getStatus().value();
-		String reason = ex.getReason();
-		return applyStatusAndReason(statusCode, reason, response);
+		ex.getHeaders().forEach((name, values) -> values.forEach(value -> response.addHeader(name, value)));
+		return applyStatusAndReason(ex.getStatusCode().value(), ex.getReason(), response);
 	}
 
 	/**

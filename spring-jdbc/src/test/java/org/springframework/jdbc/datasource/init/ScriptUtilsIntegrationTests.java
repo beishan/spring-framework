@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,33 +18,34 @@ package org.springframework.jdbc.datasource.init;
 
 import java.sql.SQLException;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
-import static org.springframework.jdbc.datasource.init.ScriptUtils.*;
+import static org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript;
 
 /**
  * Integration tests for {@link ScriptUtils}.
  *
  * @author Sam Brannen
  * @since 4.0.3
- * @see ScriptUtilsUnitTests
+ * @see ScriptUtilsTests
  */
-public class ScriptUtilsIntegrationTests extends AbstractDatabaseInitializationTests {
+class ScriptUtilsIntegrationTests extends AbstractDatabaseInitializationTests {
 
+	@Override
 	protected EmbeddedDatabaseType getEmbeddedDatabaseType() {
 		return EmbeddedDatabaseType.HSQL;
 	}
 
-	@Before
-	public void setUpSchema() throws SQLException {
+	@BeforeEach
+	void setUpSchema() throws SQLException {
 		executeSqlScript(db.getConnection(), usersSchema());
 	}
 
 	@Test
-	public void executeSqlScriptContainingMuliLineComments() throws SQLException {
+	void executeSqlScriptContainingMultiLineComments() throws SQLException {
 		executeSqlScript(db.getConnection(), resource("test-data-with-multi-line-comments.sql"));
 		assertUsersDatabaseCreated("Hoeller", "Brannen");
 	}
@@ -53,7 +54,7 @@ public class ScriptUtilsIntegrationTests extends AbstractDatabaseInitializationT
 	 * @since 4.2
 	 */
 	@Test
-	public void executeSqlScriptContainingSingleQuotesNestedInsideDoubleQuotes() throws SQLException {
+	void executeSqlScriptContainingSingleQuotesNestedInsideDoubleQuotes() throws SQLException {
 		executeSqlScript(db.getConnection(), resource("users-data-with-single-quotes-nested-in-double-quotes.sql"));
 		assertUsersDatabaseCreated("Hoeller", "Brannen");
 	}

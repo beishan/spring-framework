@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,7 @@
 package org.springframework.beans.factory.config;
 
 import java.beans.PropertyEditor;
-import java.security.AccessControlContext;
+import java.util.concurrent.Executor;
 
 import org.springframework.beans.PropertyEditorRegistrar;
 import org.springframework.beans.PropertyEditorRegistry;
@@ -27,6 +27,7 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.HierarchicalBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.core.metrics.ApplicationStartup;
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringValueResolver;
 
@@ -51,15 +52,15 @@ import org.springframework.util.StringValueResolver;
 public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, SingletonBeanRegistry {
 
 	/**
-	 * Scope identifier for the standard singleton scope: "singleton".
-	 * Custom scopes can be added via {@code registerScope}.
+	 * Scope identifier for the standard singleton scope: {@value}.
+	 * <p>Custom scopes can be added via {@code registerScope}.
 	 * @see #registerScope
 	 */
 	String SCOPE_SINGLETON = "singleton";
 
 	/**
-	 * Scope identifier for the standard prototype scope: "prototype".
-	 * Custom scopes can be added via {@code registerScope}.
+	 * Scope identifier for the standard prototype scope: {@value}.
+	 * <p>Custom scopes can be added via {@code registerScope}.
 	 * @see #registerScope
 	 */
 	String SCOPE_PROTOTYPE = "prototype";
@@ -89,7 +90,9 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	void setBeanClassLoader(@Nullable ClassLoader beanClassLoader);
 
 	/**
-	 * Return this factory's class loader for loading bean classes.
+	 * Return this factory's class loader for loading bean classes
+	 * (only {@code null} if even the system ClassLoader isn't accessible).
+	 * @see org.springframework.util.ClassUtils#forName(String, ClassLoader)
 	 */
 	@Nullable
 	ClassLoader getBeanClassLoader();
@@ -145,7 +148,23 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	BeanExpressionResolver getBeanExpressionResolver();
 
 	/**
-	 * Specify a Spring 3.0 ConversionService to use for converting
+	 * Set the {@link Executor} (possibly a {@link org.springframework.core.task.TaskExecutor})
+	 * for background bootstrapping.
+	 * @since 6.2
+	 * @see org.springframework.beans.factory.support.AbstractBeanDefinition#setBackgroundInit
+	 */
+	void setBootstrapExecutor(@Nullable Executor executor);
+
+	/**
+	 * Return the {@link Executor} (possibly a {@link org.springframework.core.task.TaskExecutor})
+	 * for background bootstrapping, if any.
+	 * @since 6.2
+	 */
+	@Nullable
+	Executor getBootstrapExecutor();
+
+	/**
+	 * Specify a {@link ConversionService} to use for converting
 	 * property values, as an alternative to JavaBeans PropertyEditors.
 	 * @since 3.0
 	 */
@@ -192,9 +211,9 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	 * bean property values, constructor argument values, etc.
 	 * <p>This will override the default PropertyEditor mechanism and hence make
 	 * any custom editors or custom editor registrars irrelevant.
+	 * @since 2.5
 	 * @see #addPropertyEditorRegistrar
 	 * @see #registerCustomEditor
-	 * @since 2.5
 	 */
 	void setTypeConverter(TypeConverter typeConverter);
 
@@ -222,7 +241,7 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	boolean hasEmbeddedValueResolver();
 
 	/**
-	 * Resolve the given embedded value, e.g. an annotation attribute.
+	 * Resolve the given embedded value, for example, an annotation attribute.
 	 * @param value the value to resolve
 	 * @return the resolved value (may be the original value as-is)
 	 * @since 3.0
@@ -236,7 +255,7 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	 * <p>Note: Post-processors submitted here will be applied in the order of
 	 * registration; any ordering semantics expressed through implementing the
 	 * {@link org.springframework.core.Ordered} interface will be ignored. Note
-	 * that autodetected post-processors (e.g. as beans in an ApplicationContext)
+	 * that autodetected post-processors (for example, as beans in an ApplicationContext)
 	 * will always be applied after programmatically registered ones.
 	 * @param beanPostProcessor the post-processor to register
 	 */
@@ -275,11 +294,18 @@ public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, Single
 	Scope getRegisteredScope(String scopeName);
 
 	/**
-	 * Provides a security access control context relevant to this factory.
-	 * @return the applicable AccessControlContext (never {@code null})
-	 * @since 3.0
+	 * Set the {@code ApplicationStartup} for this bean factory.
+	 * <p>This allows the application context to record metrics during application startup.
+	 * @param applicationStartup the new application startup
+	 * @since 5.3
 	 */
-	AccessControlContext getAccessControlContext();
+	void setApplicationStartup(ApplicationStartup applicationStartup);
+
+	/**
+	 * Return the {@code ApplicationStartup} for this bean factory.
+	 * @since 5.3
+	 */
+	ApplicationStartup getApplicationStartup();
 
 	/**
 	 * Copy all relevant configuration from the given other factory.

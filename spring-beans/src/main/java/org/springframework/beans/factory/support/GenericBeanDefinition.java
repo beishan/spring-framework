@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,17 +18,20 @@ package org.springframework.beans.factory.support;
 
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.lang.Nullable;
+import org.springframework.util.ObjectUtils;
 
 /**
- * GenericBeanDefinition is a one-stop shop for standard bean definition purposes.
- * Like any bean definition, it allows for specifying a class plus optionally
+ * GenericBeanDefinition is a one-stop shop for declarative bean definition purposes.
+ * Like all common bean definitions, it allows for specifying a class plus optionally
  * constructor argument values and property values. Additionally, deriving from a
  * parent bean definition can be flexibly configured through the "parentName" property.
  *
  * <p>In general, use this {@code GenericBeanDefinition} class for the purpose of
- * registering user-visible bean definitions (which a post-processor might operate on,
- * potentially even reconfiguring the parent name). Use {@code RootBeanDefinition} /
- * {@code ChildBeanDefinition} where parent/child relationships happen to be pre-determined.
+ * registering declarative bean definitions (for example, XML definitions which a bean
+ * post-processor might operate on, potentially even reconfiguring the parent name).
+ * Use {@code RootBeanDefinition}/{@code ChildBeanDefinition} where parent/child
+ * relationships happen to be pre-determined, and prefer {@link RootBeanDefinition}
+ * specifically for programmatic definitions derived from factory methods/suppliers.
  *
  * @author Juergen Hoeller
  * @since 2.5
@@ -83,18 +86,17 @@ public class GenericBeanDefinition extends AbstractBeanDefinition {
 	}
 
 	@Override
-	public boolean equals(Object other) {
-		return (this == other || (other instanceof GenericBeanDefinition && super.equals(other)));
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof GenericBeanDefinition that &&
+				ObjectUtils.nullSafeEquals(this.parentName, that.parentName) && super.equals(other)));
 	}
 
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder("Generic bean");
 		if (this.parentName != null) {
-			sb.append(" with parent '").append(this.parentName).append("'");
+			return "Generic bean with parent '" + this.parentName + "': " + super.toString();
 		}
-		sb.append(": ").append(super.toString());
-		return sb.toString();
+		return "Generic bean: " + super.toString();
 	}
 
 }

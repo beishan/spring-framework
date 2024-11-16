@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,22 +19,22 @@ package org.springframework.messaging.core;
 import java.util.Collections;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.GenericMessage;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
- * Unit tests for request and reply operations in {@link AbstractMessagingTemplate}.
+ * Tests for request and reply operations in {@link AbstractMessagingTemplate}.
  *
  * @author Rossen Stoyanchev
- *
  * @see MessageReceivingTemplateTests
  */
-public class MessageRequestReplyTemplateTests {
+class MessageRequestReplyTemplateTests {
 
 	private TestMessagingTemplate template;
 
@@ -43,116 +43,117 @@ public class MessageRequestReplyTemplateTests {
 	private Map<String, Object> headers;
 
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		this.template = new TestMessagingTemplate();
 		this.postProcessor = new TestMessagePostProcessor();
-		this.headers = Collections.<String, Object>singletonMap("key", "value");
+		this.headers = Collections.singletonMap("key", "value");
 	}
 
 
 	@Test
-	public void sendAndReceive() {
+	void sendAndReceive() {
 		Message<?> requestMessage = new GenericMessage<Object>("request");
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setDefaultDestination("home");
 		this.template.setReceiveMessage(responseMessage);
 		Message<?> actual = this.template.sendAndReceive(requestMessage);
 
-		assertEquals("home", this.template.destination);
-		assertSame(requestMessage, this.template.requestMessage);
-		assertSame(responseMessage, actual);
-	}
-
-	@Test(expected = IllegalStateException.class)
-	public void sendAndReceiveMissingDestination() {
-		this.template.sendAndReceive(new GenericMessage<Object>("request"));
+		assertThat(this.template.destination).isEqualTo("home");
+		assertThat(this.template.requestMessage).isSameAs(requestMessage);
+		assertThat(actual).isSameAs(responseMessage);
 	}
 
 	@Test
-	public void sendAndReceiveToDestination() {
+	void sendAndReceiveMissingDestination() {
+		assertThatIllegalStateException().isThrownBy(() ->
+				this.template.sendAndReceive(new GenericMessage<>("request")));
+	}
+
+	@Test
+	void sendAndReceiveToDestination() {
 		Message<?> requestMessage = new GenericMessage<Object>("request");
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setReceiveMessage(responseMessage);
 		Message<?> actual = this.template.sendAndReceive("somewhere", requestMessage);
 
-		assertEquals("somewhere", this.template.destination);
-		assertSame(requestMessage, this.template.requestMessage);
-		assertSame(responseMessage, actual);
+		assertThat(this.template.destination).isEqualTo("somewhere");
+		assertThat(this.template.requestMessage).isSameAs(requestMessage);
+		assertThat(actual).isSameAs(responseMessage);
 	}
 
 	@Test
-	public void convertAndSend() {
+	void convertAndSend() {
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setDefaultDestination("home");
 		this.template.setReceiveMessage(responseMessage);
 		String response = this.template.convertSendAndReceive("request", String.class);
 
-		assertEquals("home", this.template.destination);
-		assertSame("request", this.template.requestMessage.getPayload());
-		assertSame("response", response);
+		assertThat(this.template.destination).isEqualTo("home");
+		assertThat(this.template.requestMessage.getPayload()).isSameAs("request");
+		assertThat(response).isSameAs("response");
 	}
 
 	@Test
-	public void convertAndSendToDestination() {
+	void convertAndSendToDestination() {
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setReceiveMessage(responseMessage);
 		String response = this.template.convertSendAndReceive("somewhere", "request", String.class);
 
-		assertEquals("somewhere", this.template.destination);
-		assertSame("request", this.template.requestMessage.getPayload());
-		assertSame("response", response);
+		assertThat(this.template.destination).isEqualTo("somewhere");
+		assertThat(this.template.requestMessage.getPayload()).isSameAs("request");
+		assertThat(response).isSameAs("response");
 	}
 
 	@Test
-	public void convertAndSendToDestinationWithHeaders() {
+	void convertAndSendToDestinationWithHeaders() {
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setReceiveMessage(responseMessage);
 		String response = this.template.convertSendAndReceive("somewhere", "request", this.headers, String.class);
 
-		assertEquals("somewhere", this.template.destination);
-		assertEquals("value", this.template.requestMessage.getHeaders().get("key"));
-		assertSame("request", this.template.requestMessage.getPayload());
-		assertSame("response", response);
+		assertThat(this.template.destination).isEqualTo("somewhere");
+		assertThat(this.template.requestMessage.getHeaders().get("key")).isEqualTo("value");
+		assertThat(this.template.requestMessage.getPayload()).isSameAs("request");
+		assertThat(response).isSameAs("response");
 	}
 
 	@Test
-	public void convertAndSendWithPostProcessor() {
+	void convertAndSendWithPostProcessor() {
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setDefaultDestination("home");
 		this.template.setReceiveMessage(responseMessage);
 		String response = this.template.convertSendAndReceive("request", String.class, this.postProcessor);
 
-		assertEquals("home", this.template.destination);
-		assertSame("request", this.template.requestMessage.getPayload());
-		assertSame("response", response);
-		assertSame(this.postProcessor.getMessage(), this.template.requestMessage);
+		assertThat(this.template.destination).isEqualTo("home");
+		assertThat(this.template.requestMessage.getPayload()).isSameAs("request");
+		assertThat(response).isSameAs("response");
+		assertThat(this.template.requestMessage).isSameAs(this.postProcessor.getMessage());
 	}
 
 	@Test
-	public void convertAndSendToDestinationWithPostProcessor() {
+	void convertAndSendToDestinationWithPostProcessor() {
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setReceiveMessage(responseMessage);
 		String response = this.template.convertSendAndReceive("somewhere", "request", String.class, this.postProcessor);
 
-		assertEquals("somewhere", this.template.destination);
-		assertSame("request", this.template.requestMessage.getPayload());
-		assertSame("response", response);
-		assertSame(this.postProcessor.getMessage(), this.template.requestMessage);
+		assertThat(this.template.destination).isEqualTo("somewhere");
+		assertThat(this.template.requestMessage.getPayload()).isSameAs("request");
+		assertThat(response).isSameAs("response");
+		assertThat(this.template.requestMessage).isSameAs(this.postProcessor.getMessage());
 	}
 
 	@Test
-	public void convertAndSendToDestinationWithHeadersAndPostProcessor() {
+	void convertAndSendToDestinationWithHeadersAndPostProcessor() {
 		Message<?> responseMessage = new GenericMessage<Object>("response");
 		this.template.setReceiveMessage(responseMessage);
 		String response = this.template.convertSendAndReceive("somewhere", "request", this.headers,
 				String.class, this.postProcessor);
 
-		assertEquals("somewhere", this.template.destination);
-		assertEquals("value", this.template.requestMessage.getHeaders().get("key"));
-		assertSame("request", this.template.requestMessage.getPayload());
-		assertSame("response", response);
-		assertSame(this.postProcessor.getMessage(), this.template.requestMessage);
+		assertThat(this.template.destination).isEqualTo("somewhere");
+		assertThat(this.template.requestMessage.getHeaders().get("key")).isEqualTo("value");
+		assertThat(this.template.requestMessage.getPayload()).isSameAs("request");
+		assertThat(response).isSameAs("response");
+		assertThat(this.template.requestMessage).isSameAs(this.postProcessor.getMessage());
 	}
 
 

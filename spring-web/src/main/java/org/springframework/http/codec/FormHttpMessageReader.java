@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,7 @@
 
 package org.springframework.http.codec;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -29,7 +27,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import org.springframework.core.ResolvableType;
+import org.springframework.core.codec.Hints;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.log.LogFormatUtils;
 import org.springframework.http.MediaType;
 import org.springframework.http.ReactiveHttpInputMessage;
 import org.springframework.lang.Nullable;
@@ -46,14 +47,21 @@ import org.springframework.util.StringUtils;
  * @author Rossen Stoyanchev
  * @since 5.0
  */
-public class FormHttpMessageReader implements HttpMessageReader<MultiValueMap<String, String>> {
+public class FormHttpMessageReader extends LoggingCodecSupport
+		implements HttpMessageReader<MultiValueMap<String, String>> {
 
+	/**
+	 * The default charset used by the reader.
+	 */
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
-	private static final ResolvableType MULTIVALUE_TYPE =
+	private static final ResolvableType MULTIVALUE_STRINGS_TYPE =
 			ResolvableType.forClassWithGenerics(MultiValueMap.class, String.class, String.class);
 
+
 	private Charset defaultCharset = DEFAULT_CHARSET;
+
+	private int maxInMemorySize = 256 * 1024;
 
 
 	/**
@@ -73,13 +81,40 @@ public class FormHttpMessageReader implements HttpMessageReader<MultiValueMap<St
 		return this.defaultCharset;
 	}
 
+	/**
+	 * Set the max number of bytes for input form data. As form data is buffered
+	 * before it is parsed, this helps to limit the amount of buffering. Once
+	 * the limit is exceeded, {@link DataBufferLimitException} is raised.
+	 * <p>By default this is set to 256K.
+	 * @param byteCount the max number of bytes to buffer, or -1 for unlimited
+	 * @since 5.1.11
+	 */
+	public void setMaxInMemorySize(int byteCount) {
+		this.maxInMemorySize = byteCount;
+	}
+
+	/**
+	 * Return the {@link #setMaxInMemorySize configured} byte count limit.
+	 * @since 5.1.11
+	 */
+	public int getMaxInMemorySize() {
+		return this.maxInMemorySize;
+	}
+
 
 	@Override
 	public boolean canRead(ResolvableType elementType, @Nullable MediaType mediaType) {
-		return ((MULTIVALUE_TYPE.isAssignableFrom(elementType) ||
-				(elementType.hasUnresolvableGenerics() &&
-						MultiValueMap.class.isAssignableFrom(elementType.resolve(Object.class)))) &&
-				(mediaType == null || MediaType.APPLICATION_FORM_URLENCODED.isCompatibleWith(mediaType)));
+		if (!supportsMediaType(mediaType)) {
+			return false;
+		}
+		if (MultiValueMap.class.isAssignableFrom(elementType.toClass()) && elementType.hasUnresolvableGenerics()) {
+			return true;
+		}
+		return MULTIVALUE_STRINGS_TYPE.isAssignableFrom(elementType);
+	}
+
+	private static boolean supportsMediaType(@Nullable MediaType mediaType) {
+		return (mediaType == null || MediaType.APPLICATION_FORM_URLENCODED.isCompatibleWith(mediaType));
 	}
 
 	@Override
@@ -96,13 +131,21 @@ public class FormHttpMessageReader implements HttpMessageReader<MultiValueMap<St
 		MediaType contentType = message.getHeaders().getContentType();
 		Charset charset = getMediaTypeCharset(contentType);
 
-		return DataBufferUtils.join(message.getBody())
+		return DataBufferUtils.join(message.getBody(), this.maxInMemorySize)
 				.map(buffer -> {
-					CharBuffer charBuffer = charset.decode(buffer.asByteBuffer());
-					String body = charBuffer.toString();
+					String body = buffer.toString(charset);
 					DataBufferUtils.release(buffer);
-					return parseFormData(charset, body);
+					MultiValueMap<String, String> formData = parseFormData(charset, body);
+					logFormData(formData, hints);
+					return formData;
 				});
+	}
+
+	private void logFormData(MultiValueMap<String, String> formData, Map<String, Object> hints) {
+		LogFormatUtils.traceDebug(logger, traceOn -> Hints.getLogPrefix(hints) + "Read " +
+				(isEnableLoggingRequestDetails() ?
+						LogFormatUtils.formatValue(formData, !traceOn) :
+						"form fields " + formData.keySet() + " (content masked)"));
 	}
 
 	private Charset getMediaTypeCharset(@Nullable MediaType mediaType) {
@@ -117,21 +160,16 @@ public class FormHttpMessageReader implements HttpMessageReader<MultiValueMap<St
 	private MultiValueMap<String, String> parseFormData(Charset charset, String body) {
 		String[] pairs = StringUtils.tokenizeToStringArray(body, "&");
 		MultiValueMap<String, String> result = new LinkedMultiValueMap<>(pairs.length);
-		try {
-			for (String pair : pairs) {
-				int idx = pair.indexOf('=');
-				if (idx == -1) {
-					result.add(URLDecoder.decode(pair, charset.name()), null);
-				}
-				else {
-					String name = URLDecoder.decode(pair.substring(0, idx),  charset.name());
-					String value = URLDecoder.decode(pair.substring(idx + 1), charset.name());
-					result.add(name, value);
-				}
+		for (String pair : pairs) {
+			int idx = pair.indexOf('=');
+			if (idx == -1) {
+				result.add(URLDecoder.decode(pair, charset), null);
 			}
-		}
-		catch (UnsupportedEncodingException ex) {
-			throw new IllegalStateException(ex);
+			else {
+				String name = URLDecoder.decode(pair.substring(0, idx), charset);
+				String value = URLDecoder.decode(pair.substring(idx + 1), charset);
+				result.add(name, value);
+			}
 		}
 		return result;
 	}

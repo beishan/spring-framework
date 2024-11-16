@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,274 +17,287 @@
 package org.springframework.dao.support;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.dao.DataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.dao.TypeMismatchDataAccessException;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * @author Juergen Hoeller
  * @since 20.10.2004
  */
-public class DataAccessUtilsTests {
+class DataAccessUtilsTests {
 
 	@Test
-	public void withEmptyCollection() {
+	void withEmptyCollection() {
 		Collection<String> col = new HashSet<>();
 
-		assertNull(DataAccessUtils.uniqueResult(col));
+		assertThat(DataAccessUtils.uniqueResult(col)).isNull();
 
-		try {
-			DataAccessUtils.requiredUniqueResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(0, ex.getActualSize());
-		}
+		assertThat(DataAccessUtils.singleResult(col)).isNull();
+		assertThat(DataAccessUtils.singleResult(col.stream())).isNull();
+		assertThat(DataAccessUtils.singleResult(col.iterator())).isNull();
+		assertThat(DataAccessUtils.optionalResult(col)).isEmpty();
+		assertThat(DataAccessUtils.optionalResult(col.stream())).isEmpty();
+		assertThat(DataAccessUtils.optionalResult(col.iterator())).isEmpty();
 
-		try {
-			DataAccessUtils.objectResult(col, String.class);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(0, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.requiredSingleResult(col))
+				.satisfies(sizeRequirements(1, 0));
 
-		try {
-			DataAccessUtils.intResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(0, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.requiredUniqueResult(col))
+				.satisfies(sizeRequirements(1, 0));
 
-		try {
-			DataAccessUtils.longResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(0, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.objectResult(col, String.class))
+				.satisfies(sizeRequirements(1, 0));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.intResult(col))
+				.satisfies(sizeRequirements(1, 0));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.longResult(col))
+				.satisfies(sizeRequirements(1, 0));
 	}
 
 	@Test
-	public void withTooLargeCollection() {
+	void withTooLargeCollection() {
 		Collection<String> col = new HashSet<>(2);
 		col.add("test1");
 		col.add("test2");
 
-		try {
-			DataAccessUtils.uniqueResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(2, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.uniqueResult(col))
+				.satisfies(sizeRequirements(1, 2));
 
-		try {
-			DataAccessUtils.requiredUniqueResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(2, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.requiredUniqueResult(col))
+				.satisfies(sizeRequirements(1, 2));
 
-		try {
-			DataAccessUtils.objectResult(col, String.class);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(2, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.objectResult(col, String.class))
+				.satisfies(sizeRequirements(1, 2));
 
-		try {
-			DataAccessUtils.intResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(2, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.intResult(col))
+				.satisfies(sizeRequirements(1, 2));
 
-		try {
-			DataAccessUtils.longResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(2, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.longResult(col))
+				.satisfies(sizeRequirements(1, 2));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.requiredSingleResult(col))
+				.satisfies(sizeRequirements(1, 2));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.singleResult(col))
+				.satisfies(sizeRequirements(1, 2));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.singleResult(col.stream()))
+				.satisfies(sizeRequirements(1));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.singleResult(col.iterator()))
+				.satisfies(sizeRequirements(1));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.optionalResult(col))
+				.satisfies(sizeRequirements(1, 2));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.optionalResult(col.stream()))
+				.satisfies(sizeRequirements(1));
+
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.optionalResult(col.iterator()))
+				.satisfies(sizeRequirements(1));
 	}
 
 	@Test
-	public void withInteger() {
+	void withNullValueInCollection() {
+		Collection<String> col = new HashSet<>();
+		col.add(null);
+
+		assertThat(DataAccessUtils.uniqueResult(col)).isNull();
+
+		assertThat(DataAccessUtils.singleResult(col)).isNull();
+		assertThat(DataAccessUtils.singleResult(col.stream())).isNull();
+		assertThat(DataAccessUtils.singleResult(col.iterator())).isNull();
+		assertThat(DataAccessUtils.optionalResult(col)).isEmpty();
+		assertThat(DataAccessUtils.optionalResult(col.stream())).isEmpty();
+		assertThat(DataAccessUtils.optionalResult(col.iterator())).isEmpty();
+
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.requiredSingleResult(col));
+
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.requiredUniqueResult(col));
+
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.objectResult(col, String.class));
+
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.intResult(col));
+
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.longResult(col));
+	}
+
+	@Test
+	void withInteger() {
 		Collection<Integer> col = new HashSet<>(1);
 		col.add(5);
 
-		assertEquals(Integer.valueOf(5), DataAccessUtils.uniqueResult(col));
-		assertEquals(Integer.valueOf(5), DataAccessUtils.requiredUniqueResult(col));
-		assertEquals(Integer.valueOf(5), DataAccessUtils.objectResult(col, Integer.class));
-		assertEquals("5", DataAccessUtils.objectResult(col, String.class));
-		assertEquals(5, DataAccessUtils.intResult(col));
-		assertEquals(5, DataAccessUtils.longResult(col));
+		assertThat(DataAccessUtils.uniqueResult(col)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.requiredUniqueResult(col)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.objectResult(col, Integer.class)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.objectResult(col, String.class)).isEqualTo("5");
+		assertThat(DataAccessUtils.intResult(col)).isEqualTo(5);
+		assertThat(DataAccessUtils.longResult(col)).isEqualTo(5);
+		assertThat(DataAccessUtils.requiredSingleResult(col)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.singleResult(col)).isEqualTo(5);
+		assertThat(DataAccessUtils.singleResult(col.stream())).isEqualTo(5);
+		assertThat(DataAccessUtils.singleResult(col.iterator())).isEqualTo(5);
+		assertThat(DataAccessUtils.optionalResult(col)).isEqualTo(Optional.of(5));
+		assertThat(DataAccessUtils.optionalResult(col.stream())).isEqualTo(Optional.of(5));
+		assertThat(DataAccessUtils.optionalResult(col.iterator())).isEqualTo(Optional.of(5));
 	}
 
 	@Test
-	public void withSameIntegerInstanceTwice() {
+	void withSameIntegerInstanceTwice() {
 		Integer i = 5;
 		Collection<Integer> col = new ArrayList<>(1);
 		col.add(i);
 		col.add(i);
 
-		assertEquals(Integer.valueOf(5), DataAccessUtils.uniqueResult(col));
-		assertEquals(Integer.valueOf(5), DataAccessUtils.requiredUniqueResult(col));
-		assertEquals(Integer.valueOf(5), DataAccessUtils.objectResult(col, Integer.class));
-		assertEquals("5", DataAccessUtils.objectResult(col, String.class));
-		assertEquals(5, DataAccessUtils.intResult(col));
-		assertEquals(5, DataAccessUtils.longResult(col));
+		assertThat(DataAccessUtils.uniqueResult(col)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.requiredUniqueResult(col)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.objectResult(col, Integer.class)).isEqualTo(Integer.valueOf(5));
+		assertThat(DataAccessUtils.objectResult(col, String.class)).isEqualTo("5");
+		assertThat(DataAccessUtils.intResult(col)).isEqualTo(5);
+		assertThat(DataAccessUtils.longResult(col)).isEqualTo(5);
 	}
 
 	@Test
-	@SuppressWarnings("deprecation")  // on JDK 9
-	public void withEquivalentIntegerInstanceTwice() {
-		Collection<Integer> col = new ArrayList<>(2);
-		col.add(new Integer(5));
-		col.add(new Integer(5));
+	void withEquivalentIntegerInstanceTwice() {
+		Collection<Integer> col = Arrays.asList(555, 555);
 
-		try {
-			DataAccessUtils.uniqueResult(col);
-			fail("Should have thrown IncorrectResultSizeDataAccessException");
-		}
-		catch (IncorrectResultSizeDataAccessException ex) {
-			// expected
-			assertEquals(1, ex.getExpectedSize());
-			assertEquals(2, ex.getActualSize());
-		}
+		assertThatExceptionOfType(IncorrectResultSizeDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.uniqueResult(col))
+				.satisfies(sizeRequirements(1, 2));
 	}
 
 	@Test
-	public void withLong() {
+	void withLong() {
 		Collection<Long> col = new HashSet<>(1);
 		col.add(5L);
 
-		assertEquals(Long.valueOf(5L), DataAccessUtils.uniqueResult(col));
-		assertEquals(Long.valueOf(5L), DataAccessUtils.requiredUniqueResult(col));
-		assertEquals(Long.valueOf(5L), DataAccessUtils.objectResult(col, Long.class));
-		assertEquals("5", DataAccessUtils.objectResult(col, String.class));
-		assertEquals(5, DataAccessUtils.intResult(col));
-		assertEquals(5, DataAccessUtils.longResult(col));
+		assertThat(DataAccessUtils.uniqueResult(col)).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.requiredUniqueResult(col)).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.objectResult(col, Long.class)).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.objectResult(col, String.class)).isEqualTo("5");
+		assertThat(DataAccessUtils.intResult(col)).isEqualTo(5);
+		assertThat(DataAccessUtils.longResult(col)).isEqualTo(5);
+		assertThat(DataAccessUtils.requiredSingleResult(col)).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.singleResult(col)).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.singleResult(col.stream())).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.singleResult(col.iterator())).isEqualTo(Long.valueOf(5L));
+		assertThat(DataAccessUtils.optionalResult(col)).isEqualTo(Optional.of(5L));
+		assertThat(DataAccessUtils.optionalResult(col.stream())).isEqualTo(Optional.of(5L));
+		assertThat(DataAccessUtils.optionalResult(col.iterator())).isEqualTo(Optional.of(5L));
 	}
 
 	@Test
-	public void withString() {
+	void withString() {
 		Collection<String> col = new HashSet<>(1);
 		col.add("test1");
 
-		assertEquals("test1", DataAccessUtils.uniqueResult(col));
-		assertEquals("test1", DataAccessUtils.requiredUniqueResult(col));
-		assertEquals("test1", DataAccessUtils.objectResult(col, String.class));
+		assertThat(DataAccessUtils.uniqueResult(col)).isEqualTo("test1");
+		assertThat(DataAccessUtils.requiredUniqueResult(col)).isEqualTo("test1");
+		assertThat(DataAccessUtils.objectResult(col, String.class)).isEqualTo("test1");
+		assertThat(DataAccessUtils.requiredSingleResult(col)).isEqualTo("test1");
+		assertThat(DataAccessUtils.singleResult(col)).isEqualTo("test1");
+		assertThat(DataAccessUtils.singleResult(col.stream())).isEqualTo("test1");
+		assertThat(DataAccessUtils.singleResult(col.iterator())).isEqualTo("test1");
+		assertThat(DataAccessUtils.optionalResult(col)).isEqualTo(Optional.of("test1"));
+		assertThat(DataAccessUtils.optionalResult(col.stream())).isEqualTo(Optional.of("test1"));
+		assertThat(DataAccessUtils.optionalResult(col.iterator())).isEqualTo(Optional.of("test1"));
 
-		try {
-			DataAccessUtils.intResult(col);
-			fail("Should have thrown TypeMismatchDataAccessException");
-		}
-		catch (TypeMismatchDataAccessException ex) {
-			// expected
-		}
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.intResult(col));
 
-		try {
-			DataAccessUtils.longResult(col);
-			fail("Should have thrown TypeMismatchDataAccessException");
-		}
-		catch (TypeMismatchDataAccessException ex) {
-			// expected
-		}
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.longResult(col));
 	}
 
 	@Test
-	public void withDate() {
+	void withDate() {
 		Date date = new Date();
 		Collection<Date> col = new HashSet<>(1);
 		col.add(date);
 
-		assertEquals(date, DataAccessUtils.uniqueResult(col));
-		assertEquals(date, DataAccessUtils.requiredUniqueResult(col));
-		assertEquals(date, DataAccessUtils.objectResult(col, Date.class));
-		assertEquals(date.toString(), DataAccessUtils.objectResult(col, String.class));
+		assertThat(DataAccessUtils.uniqueResult(col)).isEqualTo(date);
+		assertThat(DataAccessUtils.requiredUniqueResult(col)).isEqualTo(date);
+		assertThat(DataAccessUtils.objectResult(col, Date.class)).isEqualTo(date);
+		assertThat(DataAccessUtils.objectResult(col, String.class)).isEqualTo(date.toString());
+		assertThat(DataAccessUtils.requiredSingleResult(col)).isEqualTo(date);
+		assertThat(DataAccessUtils.singleResult(col)).isEqualTo(date);
+		assertThat(DataAccessUtils.singleResult(col.stream())).isEqualTo(date);
+		assertThat(DataAccessUtils.singleResult(col.iterator())).isEqualTo(date);
+		assertThat(DataAccessUtils.optionalResult(col)).isEqualTo(Optional.of(date));
+		assertThat(DataAccessUtils.optionalResult(col.stream())).isEqualTo(Optional.of(date));
+		assertThat(DataAccessUtils.optionalResult(col.iterator())).isEqualTo(Optional.of(date));
 
-		try {
-			DataAccessUtils.intResult(col);
-			fail("Should have thrown TypeMismatchDataAccessException");
-		}
-		catch (TypeMismatchDataAccessException ex) {
-			// expected
-		}
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.intResult(col));
 
-		try {
-			DataAccessUtils.longResult(col);
-			fail("Should have thrown TypeMismatchDataAccessException");
-		}
-		catch (TypeMismatchDataAccessException ex) {
-			// expected
-		}
+		assertThatExceptionOfType(TypeMismatchDataAccessException.class)
+				.isThrownBy(() -> DataAccessUtils.longResult(col));
 	}
 
 	@Test
-	public void exceptionTranslationWithNoTranslation() {
+	void exceptionTranslationWithNoTranslation() {
 		MapPersistenceExceptionTranslator mpet = new MapPersistenceExceptionTranslator();
 		RuntimeException in = new RuntimeException();
-		assertSame(in, DataAccessUtils.translateIfNecessary(in, mpet));
+		assertThat(DataAccessUtils.translateIfNecessary(in, mpet)).isSameAs(in);
 	}
 
 	@Test
-	public void exceptionTranslationWithTranslation() {
+	void exceptionTranslationWithTranslation() {
 		MapPersistenceExceptionTranslator mpet = new MapPersistenceExceptionTranslator();
 		RuntimeException in = new RuntimeException("in");
 		InvalidDataAccessApiUsageException out = new InvalidDataAccessApiUsageException("out");
 		mpet.addTranslation(in, out);
-		assertSame(out, DataAccessUtils.translateIfNecessary(in, mpet));
+		assertThat(DataAccessUtils.translateIfNecessary(in, mpet)).isSameAs(out);
 	}
 
 
-	public static class MapPersistenceExceptionTranslator implements PersistenceExceptionTranslator {
+	private <E extends IncorrectResultSizeDataAccessException> Consumer<E> sizeRequirements(
+			int expectedSize, int actualSize) {
 
-		// in to out
-		private final Map<RuntimeException, RuntimeException> translations = new HashMap<>();
+		return ex -> {
+			assertThat(ex.getExpectedSize()).as("expected size").isEqualTo(expectedSize);
+			assertThat(ex.getActualSize()).as("actual size").isEqualTo(actualSize);
+		};
+	}
 
-		public void addTranslation(RuntimeException in, RuntimeException out) {
-			this.translations.put(in, out);
-		}
-
-		@Override
-		public DataAccessException translateExceptionIfPossible(RuntimeException ex) {
-			return (DataAccessException) translations.get(ex);
-		}
+	private <E extends IncorrectResultSizeDataAccessException> Consumer<E> sizeRequirements(int expectedSize) {
+		return ex -> assertThat(ex.getExpectedSize()).as("expected size").isEqualTo(expectedSize);
 	}
 
 }

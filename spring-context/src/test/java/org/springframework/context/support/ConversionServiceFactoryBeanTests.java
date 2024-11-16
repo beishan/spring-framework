@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,9 +21,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.Converter;
@@ -34,27 +34,30 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.lang.Nullable;
 import org.springframework.tests.sample.beans.ResourceTestBean;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * @author Keith Donald
  * @author Juergen Hoeller
  */
-public class ConversionServiceFactoryBeanTests {
+class ConversionServiceFactoryBeanTests {
 
 	@Test
-	public void createDefaultConversionService() {
+	void createDefaultConversionService() {
 		ConversionServiceFactoryBean factory = new ConversionServiceFactoryBean();
 		factory.afterPropertiesSet();
 		ConversionService service = factory.getObject();
-		assertTrue(service.canConvert(String.class, Integer.class));
+		assertThat(service.canConvert(String.class, Integer.class)).isTrue();
 	}
 
 	@Test
-	public void createDefaultConversionServiceWithSupplements() {
+	@SuppressWarnings("Convert2Lambda")
+	void createDefaultConversionServiceWithSupplements() {
 		ConversionServiceFactoryBean factory = new ConversionServiceFactoryBean();
 		Set<Object> converters = new HashSet<>();
+		// The following String -> Foo Converter cannot be implemented as a lambda
+		// due to type erasure of the source and target types.
 		converters.add(new Converter<String, Foo>() {
 			@Override
 			public Foo convert(String source) {
@@ -64,7 +67,7 @@ public class ConversionServiceFactoryBeanTests {
 		converters.add(new ConverterFactory<String, Bar>() {
 			@Override
 			public <T extends Bar> Converter<String, T> getConverter(Class<T> targetType) {
-				return new Converter<String, T> () {
+				return new Converter<> () {
 					@SuppressWarnings("unchecked")
 					@Override
 					public T convert(String source) {
@@ -87,60 +90,61 @@ public class ConversionServiceFactoryBeanTests {
 		factory.setConverters(converters);
 		factory.afterPropertiesSet();
 		ConversionService service = factory.getObject();
-		assertTrue(service.canConvert(String.class, Integer.class));
-		assertTrue(service.canConvert(String.class, Foo.class));
-		assertTrue(service.canConvert(String.class, Bar.class));
-		assertTrue(service.canConvert(String.class, Baz.class));
+		assertThat(service.canConvert(String.class, Integer.class)).isTrue();
+		assertThat(service.canConvert(String.class, Foo.class)).isTrue();
+		assertThat(service.canConvert(String.class, Bar.class)).isTrue();
+		assertThat(service.canConvert(String.class, Baz.class)).isTrue();
 	}
 
-	@Test(expected = IllegalArgumentException.class)
-	public void createDefaultConversionServiceWithInvalidSupplements() {
+	@Test
+	void createDefaultConversionServiceWithInvalidSupplements() {
 		ConversionServiceFactoryBean factory = new ConversionServiceFactoryBean();
 		Set<Object> converters = new HashSet<>();
 		converters.add("bogus");
 		factory.setConverters(converters);
-		factory.afterPropertiesSet();
+		assertThatIllegalArgumentException().isThrownBy(factory::afterPropertiesSet);
 	}
 
 	@Test
-	public void conversionServiceInApplicationContext() {
+	void conversionServiceInApplicationContext() {
 		doTestConversionServiceInApplicationContext("conversionService.xml", ClassPathResource.class);
 	}
 
 	@Test
-	public void conversionServiceInApplicationContextWithResourceOverriding() {
+	void conversionServiceInApplicationContextWithResourceOverriding() {
 		doTestConversionServiceInApplicationContext("conversionServiceWithResourceOverriding.xml", FileSystemResource.class);
 	}
 
 	private void doTestConversionServiceInApplicationContext(String fileName, Class<?> resourceClass) {
-		ApplicationContext ctx = new ClassPathXmlApplicationContext(fileName, getClass());
+		ConfigurableApplicationContext ctx = new ClassPathXmlApplicationContext(fileName, getClass());
 		ResourceTestBean tb = ctx.getBean("resourceTestBean", ResourceTestBean.class);
-		assertTrue(resourceClass.isInstance(tb.getResource()));
-		assertTrue(tb.getResourceArray().length > 0);
-		assertTrue(resourceClass.isInstance(tb.getResourceArray()[0]));
-		assertTrue(tb.getResourceMap().size() == 1);
-		assertTrue(resourceClass.isInstance(tb.getResourceMap().get("key1")));
-		assertTrue(tb.getResourceArrayMap().size() == 1);
-		assertTrue(tb.getResourceArrayMap().get("key1").length > 0);
-		assertTrue(resourceClass.isInstance(tb.getResourceArrayMap().get("key1")[0]));
+		assertThat(tb.getResource()).isInstanceOf(resourceClass);
+		assertThat(tb.getResourceArray()).hasSize(1);
+		assertThat(tb.getResourceArray()[0]).isInstanceOf(resourceClass);
+		assertThat(tb.getResourceMap()).hasSize(1);
+		assertThat(tb.getResourceMap().get("key1")).isInstanceOf(resourceClass);
+		assertThat(tb.getResourceArrayMap()).hasSize(1);
+		assertThat(tb.getResourceArrayMap().get("key1")).isNotEmpty();
+		assertThat(tb.getResourceArrayMap().get("key1")[0]).isInstanceOf(resourceClass);
+		ctx.close();
 	}
 
 
-	public static class Foo {
+	static class Foo {
 	}
 
-	public static class Bar {
+	static class Bar {
 	}
 
-	public static class Baz {
+	static class Baz {
 	}
 
-	public static class ComplexConstructorArgument {
+	static class ComplexConstructorArgument {
 
-		public ComplexConstructorArgument(Map<String, Class<?>> map) {
-			assertTrue(!map.isEmpty());
-			assertThat(map.keySet().iterator().next(), instanceOf(String.class));
-			assertThat(map.values().iterator().next(), instanceOf(Class.class));
+		ComplexConstructorArgument(Map<String, Class<?>> map) {
+			assertThat(map).isNotEmpty();
+			assertThat(map.keySet().iterator().next()).isInstanceOf(String.class);
+			assertThat(map.values().iterator().next()).isInstanceOf(Class.class);
 		}
 	}
 

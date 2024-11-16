@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,14 +19,14 @@ package org.springframework.jms.config;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.Session;
-import javax.jms.TextMessage;
 
-import org.junit.Before;
-import org.junit.Test;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.MessageListener;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
@@ -41,13 +41,13 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.support.DefaultMessageHandlerMethodFactory;
 import org.springframework.util.ReflectionUtils;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author Stephane Nicoll
  */
-public class JmsListenerContainerFactoryIntegrationTests {
+class JmsListenerContainerFactoryIntegrationTests {
 
 	private final DefaultJmsListenerContainerFactory containerFactory = new DefaultJmsListenerContainerFactory();
 
@@ -58,20 +58,20 @@ public class JmsListenerContainerFactoryIntegrationTests {
 	private JmsEndpointSampleInterface listener = sample;
 
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		initializeFactory(factory);
 	}
 
 
 	@Test
-	public void messageConverterUsedIfSet() throws JMSException {
+	void messageConverterUsedIfSet() throws JMSException {
 		this.containerFactory.setMessageConverter(new UpperCaseMessageConverter());
 		testMessageConverterIsUsed();
 	}
 
 	@Test
-	public void messagingMessageConverterCanBeUsed() throws JMSException {
+	void messagingMessageConverterCanBeUsed() throws JMSException {
 		MessagingMessageConverter converter = new MessagingMessageConverter();
 		converter.setPayloadConverter(new UpperCaseMessageConverter());
 		this.containerFactory.setMessageConverter(converter);
@@ -89,7 +89,7 @@ public class JmsListenerContainerFactoryIntegrationTests {
 	}
 
 	@Test
-	public void parameterAnnotationWithJdkProxy() throws JMSException {
+	void parameterAnnotationWithJdkProxy() throws JMSException {
 		ProxyFactory pf = new ProxyFactory(sample);
 		listener = (JmsEndpointSampleInterface) pf.getProxy();
 
@@ -105,7 +105,7 @@ public class JmsListenerContainerFactoryIntegrationTests {
 	}
 
 	@Test
-	public void parameterAnnotationWithCglibProxy() throws JMSException {
+	void parameterAnnotationWithCglibProxy() throws JMSException {
 		ProxyFactory pf = new ProxyFactory(sample);
 		pf.setProxyTargetClass(true);
 		listener = (JmsEndpointSampleBean) pf.getProxy();
@@ -127,7 +127,7 @@ public class JmsListenerContainerFactoryIntegrationTests {
 		DefaultMessageListenerContainer messageListenerContainer = containerFactory.createListenerContainer(endpoint);
 		Object listener = messageListenerContainer.getMessageListener();
 		if (listener instanceof SessionAwareMessageListener) {
-			((SessionAwareMessageListener<Message>) listener).onMessage(message, mock(Session.class));
+			((SessionAwareMessageListener<Message>) listener).onMessage(message, mock());
 		}
 		else {
 			((MessageListener) listener).onMessage(message);
@@ -135,7 +135,7 @@ public class JmsListenerContainerFactoryIntegrationTests {
 	}
 
 	private void assertListenerMethodInvocation(String methodName) {
-		assertTrue("Method " + methodName + " should have been invoked", sample.invocations.get(methodName));
+		assertThat((boolean) sample.invocations.get(methodName)).as("Method " + methodName + " should have been invoked").isTrue();
 	}
 
 	private MethodJmsListenerEndpoint createMethodJmsEndpoint(DefaultMessageHandlerMethodFactory factory, Method method) {
@@ -166,10 +166,11 @@ public class JmsListenerContainerFactoryIntegrationTests {
 
 		private final Map<String, Boolean> invocations = new HashMap<>();
 
+		@Override
 		public void handleIt(@Payload String msg, @Header("my-header") String myHeader) {
 			invocations.put("handleIt", true);
-			assertEquals("Unexpected payload message", "FOO-BAR", msg);
-			assertEquals("Unexpected header value", "my-value", myHeader);
+			assertThat(msg).as("Unexpected payload message").isEqualTo("FOO-BAR");
+			assertThat(myHeader).as("Unexpected header value").isEqualTo("my-value");
 		}
 	}
 
@@ -177,7 +178,7 @@ public class JmsListenerContainerFactoryIntegrationTests {
 	private static class UpperCaseMessageConverter implements MessageConverter {
 
 		@Override
-		public Message toMessage(Object object, Session session) throws JMSException, MessageConversionException {
+		public Message toMessage(Object object, Session session) throws MessageConversionException {
 			return new StubTextMessage(object.toString().toUpperCase());
 		}
 

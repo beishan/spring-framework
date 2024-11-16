@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,16 +19,15 @@ package org.springframework.http.converter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
+import org.springframework.http.HttpLogging;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
 import org.springframework.http.StreamingHttpOutputMessage;
@@ -46,11 +45,12 @@ import org.springframework.util.Assert;
  * @author Juergen Hoeller
  * @author Sebastien Deleuze
  * @since 3.0
+ * @param <T> the converted object type
  */
 public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConverter<T> {
 
-	/** Logger available to subclasses */
-	protected final Log logger = LogFactory.getLog(getClass());
+	/** Logger available to subclasses. */
+	protected final Log logger = HttpLogging.forLogName(getClass());
 
 	private List<MediaType> supportedMediaTypes = Collections.emptyList();
 
@@ -99,12 +99,12 @@ public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConv
 	 */
 	public void setSupportedMediaTypes(List<MediaType> supportedMediaTypes) {
 		Assert.notEmpty(supportedMediaTypes, "MediaType List must not be empty");
-		this.supportedMediaTypes = new ArrayList<>(supportedMediaTypes);
+		this.supportedMediaTypes = List.copyOf(supportedMediaTypes);
 	}
 
 	@Override
 	public List<MediaType> getSupportedMediaTypes() {
-		return Collections.unmodifiableList(this.supportedMediaTypes);
+		return this.supportedMediaTypes;
 	}
 
 	/**
@@ -176,7 +176,7 @@ public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConv
 	 * or if the media type is {@code null}
 	 */
 	protected boolean canWrite(@Nullable MediaType mediaType) {
-		if (mediaType == null || MediaType.ALL.equals(mediaType)) {
+		if (mediaType == null || MediaType.ALL.equalsTypeAndSubtype(mediaType)) {
 			return true;
 		}
 		for (MediaType supportedMediaType : getSupportedMediaTypes()) {
@@ -192,7 +192,9 @@ public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConv
 	 * Future implementations might add some default behavior, however.
 	 */
 	@Override
-	public final T read(Class<? extends T> clazz, HttpInputMessage inputMessage) throws IOException {
+	public final T read(Class<? extends T> clazz, HttpInputMessage inputMessage)
+			throws IOException, HttpMessageNotReadableException {
+
 		return readInternal(clazz, inputMessage);
 	}
 
@@ -207,18 +209,27 @@ public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConv
 		final HttpHeaders headers = outputMessage.getHeaders();
 		addDefaultHeaders(headers, t, contentType);
 
-		if (outputMessage instanceof StreamingHttpOutputMessage) {
-			StreamingHttpOutputMessage streamingOutputMessage = (StreamingHttpOutputMessage) outputMessage;
-			streamingOutputMessage.setBody(outputStream -> writeInternal(t, new HttpOutputMessage() {
+		if (outputMessage instanceof StreamingHttpOutputMessage streamingOutputMessage) {
+			streamingOutputMessage.setBody(new StreamingHttpOutputMessage.Body() {
 				@Override
-				public OutputStream getBody() {
-					return outputStream;
+				public void writeTo(OutputStream outputStream) throws IOException {
+					writeInternal(t, new HttpOutputMessage() {
+						@Override
+						public OutputStream getBody() {
+							return outputStream;
+						}
+						@Override
+						public HttpHeaders getHeaders() {
+							return headers;
+						}
+					});
 				}
+
 				@Override
-				public HttpHeaders getHeaders() {
-					return headers;
+				public boolean repeatable() {
+					return supportsRepeatableWrites(t);
 				}
-			}));
+			});
 		}
 		else {
 			writeInternal(t, outputMessage);
@@ -233,10 +244,10 @@ public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConv
 	 * {@link #getContentLength}, and sets the corresponding headers.
 	 * @since 4.2
 	 */
-	protected void addDefaultHeaders(HttpHeaders headers, T t, @Nullable MediaType contentType) throws IOException{
+	protected void addDefaultHeaders(HttpHeaders headers, T t, @Nullable MediaType contentType) throws IOException {
 		if (headers.getContentType() == null) {
 			MediaType contentTypeToUse = contentType;
-			if (contentType == null || contentType.isWildcardType() || contentType.isWildcardSubtype()) {
+			if (contentType == null || !contentType.isConcrete()) {
 				contentTypeToUse = getDefaultContentType(t);
 			}
 			else if (MediaType.APPLICATION_OCTET_STREAM.equals(contentType)) {
@@ -286,6 +297,20 @@ public abstract class AbstractHttpMessageConverter<T> implements HttpMessageConv
 	@Nullable
 	protected Long getContentLength(T t, @Nullable MediaType contentType) throws IOException {
 		return null;
+	}
+
+	/**
+	 * Indicates whether this message converter can
+	 * {@linkplain #write(Object, MediaType, HttpOutputMessage) write} the
+	 * given object multiple times.
+	 * <p>The default implementation returns {@code false}.
+	 * @param t the object t
+	 * @return {@code true} if {@code t} can be written repeatedly;
+	 * {@code false} otherwise
+	 * @since 6.1
+	 */
+	protected boolean supportsRepeatableWrites(T t) {
+		return false;
 	}
 
 

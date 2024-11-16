@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +17,18 @@
 package org.springframework.web.servlet.mvc.condition;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import javax.servlet.http.HttpServletRequest;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.MimeType;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.HttpMediaTypeException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.accept.ContentNegotiationManager;
@@ -47,12 +50,15 @@ import org.springframework.web.servlet.mvc.condition.HeadersRequestCondition.Hea
  */
 public final class ProducesRequestCondition extends AbstractRequestCondition<ProducesRequestCondition> {
 
-	private static final ProducesRequestCondition PRE_FLIGHT_MATCH = new ProducesRequestCondition();
+	private static final ContentNegotiationManager DEFAULT_CONTENT_NEGOTIATION_MANAGER =
+			new ContentNegotiationManager();
 
 	private static final ProducesRequestCondition EMPTY_CONDITION = new ProducesRequestCondition();
 
 	private static final List<ProduceMediaTypeExpression> MEDIA_TYPE_ALL_LIST =
-			Collections.singletonList(new ProduceMediaTypeExpression("*/*"));
+			Collections.singletonList(new ProduceMediaTypeExpression(MediaType.ALL_VALUE));
+
+	private static final String MEDIA_TYPES_ATTRIBUTE = ProducesRequestCondition.class.getName() + ".MEDIA_TYPES";
 
 
 	private final List<ProduceMediaTypeExpression> expressions;
@@ -77,7 +83,7 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 	 * @param produces expressions with syntax defined by {@link RequestMapping#produces()}
 	 * @param headers expressions with syntax defined by {@link RequestMapping#headers()}
 	 */
-	public ProducesRequestCondition(String[] produces, @Nullable String[] headers) {
+	public ProducesRequestCondition(@Nullable String[] produces, @Nullable String[] headers) {
 		this(produces, headers, null);
 	}
 
@@ -88,43 +94,47 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 	 * @param headers expressions with syntax defined by {@link RequestMapping#headers()}
 	 * @param manager used to determine requested media types
 	 */
-	public ProducesRequestCondition(String[] produces, @Nullable String[] headers,
+	public ProducesRequestCondition(@Nullable String[] produces, @Nullable String[] headers,
 			@Nullable ContentNegotiationManager manager) {
 
-		this.expressions = new ArrayList<>(parseExpressions(produces, headers));
-		Collections.sort(this.expressions);
-		this.contentNegotiationManager = (manager != null ? manager : new ContentNegotiationManager());
+		this.expressions = parseExpressions(produces, headers);
+		if (this.expressions.size() > 1) {
+			Collections.sort(this.expressions);
+		}
+		this.contentNegotiationManager = (manager != null ? manager : DEFAULT_CONTENT_NEGOTIATION_MANAGER);
 	}
 
-	/**
-	 * Private constructor with already parsed media type expressions.
-	 */
-	private ProducesRequestCondition(Collection<ProduceMediaTypeExpression> expressions,
-			@Nullable ContentNegotiationManager manager) {
-
-		this.expressions = new ArrayList<>(expressions);
-		Collections.sort(this.expressions);
-		this.contentNegotiationManager = (manager != null ? manager : new ContentNegotiationManager());
-	}
-
-
-	private Set<ProduceMediaTypeExpression> parseExpressions(String[] produces, @Nullable String[] headers) {
-		Set<ProduceMediaTypeExpression> result = new LinkedHashSet<>();
-		if (headers != null) {
+	private List<ProduceMediaTypeExpression> parseExpressions(@Nullable String[] produces, @Nullable String[] headers) {
+		Set<ProduceMediaTypeExpression> result = null;
+		if (!ObjectUtils.isEmpty(headers)) {
 			for (String header : headers) {
 				HeaderExpression expr = new HeaderExpression(header);
 				if ("Accept".equalsIgnoreCase(expr.name) && expr.value != null) {
 					for (MediaType mediaType : MediaType.parseMediaTypes(expr.value)) {
+						result = (result != null ? result : new LinkedHashSet<>());
 						result.add(new ProduceMediaTypeExpression(mediaType, expr.isNegated));
 					}
 				}
 			}
 		}
-		for (String produce : produces) {
-			result.add(new ProduceMediaTypeExpression(produce));
+		if (!ObjectUtils.isEmpty(produces)) {
+			for (String produce : produces) {
+				result = (result != null ? result : new LinkedHashSet<>());
+				result.add(new ProduceMediaTypeExpression(produce));
+			}
 		}
-		return result;
+		return (result != null ? new ArrayList<>(result) : Collections.emptyList());
 	}
+
+	/**
+	 * Private constructor for internal use to create matching conditions.
+	 * Note the expressions List is neither sorted nor deep copied.
+	 */
+	private ProducesRequestCondition(List<ProduceMediaTypeExpression> expressions, ProducesRequestCondition other) {
+		this.expressions = expressions;
+		this.contentNegotiationManager = other.contentNegotiationManager;
+	}
+
 
 	/**
 	 * Return the contained "produces" expressions.
@@ -188,12 +198,11 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 	@Nullable
 	public ProducesRequestCondition getMatchingCondition(HttpServletRequest request) {
 		if (CorsUtils.isPreFlightRequest(request)) {
-			return PRE_FLIGHT_MATCH;
+			return EMPTY_CONDITION;
 		}
 		if (isEmpty()) {
 			return this;
 		}
-
 		List<MediaType> acceptedMediaTypes;
 		try {
 			acceptedMediaTypes = getAcceptedMediaTypes(request);
@@ -201,13 +210,11 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 		catch (HttpMediaTypeException ex) {
 			return null;
 		}
-
-		Set<ProduceMediaTypeExpression> result = new LinkedHashSet<>(this.expressions);
-		result.removeIf(expression -> !expression.match(acceptedMediaTypes));
-		if (!result.isEmpty()) {
-			return new ProducesRequestCondition(result, this.contentNegotiationManager);
+		List<ProduceMediaTypeExpression> result = getMatchingExpressions(acceptedMediaTypes);
+		if (!CollectionUtils.isEmpty(result)) {
+			return new ProducesRequestCondition(result, this);
 		}
-		else if (acceptedMediaTypes.contains(MediaType.ALL)) {
+		else if (MediaType.ALL.isPresentIn(acceptedMediaTypes)) {
 			return EMPTY_CONDITION;
 		}
 		else {
@@ -215,17 +222,30 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 		}
 	}
 
+	@Nullable
+	private List<ProduceMediaTypeExpression> getMatchingExpressions(List<MediaType> acceptedMediaTypes) {
+		List<ProduceMediaTypeExpression> result = null;
+		for (ProduceMediaTypeExpression expression : this.expressions) {
+			if (expression.match(acceptedMediaTypes)) {
+				result = result != null ? result : new ArrayList<>();
+				result.add(expression);
+			}
+		}
+		return result;
+	}
+
 	/**
 	 * Compares this and another "produces" condition as follows:
 	 * <ol>
 	 * <li>Sort 'Accept' header media types by quality value via
-	 * {@link MediaType#sortByQualityValue(List)} and iterate the list.
+	 * {@link org.springframework.util.MimeTypeUtils#sortBySpecificity(List)}
+	 * and iterate the list.
 	 * <li>Get the first index of matching media types in each "produces"
 	 * condition first matching with {@link MediaType#equals(Object)} and
 	 * then with {@link MediaType#includes(MediaType)}.
 	 * <li>If a lower index is found, the condition at that index wins.
 	 * <li>If both indexes are equal, the media types at the index are
-	 * compared further with {@link MediaType#SPECIFICITY_COMPARATOR}.
+	 * compared further with {@link MediaType#isMoreSpecific(MimeType)}.
 	 * </ol>
 	 * <p>It is assumed that both instances have been obtained via
 	 * {@link #getMatchingCondition(HttpServletRequest)} and each instance
@@ -234,6 +254,9 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 	 */
 	@Override
 	public int compareTo(ProducesRequestCondition other, HttpServletRequest request) {
+		if (this.expressions.isEmpty() && other.expressions.isEmpty()) {
+			return 0;
+		}
 		try {
 			List<MediaType> acceptedMediaTypes = getAcceptedMediaTypes(request);
 			for (MediaType acceptedMediaType : acceptedMediaTypes) {
@@ -258,9 +281,16 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 		}
 	}
 
-	private List<MediaType> getAcceptedMediaTypes(HttpServletRequest request) throws HttpMediaTypeNotAcceptableException {
-		List<MediaType> mediaTypes = this.contentNegotiationManager.resolveMediaTypes(new ServletWebRequest(request));
-		return mediaTypes.isEmpty() ? Collections.singletonList(MediaType.ALL) : mediaTypes;
+	@SuppressWarnings("unchecked")
+	private List<MediaType> getAcceptedMediaTypes(HttpServletRequest request)
+			throws HttpMediaTypeNotAcceptableException {
+
+		List<MediaType> result = (List<MediaType>) request.getAttribute(MEDIA_TYPES_ATTRIBUTE);
+		if (result == null) {
+			result = this.contentNegotiationManager.resolveMediaTypes(new ServletWebRequest(request));
+			request.setAttribute(MEDIA_TYPES_ATTRIBUTE, result);
+		}
+		return result;
 	}
 
 	private int indexOfEqualMediaType(MediaType mediaType) {
@@ -301,10 +331,21 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 
 	/**
 	 * Return the contained "produces" expressions or if that's empty, a list
-	 * with a {@code MediaType_ALL} expression.
+	 * with a {@value MediaType#ALL_VALUE} expression.
 	 */
 	private List<ProduceMediaTypeExpression> getExpressionsToCompare() {
 		return (this.expressions.isEmpty() ? MEDIA_TYPE_ALL_LIST : this.expressions);
+	}
+
+
+	/**
+	 * Use this to clear {@link #MEDIA_TYPES_ATTRIBUTE} that contains the parsed,
+	 * requested media types.
+	 * @param request the current request
+	 * @since 5.2
+	 */
+	public static void clearMediaTypesAttribute(HttpServletRequest request) {
+		request.removeAttribute(MEDIA_TYPES_ATTRIBUTE);
 	}
 
 
@@ -323,12 +364,12 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 
 		public final boolean match(List<MediaType> acceptedMediaTypes) {
 			boolean match = matchMediaType(acceptedMediaTypes);
-			return (!isNegated() ? match : !match);
+			return !isNegated() == match;
 		}
 
 		private boolean matchMediaType(List<MediaType> acceptedMediaTypes) {
 			for (MediaType acceptedMediaType : acceptedMediaTypes) {
-				if (getMediaType().isCompatibleWith(acceptedMediaType)) {
+				if (getMediaType().isCompatibleWith(acceptedMediaType) && matchParameters(acceptedMediaType)) {
 					return true;
 				}
 			}

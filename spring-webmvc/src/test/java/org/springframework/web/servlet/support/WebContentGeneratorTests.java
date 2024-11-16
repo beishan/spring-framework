@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,67 +13,66 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.servlet.support;
 
 import java.util.Arrays;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.mock.web.test.MockHttpServletResponse;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link WebContentGenerator}.
+ * Tests for {@link WebContentGenerator}.
  * @author Rossen Stoyanchev
  */
-public class WebContentGeneratorTests {
+class WebContentGeneratorTests {
 
 	@Test
-	public void getAllowHeaderWithConstructorTrue() throws Exception {
+	void getAllowHeaderWithConstructorTrue() {
 		WebContentGenerator generator = new TestWebContentGenerator(true);
-		assertEquals("GET,HEAD,POST,OPTIONS", generator.getAllowHeader());
+		assertThat(generator.getAllowHeader()).isEqualTo("GET,HEAD,POST,OPTIONS");
 	}
 
 	@Test
-	public void getAllowHeaderWithConstructorFalse() throws Exception {
+	void getAllowHeaderWithConstructorFalse() {
 		WebContentGenerator generator = new TestWebContentGenerator(false);
-		assertEquals("GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS", generator.getAllowHeader());
+		assertThat(generator.getAllowHeader()).isEqualTo("GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS");
 	}
 
 	@Test
-	public void getAllowHeaderWithSupportedMethodsConstructor() throws Exception {
+	void getAllowHeaderWithSupportedMethodsConstructor() {
 		WebContentGenerator generator = new TestWebContentGenerator("POST");
-		assertEquals("POST,OPTIONS", generator.getAllowHeader());
+		assertThat(generator.getAllowHeader()).isEqualTo("POST,OPTIONS");
 	}
 
 	@Test
-	public void getAllowHeaderWithSupportedMethodsSetter() throws Exception {
+	void getAllowHeaderWithSupportedMethodsSetter() {
 		WebContentGenerator generator = new TestWebContentGenerator();
 		generator.setSupportedMethods("POST");
-		assertEquals("POST,OPTIONS", generator.getAllowHeader());
+		assertThat(generator.getAllowHeader()).isEqualTo("POST,OPTIONS");
 	}
 
 	@Test
-	public void getAllowHeaderWithSupportedMethodsSetterEmpty() throws Exception {
+	void getAllowHeaderWithSupportedMethodsSetterEmpty() {
 		WebContentGenerator generator = new TestWebContentGenerator();
 		generator.setSupportedMethods();
-		assertEquals("Effectively \"no restriction\" on supported methods",
-				"GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS", generator.getAllowHeader());
+		assertThat(generator.getAllowHeader()).as("Effectively \"no restriction\" on supported methods").isEqualTo("GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS");
 	}
 
 	@Test
-	public void varyHeaderNone() throws Exception {
+	void varyHeaderNone() {
 		WebContentGenerator generator = new TestWebContentGenerator();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		generator.prepareResponse(response);
 
-		assertNull(response.getHeader("Vary"));
+		assertThat(response.getHeader("Vary")).isNull();
 	}
 
 	@Test
-	public void varyHeader() throws Exception {
+	void varyHeader() {
 		String[] configuredValues = {"Accept-Language", "User-Agent"};
 		String[] responseValues = {};
 		String[] expected = {"Accept-Language", "User-Agent"};
@@ -81,7 +80,7 @@ public class WebContentGeneratorTests {
 	}
 
 	@Test
-	public void varyHeaderWithExistingWildcard() throws Exception {
+	void varyHeaderWithExistingWildcard() {
 		String[] configuredValues = {"Accept-Language"};
 		String[] responseValues = {"*"};
 		String[] expected = {"*"};
@@ -89,7 +88,7 @@ public class WebContentGeneratorTests {
 	}
 
 	@Test
-	public void varyHeaderWithExistingCommaValues() throws Exception {
+	void varyHeaderWithExistingCommaValues() {
 		String[] configuredValues = {"Accept-Language", "User-Agent"};
 		String[] responseValues = {"Accept-Encoding", "Accept-Language"};
 		String[] expected = {"Accept-Encoding", "Accept-Language", "User-Agent"};
@@ -97,7 +96,7 @@ public class WebContentGeneratorTests {
 	}
 
 	@Test
-	public void varyHeaderWithExistingCommaSeparatedValues() throws Exception {
+	void varyHeaderWithExistingCommaSeparatedValues() {
 		String[] configuredValues = {"Accept-Language", "User-Agent"};
 		String[] responseValues = {"Accept-Encoding, Accept-Language"};
 		String[] expected = {"Accept-Encoding, Accept-Language", "User-Agent"};
@@ -112,7 +111,7 @@ public class WebContentGeneratorTests {
 			response.addHeader("Vary", value);
 		}
 		generator.prepareResponse(response);
-		assertEquals(Arrays.asList(expected), response.getHeaderValues("Vary"));
+		assertThat(response.getHeaderValues("Vary")).isEqualTo(Arrays.asList(expected));
 	}
 
 

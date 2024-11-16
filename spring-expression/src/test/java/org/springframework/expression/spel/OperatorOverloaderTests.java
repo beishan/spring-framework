@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,61 +16,52 @@
 
 package org.springframework.expression.spel;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.expression.EvaluationException;
 import org.springframework.expression.Operation;
 import org.springframework.expression.OperatorOverloader;
-import org.springframework.expression.spel.standard.SpelExpression;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
-
-import static org.junit.Assert.*;
 
 /**
- * Test providing operator support
+ * Tests for custom {@link OperatorOverloader} support.
  *
  * @author Andy Clement
+ * @author Sam Brannen
  */
-public class OperatorOverloaderTests extends AbstractExpressionTests {
+class OperatorOverloaderTests extends AbstractExpressionTests {
 
 	@Test
-	public void testSimpleOperations() throws Exception {
-		// no built in support for this:
-		evaluateAndCheckError("'abc'-true",SpelMessage.OPERATOR_NOT_SUPPORTED_BETWEEN_TYPES);
+	void simpleOperations() {
+		// default behavior
+		evaluate("'abc' + true", "abctrue", String.class);
+		evaluate("'abc' + null", "abcnull", String.class);
 
-		StandardEvaluationContext eContext = TestScenarioCreator.getTestEvaluationContext();
-		eContext.setOperatorOverloader(new StringAndBooleanAddition());
+		// no built-in support for <string> - <boolean>
+		evaluateAndCheckError("'abc' - true", SpelMessage.OPERATOR_NOT_SUPPORTED_BETWEEN_TYPES);
 
-		SpelExpression expr = (SpelExpression)parser.parseExpression("'abc'+true");
-		assertEquals("abctrue",expr.getValue(eContext));
+		super.context.setOperatorOverloader(new StringAndBooleanOperatorOverloader());
 
-		expr = (SpelExpression)parser.parseExpression("'abc'-true");
-		assertEquals("abc",expr.getValue(eContext));
+		// unaffected
+		evaluate("'abc' + true", "abctrue", String.class);
+		evaluate("'abc' + null", "abcnull", String.class);
 
-		expr = (SpelExpression)parser.parseExpression("'abc'+null");
-		assertEquals("abcnull",expr.getValue(eContext));
+		// <string> - <boolean> has been overloaded
+		evaluate("'abc' - true", "abcTRUE", String.class);
 	}
 
 
-	static class StringAndBooleanAddition implements OperatorOverloader {
+	private static class StringAndBooleanOperatorOverloader implements OperatorOverloader {
 
 		@Override
-		public Object operate(Operation operation, Object leftOperand, Object rightOperand) throws EvaluationException {
-			if (operation==Operation.ADD) {
-				return ((String)leftOperand)+((Boolean)rightOperand).toString();
-			}
-			else {
-				return leftOperand;
-			}
+		public boolean overridesOperation(Operation operation, Object leftOperand, Object rightOperand) {
+			return (leftOperand instanceof String && rightOperand instanceof Boolean);
 		}
 
 		@Override
-		public boolean overridesOperation(Operation operation, Object leftOperand, Object rightOperand) throws EvaluationException {
-			if (leftOperand instanceof String && rightOperand instanceof Boolean) {
-				return true;
+		public Object operate(Operation operation, Object leftOperand, Object rightOperand) {
+			if (operation == Operation.SUBTRACT) {
+				return leftOperand + ((Boolean) rightOperand).toString().toUpperCase();
 			}
-			return false;
-
+			throw new UnsupportedOperationException(operation.name());
 		}
 	}
 

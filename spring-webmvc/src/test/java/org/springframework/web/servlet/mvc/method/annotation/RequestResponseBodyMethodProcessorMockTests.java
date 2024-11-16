@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,11 +23,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-
-import org.junit.Before;
-import org.junit.Test;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.io.ByteArrayResource;
@@ -39,8 +38,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.lang.Nullable;
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
+import org.springframework.validation.BindingResult;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -53,9 +51,22 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Test fixture for {@link RequestResponseBodyMethodProcessor} delegating to a
@@ -67,23 +78,23 @@ import static org.mockito.BDDMockito.*;
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
  */
-public class RequestResponseBodyMethodProcessorMockTests {
+class RequestResponseBodyMethodProcessorMockTests {
 
-	private HttpMessageConverter<String> stringMessageConverter;
+	private HttpMessageConverter<String> stringMessageConverter = mock();
 
-	private HttpMessageConverter<Resource> resourceMessageConverter;
+	private HttpMessageConverter<Resource> resourceMessageConverter = mock();
 
-	private HttpMessageConverter<Object> resourceRegionMessageConverter;
+	private HttpMessageConverter<Object> resourceRegionMessageConverter = mock();
 
 	private RequestResponseBodyMethodProcessor processor;
 
-	private ModelAndViewContainer mavContainer;
+	private ModelAndViewContainer mavContainer = new ModelAndViewContainer();
 
-	private MockHttpServletRequest servletRequest;
+	private MockHttpServletRequest servletRequest = new MockHttpServletRequest();
 
-	private MockHttpServletResponse servletResponse;
+	private MockHttpServletResponse servletResponse = new MockHttpServletResponse();
 
-	private NativeWebRequest webRequest;
+	private NativeWebRequest webRequest = new ServletWebRequest(servletRequest, servletResponse);
 
 	private MethodParameter paramRequestBodyString;
 	private MethodParameter paramInt;
@@ -96,26 +107,21 @@ public class RequestResponseBodyMethodProcessorMockTests {
 	private MethodParameter returnTypeResource;
 
 
-	@Before
-	@SuppressWarnings("unchecked")
-	public void setup() throws Exception {
-		stringMessageConverter = mock(HttpMessageConverter.class);
+	@BeforeEach
+	void setup() throws Exception {
 		given(stringMessageConverter.getSupportedMediaTypes()).willReturn(Collections.singletonList(MediaType.TEXT_PLAIN));
-		resourceMessageConverter = mock(HttpMessageConverter.class);
+		given(stringMessageConverter.getSupportedMediaTypes(any())).willReturn(Collections.singletonList(MediaType.TEXT_PLAIN));
 		given(resourceMessageConverter.getSupportedMediaTypes()).willReturn(Collections.singletonList(MediaType.ALL));
-		resourceRegionMessageConverter = mock(HttpMessageConverter.class);
+		given(resourceMessageConverter.getSupportedMediaTypes(any())).willReturn(Collections.singletonList(MediaType.ALL));
 		given(resourceRegionMessageConverter.getSupportedMediaTypes()).willReturn(Collections.singletonList(MediaType.ALL));
+		given(resourceRegionMessageConverter.getSupportedMediaTypes(any())).willReturn(Collections.singletonList(MediaType.ALL));
 
 		processor = new RequestResponseBodyMethodProcessor(
 				Arrays.asList(stringMessageConverter, resourceMessageConverter, resourceRegionMessageConverter));
 
-		mavContainer = new ModelAndViewContainer();
-		servletRequest = new MockHttpServletRequest();
 		servletRequest.setMethod("POST");
-		servletResponse = new MockHttpServletResponse();
-		webRequest = new ServletWebRequest(servletRequest, servletResponse);
 
-		Method methodHandle1 = getClass().getMethod("handle1", String.class, Integer.TYPE);
+		Method methodHandle1 = getClass().getMethod("handle1", String.class, int.class);
 		paramRequestBodyString = new MethodParameter(methodHandle1, 0);
 		paramInt = new MethodParameter(methodHandle1, 1);
 		paramValidBean = new MethodParameter(getClass().getMethod("handle2", SimpleBean.class), 0);
@@ -128,19 +134,19 @@ public class RequestResponseBodyMethodProcessorMockTests {
 	}
 
 	@Test
-	public void supportsParameter() {
-		assertTrue("RequestBody parameter not supported", processor.supportsParameter(paramRequestBodyString));
-		assertFalse("non-RequestBody parameter supported", processor.supportsParameter(paramInt));
+	void supportsParameter() {
+		assertThat(processor.supportsParameter(paramRequestBodyString)).as("RequestBody parameter not supported").isTrue();
+		assertThat(processor.supportsParameter(paramInt)).as("non-RequestBody parameter supported").isFalse();
 	}
 
 	@Test
-	public void supportsReturnType() {
-		assertTrue("ResponseBody return type not supported", processor.supportsReturnType(returnTypeString));
-		assertFalse("non-ResponseBody return type supported", processor.supportsReturnType(returnTypeInt));
+	void supportsReturnType() {
+		assertThat(processor.supportsReturnType(returnTypeString)).as("ResponseBody return type not supported").isTrue();
+		assertThat(processor.supportsReturnType(returnTypeInt)).as("non-ResponseBody return type supported").isFalse();
 	}
 
 	@Test
-	public void resolveArgument() throws Exception {
+	void resolveArgument() throws Exception {
 		MediaType contentType = MediaType.TEXT_PLAIN;
 		servletRequest.addHeader("Content-Type", contentType.toString());
 
@@ -153,25 +159,24 @@ public class RequestResponseBodyMethodProcessorMockTests {
 		Object result = processor.resolveArgument(paramRequestBodyString, mavContainer,
 				webRequest, new ValidatingBinderFactory());
 
-		assertEquals("Invalid argument", body, result);
-		assertFalse("The requestHandled flag shouldn't change", mavContainer.isRequestHandled());
+		assertThat(result).as("Invalid argument").isEqualTo(body);
+		assertThat(mavContainer.isRequestHandled()).as("The requestHandled flag shouldn't change").isFalse();
 	}
 
 	@Test
-	public void resolveArgumentNotValid() throws Exception {
-		try {
-			testResolveArgumentWithValidation(new SimpleBean(null));
-			fail("Expected exception");
-		}
-		catch (MethodArgumentNotValidException e) {
-			assertEquals("simpleBean", e.getBindingResult().getObjectName());
-			assertEquals(1, e.getBindingResult().getErrorCount());
-			assertNotNull(e.getBindingResult().getFieldError("name"));
-		}
+	void resolveArgumentNotValid() {
+		assertThatExceptionOfType(MethodArgumentNotValidException.class).isThrownBy(() ->
+				testResolveArgumentWithValidation(new SimpleBean(null)))
+			.satisfies(ex -> {
+				BindingResult bindingResult = ex.getBindingResult();
+				assertThat(bindingResult.getObjectName()).isEqualTo("simpleBean");
+				assertThat(bindingResult.getErrorCount()).isEqualTo(1);
+				assertThat(bindingResult.getFieldError("name")).isNotNull();
+			});
 	}
 
 	@Test
-	public void resolveArgumentValid() throws Exception {
+	void resolveArgumentValid() throws Exception {
 		testResolveArgumentWithValidation(new SimpleBean("name"));
 	}
 
@@ -181,7 +186,7 @@ public class RequestResponseBodyMethodProcessorMockTests {
 		servletRequest.setContent("payload".getBytes(StandardCharsets.UTF_8));
 
 		@SuppressWarnings("unchecked")
-		HttpMessageConverter<SimpleBean> beanConverter = mock(HttpMessageConverter.class);
+		HttpMessageConverter<SimpleBean> beanConverter = mock();
 		given(beanConverter.getSupportedMediaTypes()).willReturn(Collections.singletonList(MediaType.TEXT_PLAIN));
 		given(beanConverter.canRead(SimpleBean.class, contentType)).willReturn(true);
 		given(beanConverter.read(eq(SimpleBean.class), isA(HttpInputMessage.class))).willReturn(simpleBean);
@@ -190,107 +195,111 @@ public class RequestResponseBodyMethodProcessorMockTests {
 		processor.resolveArgument(paramValidBean, mavContainer, webRequest, new ValidatingBinderFactory());
 	}
 
-	@Test(expected = HttpMediaTypeNotSupportedException.class)
-	public void resolveArgumentCannotRead() throws Exception {
+	@Test
+	void resolveArgumentCannotRead() {
 		MediaType contentType = MediaType.TEXT_PLAIN;
 		servletRequest.addHeader("Content-Type", contentType.toString());
 		servletRequest.setContent("payload".getBytes(StandardCharsets.UTF_8));
 
 		given(stringMessageConverter.canRead(String.class, contentType)).willReturn(false);
 
-		processor.resolveArgument(paramRequestBodyString, mavContainer, webRequest, null);
+		assertThatExceptionOfType(HttpMediaTypeNotSupportedException.class).isThrownBy(() ->
+				processor.resolveArgument(paramRequestBodyString, mavContainer, webRequest, null));
 	}
 
-	@Test(expected = HttpMediaTypeNotSupportedException.class)
-	public void resolveArgumentNoContentType() throws Exception {
+	@Test
+	void resolveArgumentNoContentType() {
 		servletRequest.setContent("payload".getBytes(StandardCharsets.UTF_8));
 		given(stringMessageConverter.canRead(String.class, MediaType.APPLICATION_OCTET_STREAM)).willReturn(false);
-		processor.resolveArgument(paramRequestBodyString, mavContainer, webRequest, null);
+		assertThatExceptionOfType(HttpMediaTypeNotSupportedException.class).isThrownBy(() ->
+				processor.resolveArgument(paramRequestBodyString, mavContainer, webRequest, null));
 	}
 
-	@Test(expected = HttpMediaTypeNotSupportedException.class)
-	public void resolveArgumentInvalidContentType() throws Exception {
+	@Test
+	void resolveArgumentInvalidContentType() {
 		this.servletRequest.setContentType("bad");
 		servletRequest.setContent("payload".getBytes(StandardCharsets.UTF_8));
-		processor.resolveArgument(paramRequestBodyString, mavContainer, webRequest, null);
+		assertThatExceptionOfType(HttpMediaTypeNotSupportedException.class).isThrownBy(() ->
+				processor.resolveArgument(paramRequestBodyString, mavContainer, webRequest, null));
 	}
 
-	@Test(expected = HttpMessageNotReadableException.class)  // SPR-9942
-	public void resolveArgumentRequiredNoContent() throws Exception {
+	@Test // SPR-9942
+	void resolveArgumentRequiredNoContent() throws Exception {
 		servletRequest.setContentType(MediaType.TEXT_PLAIN_VALUE);
 		servletRequest.setContent(new byte[0]);
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
 		given(stringMessageConverter.read(eq(String.class), isA(HttpInputMessage.class))).willReturn(null);
-		assertNull(processor.resolveArgument(paramRequestBodyString, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThatExceptionOfType(HttpMessageNotReadableException.class).isThrownBy(() ->
+				processor.resolveArgument(paramRequestBodyString, mavContainer,
+						webRequest, new ValidatingBinderFactory()));
 	}
 
 	@Test
-	public void resolveArgumentNotGetRequests() throws Exception {
+	void resolveArgumentNotGetRequests() throws Exception {
 		servletRequest.setMethod("GET");
 		servletRequest.setContent(new byte[0]);
 		given(stringMessageConverter.canRead(String.class, MediaType.APPLICATION_OCTET_STREAM)).willReturn(false);
-		assertNull(processor.resolveArgument(paramStringNotRequired, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramStringNotRequired, mavContainer,
+				webRequest, new ValidatingBinderFactory())).isNull();
 	}
 
 	@Test
-	public void resolveArgumentNotRequiredWithContent() throws Exception {
+	void resolveArgumentNotRequiredWithContent() throws Exception {
 		servletRequest.setContentType("text/plain");
 		servletRequest.setContent("body".getBytes());
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
 		given(stringMessageConverter.read(eq(String.class), isA(HttpInputMessage.class))).willReturn("body");
-		assertEquals("body", processor.resolveArgument(paramStringNotRequired, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramStringNotRequired, mavContainer,
+				webRequest, new ValidatingBinderFactory())).isEqualTo("body");
 	}
 
 	@Test
-	public void resolveArgumentNotRequiredNoContent() throws Exception {
+	void resolveArgumentNotRequiredNoContent() throws Exception {
 		servletRequest.setContentType("text/plain");
 		servletRequest.setContent(new byte[0]);
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
-		assertNull(processor.resolveArgument(paramStringNotRequired, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramStringNotRequired, mavContainer,
+				webRequest, new ValidatingBinderFactory())).isNull();
 	}
 
 	@Test  // SPR-13417
-	public void resolveArgumentNotRequiredNoContentNoContentType() throws Exception {
+	void resolveArgumentNotRequiredNoContentNoContentType() throws Exception {
 		servletRequest.setContent(new byte[0]);
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
 		given(stringMessageConverter.canRead(String.class, MediaType.APPLICATION_OCTET_STREAM)).willReturn(false);
-		assertNull(processor.resolveArgument(paramStringNotRequired, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramStringNotRequired, mavContainer,
+				webRequest, new ValidatingBinderFactory())).isNull();
 	}
 
 	@Test
-	public void resolveArgumentOptionalWithContent() throws Exception {
+	void resolveArgumentOptionalWithContent() throws Exception {
 		servletRequest.setContentType("text/plain");
 		servletRequest.setContent("body".getBytes());
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
 		given(stringMessageConverter.read(eq(String.class), isA(HttpInputMessage.class))).willReturn("body");
-		assertEquals(Optional.of("body"), processor.resolveArgument(paramOptionalString, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramOptionalString, mavContainer,
+				webRequest, new ValidatingBinderFactory())).isEqualTo(Optional.of("body"));
 	}
 
 	@Test
-	public void resolveArgumentOptionalNoContent() throws Exception {
+	void resolveArgumentOptionalNoContent() throws Exception {
 		servletRequest.setContentType("text/plain");
 		servletRequest.setContent(new byte[0]);
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
-		assertEquals(Optional.empty(), processor.resolveArgument(paramOptionalString, mavContainer, webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramOptionalString, mavContainer, webRequest, new ValidatingBinderFactory())).isEqualTo(Optional.empty());
 	}
 
 	@Test
-	public void resolveArgumentOptionalNoContentNoContentType() throws Exception {
+	void resolveArgumentOptionalNoContentNoContentType() throws Exception {
 		servletRequest.setContent(new byte[0]);
 		given(stringMessageConverter.canRead(String.class, MediaType.TEXT_PLAIN)).willReturn(true);
 		given(stringMessageConverter.canRead(String.class, MediaType.APPLICATION_OCTET_STREAM)).willReturn(false);
-		assertEquals(Optional.empty(), processor.resolveArgument(paramOptionalString, mavContainer,
-				webRequest, new ValidatingBinderFactory()));
+		assertThat(processor.resolveArgument(paramOptionalString, mavContainer,
+				webRequest, new ValidatingBinderFactory())).isEqualTo(Optional.empty());
 	}
 
 	@Test
-	public void handleReturnValue() throws Exception {
+	void handleReturnValue() throws Exception {
 		MediaType accepted = MediaType.TEXT_PLAIN;
 		servletRequest.addHeader("Accept", accepted.toString());
 
@@ -301,12 +310,12 @@ public class RequestResponseBodyMethodProcessorMockTests {
 
 		processor.handleReturnValue(body, returnTypeString, mavContainer, webRequest);
 
-		assertTrue("The requestHandled flag wasn't set", mavContainer.isRequestHandled());
+		assertThat(mavContainer.isRequestHandled()).as("The requestHandled flag wasn't set").isTrue();
 		verify(stringMessageConverter).write(eq(body), eq(accepted), isA(HttpOutputMessage.class));
 	}
 
 	@Test
-	public void handleReturnValueProduces() throws Exception {
+	void handleReturnValueProduces() throws Exception {
 		String body = "Foo";
 
 		servletRequest.addHeader("Accept", "text/*");
@@ -317,25 +326,26 @@ public class RequestResponseBodyMethodProcessorMockTests {
 
 		processor.handleReturnValue(body, returnTypeStringProduces, mavContainer, webRequest);
 
-		assertTrue(mavContainer.isRequestHandled());
+		assertThat(mavContainer.isRequestHandled()).isTrue();
 		verify(stringMessageConverter).write(eq(body), eq(MediaType.TEXT_HTML), isA(HttpOutputMessage.class));
 	}
 
 
-	@Test(expected = HttpMediaTypeNotAcceptableException.class)
-	public void handleReturnValueNotAcceptable() throws Exception {
+	@Test
+	void handleReturnValueNotAcceptable() {
 		MediaType accepted = MediaType.APPLICATION_ATOM_XML;
 		servletRequest.addHeader("Accept", accepted.toString());
 
 		given(stringMessageConverter.canWrite(String.class, null)).willReturn(true);
-		given(stringMessageConverter.getSupportedMediaTypes()).willReturn(Arrays.asList(MediaType.TEXT_PLAIN));
+		given(stringMessageConverter.getSupportedMediaTypes()).willReturn(List.of(MediaType.TEXT_PLAIN));
 		given(stringMessageConverter.canWrite(String.class, accepted)).willReturn(false);
 
-		processor.handleReturnValue("Foo", returnTypeString, mavContainer, webRequest);
+		assertThatExceptionOfType(HttpMediaTypeNotAcceptableException.class).isThrownBy(() ->
+				processor.handleReturnValue("Foo", returnTypeString, mavContainer, webRequest));
 	}
 
-	@Test(expected = HttpMediaTypeNotAcceptableException.class)
-	public void handleReturnValueNotAcceptableProduces() throws Exception {
+	@Test
+	void handleReturnValueNotAcceptableProduces() {
 		MediaType accepted = MediaType.TEXT_PLAIN;
 		servletRequest.addHeader("Accept", accepted.toString());
 
@@ -343,11 +353,12 @@ public class RequestResponseBodyMethodProcessorMockTests {
 		given(stringMessageConverter.getSupportedMediaTypes()).willReturn(Collections.singletonList(MediaType.TEXT_PLAIN));
 		given(stringMessageConverter.canWrite(String.class, accepted)).willReturn(false);
 
-		processor.handleReturnValue("Foo", returnTypeStringProduces, mavContainer, webRequest);
+		assertThatExceptionOfType(HttpMediaTypeNotAcceptableException.class).isThrownBy(() ->
+				processor.handleReturnValue("Foo", returnTypeStringProduces, mavContainer, webRequest));
 	}
 
 	@Test
-	public void handleReturnTypeResource() throws Exception {
+	void handleReturnTypeResource() throws Exception {
 		Resource returnValue = new ByteArrayResource("Content".getBytes(StandardCharsets.UTF_8));
 
 		given(resourceMessageConverter.canWrite(ByteArrayResource.class, null)).willReturn(true);
@@ -359,11 +370,11 @@ public class RequestResponseBodyMethodProcessorMockTests {
 
 		then(resourceMessageConverter).should(times(1)).write(any(ByteArrayResource.class),
 				eq(MediaType.APPLICATION_OCTET_STREAM), any(HttpOutputMessage.class));
-		assertEquals(200, servletResponse.getStatus());
+		assertThat(servletResponse.getStatus()).isEqualTo(200);
 	}
 
 	@Test  // SPR-9841
-	public void handleReturnValueMediaTypeSuffix() throws Exception {
+	void handleReturnValueMediaTypeSuffix() throws Exception {
 		String body = "Foo";
 		MediaType accepted = MediaType.APPLICATION_XHTML_XML;
 		List<MediaType> supported = Collections.singletonList(MediaType.valueOf("application/*+xml"));
@@ -371,17 +382,17 @@ public class RequestResponseBodyMethodProcessorMockTests {
 		servletRequest.addHeader("Accept", accepted);
 
 		given(stringMessageConverter.canWrite(String.class, null)).willReturn(true);
-		given(stringMessageConverter.getSupportedMediaTypes()).willReturn(supported);
+		given(stringMessageConverter.getSupportedMediaTypes(any())).willReturn(supported);
 		given(stringMessageConverter.canWrite(String.class, accepted)).willReturn(true);
 
 		processor.handleReturnValue(body, returnTypeStringProduces, mavContainer, webRequest);
 
-		assertTrue(mavContainer.isRequestHandled());
+		assertThat(mavContainer.isRequestHandled()).isTrue();
 		verify(stringMessageConverter).write(eq(body), eq(accepted), isA(HttpOutputMessage.class));
 	}
 
 	@Test
-	public void handleReturnTypeResourceByteRange() throws Exception {
+	void handleReturnTypeResourceByteRange() throws Exception {
 		Resource returnValue = new ByteArrayResource("Content".getBytes(StandardCharsets.UTF_8));
 		servletRequest.addHeader("Range", "bytes=0-5");
 
@@ -392,12 +403,12 @@ public class RequestResponseBodyMethodProcessorMockTests {
 
 		then(resourceRegionMessageConverter).should(times(1)).write(
 				anyCollection(), eq(MediaType.APPLICATION_OCTET_STREAM),
-				argThat(outputMessage -> outputMessage.getHeaders().getFirst(HttpHeaders.ACCEPT_RANGES) == "bytes"));
-		assertEquals(206, servletResponse.getStatus());
+				argThat(outputMessage -> "bytes".equals(outputMessage.getHeaders().getFirst(HttpHeaders.ACCEPT_RANGES))));
+		assertThat(servletResponse.getStatus()).isEqualTo(206);
 	}
 
 	@Test
-	public void handleReturnTypeResourceIllegalByteRange() throws Exception {
+	void handleReturnTypeResourceIllegalByteRange() throws Exception {
 		Resource returnValue = new ByteArrayResource("Content".getBytes(StandardCharsets.UTF_8));
 		servletRequest.addHeader("Range", "illegal");
 
@@ -408,7 +419,7 @@ public class RequestResponseBodyMethodProcessorMockTests {
 
 		then(resourceRegionMessageConverter).should(never()).write(
 				anyCollection(), eq(MediaType.APPLICATION_OCTET_STREAM), any(HttpOutputMessage.class));
-		assertEquals(416, servletResponse.getStatus());
+		assertThat(servletResponse.getStatus()).isEqualTo(416);
 	}
 
 
@@ -452,7 +463,7 @@ public class RequestResponseBodyMethodProcessorMockTests {
 
 		@Override
 		public WebDataBinder createBinder(NativeWebRequest webRequest, @Nullable Object target,
-				String objectName) throws Exception {
+				String objectName) {
 
 			LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 			validator.afterPropertiesSet();

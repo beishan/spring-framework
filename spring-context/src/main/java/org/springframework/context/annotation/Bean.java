@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import org.springframework.beans.factory.annotation.Autowire;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.core.annotation.AliasFor;
 
@@ -99,7 +98,7 @@ import org.springframework.core.annotation.AliasFor;
  * <p><b>NOTE:</b> {@code @Order} values may influence priorities at injection points,
  * but please be aware that they do not influence singleton startup order which is an
  * orthogonal concern determined by dependency relationships and {@code @DependsOn}
- * declarations as mentioned above. Also, {@link javax.annotation.Priority} is not
+ * declarations as mentioned above. Also, {@link jakarta.annotation.Priority} is not
  * available at this level since it cannot be declared on methods; its semantics can
  * be modeled through {@code @Order} values in combination with {@code @Primary} on
  * a single bean per type.
@@ -136,9 +135,9 @@ import org.springframework.core.annotation.AliasFor;
  * <h3>{@code @Bean} <em>Lite</em> Mode</h3>
  *
  * <p>{@code @Bean} methods may also be declared within classes that are <em>not</em>
- * annotated with {@code @Configuration}. For example, bean methods may be declared
- * in a {@code @Component} class or even in a <em>plain old class</em>. In such cases,
- * a {@code @Bean} method will get processed in a so-called <em>'lite'</em> mode.
+ * annotated with {@code @Configuration}. If a bean method is declared on a bean
+ * that is <em>not</em> annotated with {@code @Configuration} it is processed in a
+ * so-called <em>'lite'</em> mode.
  *
  * <p>Bean methods in <em>lite</em> mode will be treated as plain <em>factory
  * methods</em> by the container (similar to {@code factory-method} declarations
@@ -194,7 +193,7 @@ import org.springframework.core.annotation.AliasFor;
  * declaring {@code @Configuration} class, thus avoiding the above-mentioned lifecycle conflicts.
  * Note however that {@code static} {@code @Bean} methods will not be enhanced for scoping and AOP
  * semantics as mentioned above. This works out in {@code BFPP} cases, as they are not typically
- * referenced by other {@code @Bean} methods. As a reminder, a WARN-level log message will be
+ * referenced by other {@code @Bean} methods. As a reminder, an INFO-level log message will be
  * issued for any non-static {@code @Bean} methods having a return type assignable to
  * {@code BeanFactoryPostProcessor}.
  *
@@ -240,16 +239,40 @@ public @interface Bean {
 	String[] name() default {};
 
 	/**
-	 * Are dependencies to be injected via convention-based autowiring by name or type?
-	 * <p>Note that this autowire mode is just about externally driven autowiring based
-	 * on bean property setter methods by convention, analogous to XML bean definitions.
-	 * <p>The default mode does allow for annotation-driven autowiring. "no" refers to
-	 * externally driven autowiring only, not affecting any autowiring demands that the
-	 * bean class itself expresses through annotations.
-	 * @see Autowire#BY_NAME
-	 * @see Autowire#BY_TYPE
+	 * Is this bean a candidate for getting autowired into some other bean at all?
+	 * <p>Default is {@code true}; set this to {@code false} for internal delegates
+	 * that are not meant to get in the way of beans of the same type in other places.
+	 * @since 5.1
+	 * @see #defaultCandidate()
 	 */
-	Autowire autowire() default Autowire.NO;
+	boolean autowireCandidate() default true;
+
+	/**
+	 * Is this bean a candidate for getting autowired into some other bean based on
+	 * the plain type, without any further indications such as a qualifier match?
+	 * <p>Default is {@code true}; set this to {@code false} for restricted delegates
+	 * that are supposed to be injectable in certain areas but are not meant to get
+	 * in the way of beans of the same type in other places.
+	 * <p>This is a variation of {@link #autowireCandidate()} which does not disable
+	 * injection in general, just enforces an additional indication such as a qualifier.
+	 * @since 6.2
+	 * @see #autowireCandidate()
+	 */
+	boolean defaultCandidate() default true;
+
+	/**
+	 * The bootstrap mode for this bean: default is the main pre-instantiation thread
+	 * for non-lazy singleton beans and the caller thread for prototype beans.
+	 * <p>Set {@link Bootstrap#BACKGROUND} to allow for instantiating this bean on a
+	 * background thread. For a non-lazy singleton, a background pre-instantiation
+	 * thread can be used then, while still enforcing the completion at the end of
+	 * {@link org.springframework.context.ConfigurableApplicationContext#refresh()}.
+	 * For a lazy singleton, a background pre-instantiation thread can be used as well
+	 * - with completion allowed at a later point, enforcing it when actually accessed.
+	 * @since 6.2
+	 * @see Lazy
+	 */
+	Bootstrap bootstrap() default Bootstrap.DEFAULT;
 
 	/**
 	 * The optional name of a method to call on the bean instance during initialization.
@@ -277,7 +300,7 @@ public @interface Bean {
 	 * method (i.e., detection occurs reflectively against the bean instance itself at
 	 * creation time).
 	 * <p>To disable destroy method inference for a particular {@code @Bean}, specify an
-	 * empty string as the value, e.g. {@code @Bean(destroyMethod="")}. Note that the
+	 * empty string as the value, for example, {@code @Bean(destroyMethod="")}. Note that the
 	 * {@link org.springframework.beans.factory.DisposableBean} callback interface will
 	 * nevertheless get detected and the corresponding destroy method invoked: In other
 	 * words, {@code destroyMethod=""} only affects custom close/shutdown methods and
@@ -289,5 +312,29 @@ public @interface Bean {
 	 * @see org.springframework.context.ConfigurableApplicationContext#close()
 	 */
 	String destroyMethod() default AbstractBeanDefinition.INFER_METHOD;
+
+
+	/**
+	 * Local enumeration for the bootstrap mode.
+	 * @since 6.2
+	 * @see #bootstrap()
+	 */
+	enum Bootstrap {
+
+		/**
+		 * Constant to indicate the main pre-instantiation thread for non-lazy
+		 * singleton beans and the caller thread for prototype beans.
+		 */
+		DEFAULT,
+
+		/**
+		 * Allow for instantiating a bean on a background thread.
+		 * <p>For a non-lazy singleton, a background pre-instantiation thread
+		 * can be used while still enforcing the completion on context refresh.
+		 * For a lazy singleton, a background pre-instantiation thread can be used
+		 * with completion allowed at a later point (when actually accessed).
+		 */
+		BACKGROUND,
+	}
 
 }

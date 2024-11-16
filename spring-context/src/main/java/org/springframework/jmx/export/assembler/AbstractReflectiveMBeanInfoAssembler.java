@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.management.Descriptor;
 import javax.management.JMException;
 import javax.management.MBeanOperationInfo;
@@ -42,7 +43,7 @@ import org.springframework.lang.Nullable;
  *
  * <p>The logic for creating MBean metadata from the reflective metadata
  * is contained in this class, but this class makes no decisions as to
- * which methods and properties are to be exposed. Instead it gives
+ * which methods and properties are to be exposed. Instead, it gives
  * subclasses a chance to 'vote' on each property or method through
  * the {@code includeXXX} methods.
  *
@@ -176,7 +177,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	private Integer defaultCurrencyTimeLimit;
 
 	/**
-	 * Indicates whether or not strict casing is being used for attributes.
+	 * Indicates whether strict casing is being used for attributes.
 	 */
 	private boolean useStrictCasing = true;
 
@@ -265,7 +266,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 
 	/**
 	 * Set the ParameterNameDiscoverer to use for resolving method parameter
-	 * names if needed (e.g. for parameter names of MBean operation methods).
+	 * names if needed (for example, for parameter names of MBean operation methods).
 	 * <p>Default is a {@link DefaultParameterNameDiscoverer}.
 	 */
 	public void setParameterNameDiscoverer(@Nullable ParameterNameDiscoverer parameterNameDiscoverer) {
@@ -339,7 +340,7 @@ public abstract class AbstractReflectiveMBeanInfoAssembler extends AbstractMBean
 	/**
 	 * Iterate through all methods on the MBean class and gives subclasses the chance
 	 * to vote on their inclusion. If a particular method corresponds to the accessor
-	 * or mutator of an attribute that is inclued in the managment interface, then
+	 * or mutator of an attribute that is included in the management interface, then
 	 * the corresponding operation is exposed with the &quot;role&quot; descriptor
 	 * field set to the appropriate value.
 	 * @param managedBean the bean instance (might be an AOP proxy)

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,9 +41,9 @@ import javax.sql.DataSource;
  * is rolled back, the unused values will never be served. The maximum hole size in
  * numbering is consequently the value of cacheSize.
  *
- * <b>HINT:</b> Since Derby supports the JDBC 3.0 {@code getGeneratedKeys} method,
- * it is recommended to use IDENTITY columns directly in the tables and then utilizing
- * a {@link org.springframework.jdbc.support.KeyHolder} when calling the with the
+ * <b>HINT:</b> Since Derby supports the JDBC {@code getGeneratedKeys} method,
+ * it is recommended to use IDENTITY columns directly in the tables and then utilize
+ * a {@link org.springframework.jdbc.support.KeyHolder} when calling the
  * {@code update(PreparedStatementCreator psc, KeyHolder generatedKeyHolder)}
  * method of the {@link org.springframework.jdbc.core.JdbcTemplate}.
  *
@@ -55,10 +55,10 @@ import javax.sql.DataSource;
  */
 public class DerbyMaxValueIncrementer extends AbstractIdentityColumnMaxValueIncrementer {
 
-	/** The default for dummy name */
+	/** The default for dummy name. */
 	private static final String DEFAULT_DUMMY_NAME = "dummy";
 
-	/** The name of the dummy column used for inserts */
+	/** The name of the dummy column used for inserts. */
 	private String dummyName = DEFAULT_DUMMY_NAME;
 
 

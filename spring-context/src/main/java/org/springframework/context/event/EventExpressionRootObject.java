@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,28 +19,14 @@ package org.springframework.context.event;
 import org.springframework.context.ApplicationEvent;
 
 /**
- * Root object used during event listener expression evaluation.
+ * Root object used during event listener SpEL expression evaluation.
  *
  * @author Stephane Nicoll
+ * @author Sam Brannen
  * @since 4.2
+ * @param event the application event
+ * @param args the arguments supplied to the listener method
+ * @see EventListener#condition()
  */
-class EventExpressionRootObject {
-
-	private final ApplicationEvent event;
-
-	private final Object[] args;
-
-	public EventExpressionRootObject(ApplicationEvent event, Object[] args) {
-		this.event = event;
-		this.args = args;
-	}
-
-	public ApplicationEvent getEvent() {
-		return event;
-	}
-
-	public Object[] getArgs() {
-		return args;
-	}
-
+record EventExpressionRootObject(ApplicationEvent event, Object[] args) {
 }

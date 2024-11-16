@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package org.springframework.expression.spel;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.EvaluationException;
@@ -28,261 +28,193 @@ import org.springframework.expression.common.TemplateParserContext;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * @author Andy Clement
  * @author Juergen Hoeller
+ * @author Sam Brannen
  */
-public class TemplateExpressionParsingTests extends AbstractExpressionTests {
+class TemplateExpressionParsingTests extends AbstractExpressionTests {
 
-	public static final ParserContext DEFAULT_TEMPLATE_PARSER_CONTEXT = new ParserContext() {
-		@Override
-		public String getExpressionPrefix() {
-			return "${";
-		}
-		@Override
-		public String getExpressionSuffix() {
-			return "}";
-		}
-		@Override
-		public boolean isTemplate() {
-			return true;
-		}
-	};
+	static final ParserContext DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT = new TemplateParserContext("${", "}");
 
-	public static final ParserContext HASH_DELIMITED_PARSER_CONTEXT = new ParserContext() {
-		@Override
-		public String getExpressionPrefix() {
-			return "#{";
-		}
-		@Override
-		public String getExpressionSuffix() {
-			return "}";
-		}
-		@Override
-		public boolean isTemplate() {
-			return true;
-		}
-	};
+	private final SpelExpressionParser parser = new SpelExpressionParser();
 
 
 	@Test
-	public void testParsingSimpleTemplateExpression01() throws Exception {
-		SpelExpressionParser parser = new SpelExpressionParser();
-		Expression expr = parser.parseExpression("hello ${'world'}", DEFAULT_TEMPLATE_PARSER_CONTEXT);
-		Object o = expr.getValue();
-		assertEquals("hello world", o.toString());
+	void nullTemplateExpressionIsRejected() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> parser.parseExpression(null, DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT))
+			.withMessage("'expressionString' must not be null");
 	}
 
 	@Test
-	public void testParsingSimpleTemplateExpression02() throws Exception {
-		SpelExpressionParser parser = new SpelExpressionParser();
-		Expression expr = parser.parseExpression("hello ${'to'} you", DEFAULT_TEMPLATE_PARSER_CONTEXT);
+	void parsingSimpleTemplateExpression01() {
+		Expression expr = parser.parseExpression("hello ${'world'}", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		Object o = expr.getValue();
-		assertEquals("hello to you", o.toString());
+		assertThat(o.toString()).isEqualTo("hello world");
 	}
 
 	@Test
-	public void testParsingSimpleTemplateExpression03() throws Exception {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void parsingSimpleTemplateExpression02() {
+		Expression expr = parser.parseExpression("hello ${'to'} you", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
+		Object o = expr.getValue();
+		assertThat(o.toString()).isEqualTo("hello to you");
+	}
+
+	@Test
+	void parsingSimpleTemplateExpression03() {
 		Expression expr = parser.parseExpression("The quick ${'brown'} fox jumped over the ${'lazy'} dog",
-				DEFAULT_TEMPLATE_PARSER_CONTEXT);
+				DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		Object o = expr.getValue();
-		assertEquals("The quick brown fox jumped over the lazy dog", o.toString());
+		assertThat(o.toString()).isEqualTo("The quick brown fox jumped over the lazy dog");
 	}
 
 	@Test
-	public void testParsingSimpleTemplateExpression04() throws Exception {
-		SpelExpressionParser parser = new SpelExpressionParser();
-		Expression expr = parser.parseExpression("${'hello'} world", DEFAULT_TEMPLATE_PARSER_CONTEXT);
+	void parsingSimpleTemplateExpression04() {
+		Expression expr = parser.parseExpression("${'hello'} world", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		Object o = expr.getValue();
-		assertEquals("hello world", o.toString());
+		assertThat(o.toString()).isEqualTo("hello world");
 
-		expr = parser.parseExpression("", DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		expr = parser.parseExpression("", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		o = expr.getValue();
-		assertEquals("", o.toString());
+		assertThat(o.toString()).isEmpty();
 
-		expr = parser.parseExpression("abc", DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		expr = parser.parseExpression("abc", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		o = expr.getValue();
-		assertEquals("abc", o.toString());
+		assertThat(o.toString()).isEqualTo("abc");
 
-		expr = parser.parseExpression("abc", DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		expr = parser.parseExpression("abc", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		o = expr.getValue((Object)null);
-		assertEquals("abc", o.toString());
+		assertThat(o.toString()).isEqualTo("abc");
 	}
 
 	@Test
-	public void testCompositeStringExpression() throws Exception {
-		SpelExpressionParser parser = new SpelExpressionParser();
-		Expression ex = parser.parseExpression("hello ${'world'}", DEFAULT_TEMPLATE_PARSER_CONTEXT);
-		checkString("hello world", ex.getValue());
-		checkString("hello world", ex.getValue(String.class));
-		checkString("hello world", ex.getValue((Object)null, String.class));
-		checkString("hello world", ex.getValue(new Rooty()));
-		checkString("hello world", ex.getValue(new Rooty(), String.class));
+	void compositeStringExpression() {
+		Expression ex = parser.parseExpression("hello ${'world'}", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
+		assertThat(ex.getValue()).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(String.class)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue((Object)null, String.class)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(new Rooty())).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(new Rooty(), String.class)).isInstanceOf(String.class).isEqualTo("hello world");
 
 		EvaluationContext ctx = new StandardEvaluationContext();
-		checkString("hello world", ex.getValue(ctx));
-		checkString("hello world", ex.getValue(ctx, String.class));
-		checkString("hello world", ex.getValue(ctx, null, String.class));
-		checkString("hello world", ex.getValue(ctx, new Rooty()));
-		checkString("hello world", ex.getValue(ctx, new Rooty(), String.class));
-		checkString("hello world", ex.getValue(ctx, new Rooty(), String.class));
-		assertEquals("hello ${'world'}", ex.getExpressionString());
-		assertFalse(ex.isWritable(new StandardEvaluationContext()));
-		assertFalse(ex.isWritable(new Rooty()));
-		assertFalse(ex.isWritable(new StandardEvaluationContext(), new Rooty()));
+		assertThat(ex.getValue(ctx)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(ctx, String.class)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(ctx, null, String.class)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(ctx, new Rooty())).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(ctx, new Rooty(), String.class)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getValue(ctx, new Rooty(), String.class)).isInstanceOf(String.class).isEqualTo("hello world");
+		assertThat(ex.getExpressionString()).isEqualTo("hello ${'world'}");
+		assertThat(ex.isWritable(new StandardEvaluationContext())).isFalse();
+		assertThat(ex.isWritable(new Rooty())).isFalse();
+		assertThat(ex.isWritable(new StandardEvaluationContext(), new Rooty())).isFalse();
 
-		assertEquals(String.class,ex.getValueType());
-		assertEquals(String.class,ex.getValueType(ctx));
-		assertEquals(String.class,ex.getValueTypeDescriptor().getType());
-		assertEquals(String.class,ex.getValueTypeDescriptor(ctx).getType());
-		assertEquals(String.class,ex.getValueType(new Rooty()));
-		assertEquals(String.class,ex.getValueType(ctx, new Rooty()));
-		assertEquals(String.class,ex.getValueTypeDescriptor(new Rooty()).getType());
-		assertEquals(String.class,ex.getValueTypeDescriptor(ctx, new Rooty()).getType());
-
-		try {
-			ex.setValue(ctx, null);
-			fail();
-		}
-		catch (EvaluationException ee) {
-			// success
-		}
-		try {
-			ex.setValue((Object)null, null);
-			fail();
-		}
-		catch (EvaluationException ee) {
-			// success
-		}
-		try {
-			ex.setValue(ctx, null, null);
-			fail();
-		}
-		catch (EvaluationException ee) {
-			// success
-		}
+		assertThat(ex.getValueType()).isEqualTo(String.class);
+		assertThat(ex.getValueType(ctx)).isEqualTo(String.class);
+		assertThat(ex.getValueTypeDescriptor().getType()).isEqualTo(String.class);
+		assertThat(ex.getValueTypeDescriptor(ctx).getType()).isEqualTo(String.class);
+		assertThat(ex.getValueType(new Rooty())).isEqualTo(String.class);
+		assertThat(ex.getValueType(ctx, new Rooty())).isEqualTo(String.class);
+		assertThat(ex.getValueTypeDescriptor(new Rooty()).getType()).isEqualTo(String.class);
+		assertThat(ex.getValueTypeDescriptor(ctx, new Rooty()).getType()).isEqualTo(String.class);
+		assertThatExceptionOfType(EvaluationException.class).isThrownBy(() ->
+				ex.setValue(ctx, null));
+		assertThatExceptionOfType(EvaluationException.class).isThrownBy(() ->
+				ex.setValue((Object)null, null));
+		assertThatExceptionOfType(EvaluationException.class).isThrownBy(() ->
+				ex.setValue(ctx, null, null));
 	}
 
 	static class Rooty {}
 
 	@Test
-	public void testNestedExpressions() throws Exception {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void nestedExpressions() {
 		// treat the nested ${..} as a part of the expression
-		Expression ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#this<5]} world",DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		Expression ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#this<5]} world",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		String s = ex.getValue(TestScenarioCreator.getTestEvaluationContext(),String.class);
-		assertEquals("hello 4 world",s);
+		assertThat(s).isEqualTo("hello 4 world");
 
 		// not a useful expression but tests nested expression syntax that clashes with template prefix/suffix
-		ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#root.listOfNumbersUpToTen.$[#this%2==1]==3]} world",DEFAULT_TEMPLATE_PARSER_CONTEXT);
-		assertEquals(CompositeStringExpression.class,ex.getClass());
+		ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#root.listOfNumbersUpToTen.$[#this%2==1]==3]} world",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
+		assertThat(ex.getClass()).isEqualTo(CompositeStringExpression.class);
 		CompositeStringExpression cse = (CompositeStringExpression)ex;
 		Expression[] exprs = cse.getExpressions();
-		assertEquals(3,exprs.length);
-		assertEquals("listOfNumbersUpToTen.$[#root.listOfNumbersUpToTen.$[#this%2==1]==3]",exprs[1].getExpressionString());
+		assertThat(exprs).hasSize(3);
+		assertThat(exprs[1].getExpressionString()).isEqualTo("listOfNumbersUpToTen.$[#root.listOfNumbersUpToTen.$[#this%2==1]==3]");
 		s = ex.getValue(TestScenarioCreator.getTestEvaluationContext(),String.class);
-		assertEquals("hello  world",s);
+		assertThat(s).isEqualTo("hello  world");
 
-		ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#this<5]} ${listOfNumbersUpToTen.$[#this>5]} world",DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#this<5]} ${listOfNumbersUpToTen.$[#this>5]} world",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		s = ex.getValue(TestScenarioCreator.getTestEvaluationContext(),String.class);
-		assertEquals("hello 4 10 world",s);
+		assertThat(s).isEqualTo("hello 4 10 world");
 
-		try {
-			ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#this<5]} ${listOfNumbersUpToTen.$[#this>5] world",DEFAULT_TEMPLATE_PARSER_CONTEXT);
-			fail("Should have failed");
-		}
-		catch (ParseException pe) {
-			assertEquals("No ending suffix '}' for expression starting at character 41: ${listOfNumbersUpToTen.$[#this>5] world", pe.getSimpleMessage());
-		}
+		assertThatExceptionOfType(ParseException.class).isThrownBy(() ->
+				parser.parseExpression("hello ${listOfNumbersUpToTen.$[#this<5]} ${listOfNumbersUpToTen.$[#this>5] world",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT))
+			.satisfies(pex -> assertThat(pex.getSimpleMessage()).isEqualTo("No ending suffix '}' for expression starting at character 41: ${listOfNumbersUpToTen.$[#this>5] world"));
 
-		try {
-			ex = parser.parseExpression("hello ${listOfNumbersUpToTen.$[#root.listOfNumbersUpToTen.$[#this%2==1==3]} world",DEFAULT_TEMPLATE_PARSER_CONTEXT);
-			fail("Should have failed");
-		}
-		catch (ParseException pe) {
-			assertEquals("Found closing '}' at position 74 but most recent opening is '[' at position 30", pe.getSimpleMessage());
-		}
+		assertThatExceptionOfType(ParseException.class).isThrownBy(() ->
+				parser.parseExpression("hello ${listOfNumbersUpToTen.$[#root.listOfNumbersUpToTen.$[#this%2==1==3]} world",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT))
+			.satisfies(pex -> assertThat(pex.getSimpleMessage()).isEqualTo("Found closing '}' at position 74 but most recent opening is '[' at position 30"));
 	}
 
 	@Test
-
-	public void testClashingWithSuffixes() throws Exception {
+	void clashingWithSuffixes() {
 		// Just wanting to use the prefix or suffix within the template:
-		Expression ex = parser.parseExpression("hello ${3+4} world",DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		Expression ex = parser.parseExpression("hello ${3+4} world",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		String s = ex.getValue(TestScenarioCreator.getTestEvaluationContext(),String.class);
-		assertEquals("hello 7 world", s);
+		assertThat(s).isEqualTo("hello 7 world");
 
-		ex = parser.parseExpression("hello ${3+4} wo${'${'}rld",DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		ex = parser.parseExpression("hello ${3+4} wo${'${'}rld",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		s = ex.getValue(TestScenarioCreator.getTestEvaluationContext(),String.class);
-		assertEquals("hello 7 wo${rld", s);
+		assertThat(s).isEqualTo("hello 7 wo${rld");
 
-		ex = parser.parseExpression("hello ${3+4} wo}rld",DEFAULT_TEMPLATE_PARSER_CONTEXT);
+		ex = parser.parseExpression("hello ${3+4} wo}rld",DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT);
 		s = ex.getValue(TestScenarioCreator.getTestEvaluationContext(),String.class);
-		assertEquals("hello 7 wo}rld", s);
+		assertThat(s).isEqualTo("hello 7 wo}rld");
 	}
 
 	@Test
-	public void testParsingNormalExpressionThroughTemplateParser() throws Exception {
+	void parsingNormalExpressionThroughTemplateParser() {
 		Expression expr = parser.parseExpression("1+2+3");
-		assertEquals(6, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(6);
 	}
 
 	@Test
-	public void testErrorCases() throws Exception {
-		try {
-			parser.parseExpression("hello ${'world'", DEFAULT_TEMPLATE_PARSER_CONTEXT);
-			fail("Should have failed");
-		}
-		catch (ParseException pe) {
-			assertEquals("No ending suffix '}' for expression starting at character 6: ${'world'", pe.getSimpleMessage());
-			assertEquals("hello ${'world'", pe.getExpressionString());
-		}
-		try {
-			parser.parseExpression("hello ${'wibble'${'world'}", DEFAULT_TEMPLATE_PARSER_CONTEXT);
-			fail("Should have failed");
-		}
-		catch (ParseException pe) {
-			assertEquals("No ending suffix '}' for expression starting at character 6: ${'wibble'${'world'}", pe.getSimpleMessage());
-		}
-		try {
-			parser.parseExpression("hello ${} world", DEFAULT_TEMPLATE_PARSER_CONTEXT);
-			fail("Should have failed");
-		}
-		catch (ParseException pe) {
-			assertEquals("No expression defined within delimiter '${}' at character 6", pe.getSimpleMessage());
-		}
+	void errorCases() {
+		assertThatExceptionOfType(ParseException.class).isThrownBy(() ->
+				parser.parseExpression("hello ${'world'", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT))
+			.satisfies(pex -> {
+				assertThat(pex.getSimpleMessage()).isEqualTo("No ending suffix '}' for expression starting at character 6: ${'world'");
+				assertThat(pex.getExpressionString()).isEqualTo("hello ${'world'");
+			});
+		assertThatExceptionOfType(ParseException.class).isThrownBy(() ->
+				parser.parseExpression("hello ${'wibble'${'world'}", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT))
+			.satisfies(pex -> assertThat(pex.getSimpleMessage()).isEqualTo("No ending suffix '}' for expression starting at character 6: ${'wibble'${'world'}"));
+		assertThatExceptionOfType(ParseException.class).isThrownBy(() ->
+				parser.parseExpression("hello ${} world", DOLLAR_SIGN_TEMPLATE_PARSER_CONTEXT))
+			.satisfies(pex -> assertThat(pex.getSimpleMessage()).isEqualTo("No expression defined within delimiter '${}' at character 6"));
 	}
 
 	@Test
-	public void testTemplateParserContext() {
+	void templateParserContext() {
 		TemplateParserContext tpc = new TemplateParserContext("abc","def");
-		assertEquals("abc", tpc.getExpressionPrefix());
-		assertEquals("def", tpc.getExpressionSuffix());
-		assertTrue(tpc.isTemplate());
+		assertThat(tpc.getExpressionPrefix()).isEqualTo("abc");
+		assertThat(tpc.getExpressionSuffix()).isEqualTo("def");
+		assertThat(tpc.isTemplate()).isTrue();
 
 		tpc = new TemplateParserContext();
-		assertEquals("#{", tpc.getExpressionPrefix());
-		assertEquals("}", tpc.getExpressionSuffix());
-		assertTrue(tpc.isTemplate());
+		assertThat(tpc.getExpressionPrefix()).isEqualTo("#{");
+		assertThat(tpc.getExpressionSuffix()).isEqualTo("}");
+		assertThat(tpc.isTemplate()).isTrue();
 
 		ParserContext pc = ParserContext.TEMPLATE_EXPRESSION;
-		assertEquals("#{", pc.getExpressionPrefix());
-		assertEquals("}", pc.getExpressionSuffix());
-		assertTrue(pc.isTemplate());
-	}
-
-	// ---
-
-	private void checkString(String expectedString, Object value) {
-		if (!(value instanceof String)) {
-			fail("Result was not a string, it was of type " + value.getClass() + "  (value=" + value + ")");
-		}
-		if (!value.equals(expectedString)) {
-			fail("Did not get expected result.  Should have been '" + expectedString + "' but was '" + value + "'");
-		}
+		assertThat(pc.getExpressionPrefix()).isEqualTo("#{");
+		assertThat(pc.getExpressionSuffix()).isEqualTo("}");
+		assertThat(pc.isTemplate()).isTrue();
 	}
 
 }

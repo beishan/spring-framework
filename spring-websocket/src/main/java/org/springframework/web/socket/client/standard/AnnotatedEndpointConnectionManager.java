@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,9 @@
 
 package org.springframework.web.socket.client.standard;
 
-import javax.websocket.ContainerProvider;
-import javax.websocket.Session;
-import javax.websocket.WebSocketContainer;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.Session;
+import jakarta.websocket.WebSocketContainer;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
@@ -31,11 +31,9 @@ import org.springframework.web.socket.client.ConnectionManagerSupport;
 import org.springframework.web.socket.handler.BeanCreatingHandlerProvider;
 
 /**
- * A WebSocket connection manager that is given a URI, a
- * {@link javax.websocket.ClientEndpoint}-annotated endpoint, connects to a
- * WebSocket server through the {@link #start()} and {@link #stop()} methods.
- * If {@link #setAutoStartup(boolean)} is set to {@code true} this will be
- * done automatically when the Spring ApplicationContext is refreshed.
+ * WebSocket {@link ConnectionManagerSupport connection manager} that connects
+ * to the server via {@link WebSocketContainer} and handles the session with an
+ * {@link jakarta.websocket.ClientEndpoint @ClientEndpoint} endpoint.
  *
  * @author Rossen Stoyanchev
  * @since 4.0
@@ -102,18 +100,24 @@ public class AnnotatedEndpointConnectionManager extends ConnectionManagerSupport
 
 
 	@Override
+	public boolean isConnected() {
+		Session session = this.session;
+		return (session != null && session.isOpen());
+	}
+
+	@Override
 	protected void openConnection() {
 		this.taskExecutor.execute(() -> {
 			try {
 				if (logger.isInfoEnabled()) {
 					logger.info("Connecting to WebSocket at " + getUri());
 				}
-				Object endpointToUse = endpoint;
+				Object endpointToUse = this.endpoint;
 				if (endpointToUse == null) {
-					Assert.state(endpointProvider != null, "No endpoint set");
-					endpointToUse = endpointProvider.getHandler();
+					Assert.state(this.endpointProvider != null, "No endpoint set");
+					endpointToUse = this.endpointProvider.getHandler();
 				}
-				session = webSocketContainer.connectToServer(endpointToUse, getUri());
+				this.session = this.webSocketContainer.connectToServer(endpointToUse, getUri());
 				logger.info("Successfully connected to WebSocket");
 			}
 			catch (Throwable ex) {
@@ -133,12 +137,6 @@ public class AnnotatedEndpointConnectionManager extends ConnectionManagerSupport
 		finally {
 			this.session = null;
 		}
-	}
-
-	@Override
-	protected boolean isConnected() {
-		Session session = this.session;
-		return (session != null && session.isOpen());
 	}
 
 }

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,12 +28,12 @@ import org.springframework.core.annotation.AliasFor;
  * Annotation to bind a method parameter to a session attribute.
  *
  * <p>The main motivation is to provide convenient access to existing, permanent
- * session attributes (e.g. user authentication object) with an optional/required
+ * session attributes (for example, user authentication object) with an optional/required
  * check and a cast to the target method parameter type.
  *
  * <p>For use cases that require adding or removing session attributes consider
  * injecting {@code org.springframework.web.context.request.WebRequest} or
- * {@code javax.servlet.http.HttpSession} into the controller method.
+ * {@code jakarta.servlet.http.HttpSession} into the controller method.
  *
  * <p>For temporary storage of model attributes in the session as part of the
  * workflow for a controller, consider using {@link SessionAttributes} instead.

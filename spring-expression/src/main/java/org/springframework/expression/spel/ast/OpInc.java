@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,15 +34,18 @@ import org.springframework.util.Assert;
  * @author Andy Clement
  * @author Juergen Hoeller
  * @author Giovanni Dall'Oglio Risso
+ * @author Sam Brannen
  * @since 3.2
  */
 public class OpInc extends Operator {
 
+	private static final String INC = "++";
+
 	private final boolean postfix;  // false means prefix
 
 
-	public OpInc(int pos, boolean postfix, SpelNodeImpl... operands) {
-		super("++", pos, operands);
+	public OpInc(int startPos, int endPos, boolean postfix, SpelNodeImpl... operands) {
+		super(INC, startPos, endPos, operands);
 		this.postfix = postfix;
 		Assert.notEmpty(operands, "Operands must not be empty");
 	}
@@ -50,6 +53,10 @@ public class OpInc extends Operator {
 
 	@Override
 	public TypedValue getValueInternal(ExpressionState state) throws EvaluationException {
+		if (!state.getEvaluationContext().isAssignmentEnabled()) {
+			throw new SpelEvaluationException(getStartPosition(), SpelMessage.OPERAND_NOT_INCREMENTABLE, toStringAST());
+		}
+
 		SpelNodeImpl operand = getLeftOperand();
 		ValueRef valueRef = operand.getValueRef(state);
 
@@ -58,10 +65,9 @@ public class OpInc extends Operator {
 		TypedValue returnValue = typedValue;
 		TypedValue newValue = null;
 
-		if (value instanceof Number) {
-			Number op1 = (Number) value;
-			if (op1 instanceof BigDecimal) {
-				newValue = new TypedValue(((BigDecimal) op1).add(BigDecimal.ONE), typedValue.getTypeDescriptor());
+		if (value instanceof Number op1) {
+			if (op1 instanceof BigDecimal bigDecimal) {
+				newValue = new TypedValue(bigDecimal.add(BigDecimal.ONE), typedValue.getTypeDescriptor());
 			}
 			else if (op1 instanceof Double) {
 				newValue = new TypedValue(op1.doubleValue() + 1.0d, typedValue.getTypeDescriptor());
@@ -69,8 +75,8 @@ public class OpInc extends Operator {
 			else if (op1 instanceof Float) {
 				newValue = new TypedValue(op1.floatValue() + 1.0f, typedValue.getTypeDescriptor());
 			}
-			else if (op1 instanceof BigInteger) {
-				newValue = new TypedValue(((BigInteger) op1).add(BigInteger.ONE), typedValue.getTypeDescriptor());
+			else if (op1 instanceof BigInteger bigInteger) {
+				newValue = new TypedValue(bigInteger.add(BigInteger.ONE), typedValue.getTypeDescriptor());
 			}
 			else if (op1 instanceof Long) {
 				newValue = new TypedValue(op1.longValue() + 1L, typedValue.getTypeDescriptor());
@@ -104,12 +110,12 @@ public class OpInc extends Operator {
 			}
 		}
 
-		// set the name value
+		// set the new value
 		try {
 			valueRef.setValue(newValue.getValue());
 		}
 		catch (SpelEvaluationException see) {
-			// If unable to set the value the operand is not writable (e.g. 1++ )
+			// If unable to set the value the operand is not writable (for example, 1++ )
 			if (see.getMessageCode() == SpelMessage.SETVALUE_NOT_SUPPORTED) {
 				throw new SpelEvaluationException(operand.getStartPosition(), SpelMessage.OPERAND_NOT_INCREMENTABLE);
 			}
@@ -128,7 +134,8 @@ public class OpInc extends Operator {
 
 	@Override
 	public String toStringAST() {
-		return getLeftOperand().toStringAST() + "++";
+		String ast = getLeftOperand().toStringAST();
+		return (this.postfix ? ast + INC : INC + ast);
 	}
 
 	@Override

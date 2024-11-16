@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,8 +34,8 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.FileCopyUtils;
 
 /**
- * {@link LobCreator} implementation based on temporary LOBs,
- * using JDBC 4.0's {@link java.sql.Connection#createBlob()} /
+ * {@link LobCreator} implementation based on temporary LOBs, using JDBC's
+ * {@link java.sql.Connection#createBlob()} /
  * {@link java.sql.Connection#createClob()} mechanism.
  *
  * <p>Used by DefaultLobHandler's {@link DefaultLobHandler#setCreateTemporaryLob} mode.
@@ -46,7 +46,10 @@ import org.springframework.util.FileCopyUtils;
  * @see DefaultLobHandler#setCreateTemporaryLob
  * @see java.sql.Connection#createBlob()
  * @see java.sql.Connection#createClob()
+ * @deprecated as of 6.2, in favor of {@link org.springframework.jdbc.core.support.SqlBinaryValue}
+ * and {@link org.springframework.jdbc.core.support.SqlCharacterValue}
  */
+@Deprecated(since = "6.2")
 public class TemporaryLobCreator implements LobCreator {
 
 	protected static final Log logger = LogFactory.getLog(TemporaryLobCreator.class);
@@ -179,16 +182,21 @@ public class TemporaryLobCreator implements LobCreator {
 
 	@Override
 	public void close() {
-		try {
-			for (Blob blob : this.temporaryBlobs) {
+		for (Blob blob : this.temporaryBlobs) {
+			try {
 				blob.free();
 			}
-			for (Clob clob : this.temporaryClobs) {
-				clob.free();
+			catch (SQLException ex) {
+				logger.warn("Could not free BLOB", ex);
 			}
 		}
-		catch (SQLException ex) {
-			logger.error("Could not free LOB", ex);
+		for (Clob clob : this.temporaryClobs) {
+			try {
+				clob.free();
+			}
+			catch (SQLException ex) {
+				logger.warn("Could not free CLOB", ex);
+			}
 		}
 	}
 

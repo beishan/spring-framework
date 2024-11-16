@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,19 +35,19 @@ import org.springframework.core.Ordered;
  * <pre class="code">
  * &#064;Configuration
  * &#064;EnableCaching
- * public class AppConfig {
+ * class AppConfig {
  *
  *     &#064;Bean
- *     public MyService myService() {
+ *     MyService myService() {
  *         // configure and return a class having &#064;Cacheable methods
  *         return new MyService();
  *     }
  *
  *     &#064;Bean
- *     public CacheManager cacheManager() {
+ *     CacheManager cacheManager() {
  *         // configure and return an implementation of Spring's CacheManager SPI
  *         SimpleCacheManager cacheManager = new SimpleCacheManager();
- *         cacheManager.setCaches(Arrays.asList(new ConcurrentMapCache("default")));
+ *         cacheManager.setCaches(Set.of(new ConcurrentMapCache("default")));
  *         return cacheManager;
  *     }
  * }</pre>
@@ -56,25 +56,24 @@ import org.springframework.core.Ordered;
  * configuration:
  *
  * <pre class="code">
- * {@code
- * <beans>
+ * &lt;beans&gt;
  *
- *     <cache:annotation-driven/>
+ *     &lt;cache:annotation-driven/&gt;
  *
- *     <bean id="myService" class="com.foo.MyService"/>
+ *     &lt;bean id="myService" class="com.foo.MyService"/&gt;
  *
- *     <bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager">
- *         <property name="caches">
- *             <set>
- *                 <bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean">
- *                     <property name="name" value="default"/>
- *                 </bean>
- *             </set>
- *         </property>
- *     </bean>
+ *     &lt;bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager"&gt;
+ *         &lt;property name="caches"&gt;
+ *             &lt;set&gt;
+ *                 &lt;bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean"&gt;
+ *                     &lt;property name="name" value="default"/&gt;
+ *                 &lt;/bean&gt;
+ *             &lt;/set&gt;
+ *         &lt;/property&gt;
+ *     &lt;/bean&gt;
  *
- * </beans>
- * }</pre>
+ * &lt;/beans&gt;
+ * </pre>
  *
  * In both of the scenarios above, {@code @EnableCaching} and {@code
  * <cache:annotation-driven/>} are responsible for registering the necessary Spring
@@ -104,26 +103,25 @@ import org.springframework.core.Ordered;
  * <pre class="code">
  * &#064;Configuration
  * &#064;EnableCaching
- * public class AppConfig extends CachingConfigurerSupport {
+ * class AppConfig implements CachingConfigurer {
  *
  *     &#064;Bean
- *     public MyService myService() {
+ *     MyService myService() {
  *         // configure and return a class having &#064;Cacheable methods
  *         return new MyService();
  *     }
  *
  *     &#064;Bean
  *     &#064;Override
- *     public CacheManager cacheManager() {
+ *     CacheManager cacheManager() {
  *         // configure and return an implementation of Spring's CacheManager SPI
  *         SimpleCacheManager cacheManager = new SimpleCacheManager();
- *         cacheManager.setCaches(Arrays.asList(new ConcurrentMapCache("default")));
+ *         cacheManager.setCaches(Set.of(new ConcurrentMapCache("default")));
  *         return cacheManager;
  *     }
  *
- *     &#064;Bean
  *     &#064;Override
- *     public KeyGenerator keyGenerator() {
+ *     KeyGenerator keyGenerator() {
  *         // configure and return an implementation of Spring's KeyGenerator SPI
  *         return new MyKeyGenerator();
  *     }
@@ -138,15 +136,11 @@ import org.springframework.core.Ordered;
  * org.springframework.cache.interceptor.KeyGenerator KeyGenerator} SPI. Normally,
  * {@code @EnableCaching} will configure Spring's
  * {@link org.springframework.cache.interceptor.SimpleKeyGenerator SimpleKeyGenerator}
- * for this purpose, but when implementing {@code CachingConfigurer}, a key generator
- * must be provided explicitly. Return {@code null} or {@code new SimpleKeyGenerator()}
- * from this method if no customization is necessary.
+ * for this purpose, but when implementing {@code CachingConfigurer}, a custom key
+ * generator can be specified.
  *
- * <p>{@link CachingConfigurer} offers additional customization options: it is recommended
- * to extend from {@link org.springframework.cache.annotation.CachingConfigurerSupport
- * CachingConfigurerSupport} that provides a default implementation for all methods which
- * can be useful if you do not need to customize everything. See {@link CachingConfigurer}
- * Javadoc for further details.
+ * <p>{@link CachingConfigurer} offers additional customization options:
+ * see the {@link CachingConfigurer} javadoc for further details.
  *
  * <p>The {@link #mode} attribute controls how advice is applied: If the mode is
  * {@link AdviceMode#PROXY} (the default), then the other attributes control the behavior
@@ -182,7 +176,7 @@ public @interface EnableCaching {
 	 * For example, other beans marked with Spring's {@code @Transactional} annotation will
 	 * be upgraded to subclass proxying at the same time. This approach has no negative
 	 * impact in practice unless one is explicitly expecting one type of proxy vs another,
-	 * e.g. in tests.
+	 * for example, in tests.
 	 */
 	boolean proxyTargetClass() default false;
 

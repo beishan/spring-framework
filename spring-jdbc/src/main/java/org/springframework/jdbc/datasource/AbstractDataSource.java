@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.jdbc.datasource;
 import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.util.logging.Logger;
+
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -38,7 +39,7 @@ import org.apache.commons.logging.LogFactory;
  */
 public abstract class AbstractDataSource implements DataSource {
 
-	/** Logger available to subclasses */
+	/** Logger available to subclasses. */
 	protected final Log logger = LogFactory.getLog(getClass());
 
 
@@ -74,10 +75,10 @@ public abstract class AbstractDataSource implements DataSource {
 		throw new UnsupportedOperationException("setLogWriter");
 	}
 
-
-	//---------------------------------------------------------------------
-	// Implementation of JDBC 4.0's Wrapper interface
-	//---------------------------------------------------------------------
+	@Override
+	public Logger getParentLogger() {
+		return Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+	}
 
 	@Override
 	@SuppressWarnings("unchecked")
@@ -92,16 +93,6 @@ public abstract class AbstractDataSource implements DataSource {
 	@Override
 	public boolean isWrapperFor(Class<?> iface) throws SQLException {
 		return iface.isInstance(this);
-	}
-
-
-	//---------------------------------------------------------------------
-	// Implementation of JDBC 4.1's getParentLogger method
-	//---------------------------------------------------------------------
-
-	@Override
-	public Logger getParentLogger() {
-		return Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 	}
 
 }

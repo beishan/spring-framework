@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -98,11 +98,11 @@ public class ArgumentConvertingMethodInvoker extends MethodInvoker {
 	 */
 	public void registerCustomEditor(Class<?> requiredType, PropertyEditor propertyEditor) {
 		TypeConverter converter = getTypeConverter();
-		if (!(converter instanceof PropertyEditorRegistry)) {
+		if (!(converter instanceof PropertyEditorRegistry registry)) {
 			throw new IllegalStateException(
 					"TypeConverter does not implement PropertyEditorRegistry interface: " + converter);
 		}
-		((PropertyEditorRegistry) converter).registerCustomEditor(requiredType, propertyEditor);
+		registry.registerCustomEditor(requiredType, propertyEditor);
 	}
 
 
@@ -111,6 +111,7 @@ public class ArgumentConvertingMethodInvoker extends MethodInvoker {
 	 * @see #doFindMatchingMethod
 	 */
 	@Override
+	@Nullable
 	protected Method findMatchingMethod() {
 		Method matchingMethod = super.findMatchingMethod();
 		// Second pass: look for method where arguments can be converted to parameter types.
@@ -146,8 +147,9 @@ public class ArgumentConvertingMethodInvoker extends MethodInvoker {
 			for (Method candidate : candidates) {
 				if (candidate.getName().equals(targetMethod)) {
 					// Check if the inspected method has the correct number of parameters.
-					Class<?>[] paramTypes = candidate.getParameterTypes();
-					if (paramTypes.length == argCount) {
+					int parameterCount = candidate.getParameterCount();
+					if (parameterCount == argCount) {
+						Class<?>[] paramTypes = candidate.getParameterTypes();
 						Object[] convertedArguments = new Object[argCount];
 						boolean match = true;
 						for (int j = 0; j < argCount && match; j++) {

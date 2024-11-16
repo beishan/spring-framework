@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,7 +20,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.lang.Nullable;
 import org.springframework.ui.Model;
 import org.springframework.ui.ModelMap;
@@ -30,8 +30,8 @@ import org.springframework.web.bind.support.SimpleSessionStatus;
 
 /**
  * Records model and view related decisions made by
- * {@link HandlerMethodArgumentResolver}s and
- * {@link HandlerMethodReturnValueHandler}s during the course of invocation of
+ * {@link HandlerMethodArgumentResolver HandlerMethodArgumentResolvers} and
+ * {@link HandlerMethodReturnValueHandler HandlerMethodReturnValueHandlers} during the course of invocation of
  * a controller method.
  *
  * <p>The {@link #setRequestHandled} flag can be used to indicate the request
@@ -40,7 +40,7 @@ import org.springframework.web.bind.support.SimpleSessionStatus;
  * <p>A default {@link Model} is automatically created at instantiation.
  * An alternate model instance may be provided via {@link #setRedirectModel}
  * for use in a redirect scenario. When {@link #setRedirectModelScenario} is set
- * to {@code true} signalling a redirect scenario, the {@link #getModel()}
+ * to {@code true} signaling a redirect scenario, the {@link #getModel()}
  * returns the redirect model instead of the default model.
  *
  * @author Rossen Stoyanchev
@@ -49,7 +49,7 @@ import org.springframework.web.bind.support.SimpleSessionStatus;
  */
 public class ModelAndViewContainer {
 
-	private boolean ignoreDefaultModelOnRedirect = false;
+	private boolean ignoreDefaultModelOnRedirect = true;
 
 	@Nullable
 	private Object view;
@@ -62,7 +62,7 @@ public class ModelAndViewContainer {
 	private boolean redirectModelScenario = false;
 
 	@Nullable
-	private HttpStatus status;
+	private HttpStatusCode status;
 
 	private final Set<String> noBinding = new HashSet<>(4);
 
@@ -74,7 +74,7 @@ public class ModelAndViewContainer {
 
 
 	/**
-	 * By default the content of the "default" model is used both during
+	 * By default, the content of the "default" model is used both during
 	 * rendering and redirect scenarios. Alternatively controller methods
 	 * can declare an argument of type {@code RedirectAttributes} and use
 	 * it to provide attributes to prepare the redirect URL.
@@ -83,8 +83,11 @@ public class ModelAndViewContainer {
 	 * is not declared. Setting it to {@code false} means the "default" model
 	 * may be used in a redirect if the controller method doesn't declare a
 	 * RedirectAttributes argument.
-	 * <p>The default setting is {@code false}.
+	 * <p>As of 6.0, this property is set to {@code true} by default.
+	 * @deprecated as of 6.0 without a replacement; once removed, the default
+	 * model will always be ignored on redirect
 	 */
+	@Deprecated(since = "6.0")
 	public void setIgnoreDefaultModelOnRedirect(boolean ignoreDefaultModelOnRedirect) {
 		this.ignoreDefaultModelOnRedirect = ignoreDefaultModelOnRedirect;
 	}
@@ -103,7 +106,7 @@ public class ModelAndViewContainer {
 	 */
 	@Nullable
 	public String getViewName() {
-		return (this.view instanceof String ? (String) this.view : null);
+		return (this.view instanceof String viewName ? viewName : null);
 	}
 
 	/**
@@ -115,7 +118,7 @@ public class ModelAndViewContainer {
 	}
 
 	/**
-	 * Return the View object, or {@code null} if we using a view name
+	 * Return the View object, or {@code null} if we are using a view name
 	 * to be resolved by the DispatcherServlet via a ViewResolver.
 	 */
 	@Nullable
@@ -162,7 +165,7 @@ public class ModelAndViewContainer {
 	 * returns either the "default" model (template rendering) or the "redirect"
 	 * model (redirect URL preparation). Use of this method may be needed for
 	 * advanced cases when access to the "default" model is needed regardless,
-	 * e.g. to save model attributes specified via {@code @SessionAttributes}.
+	 * for example, to save model attributes specified via {@code @SessionAttributes}.
 	 * @return the default model (never {@code null})
 	 * @since 4.1.4
 	 */
@@ -172,16 +175,16 @@ public class ModelAndViewContainer {
 
 	/**
 	 * Provide a separate model instance to use in a redirect scenario.
-	 * The provided additional model however is not used unless
-	 * {@link #setRedirectModelScenario(boolean)} gets set to {@code true} to signal
-	 * a redirect scenario.
+	 * <p>The provided additional model however is not used unless
+	 * {@link #setRedirectModelScenario} gets set to {@code true}
+	 * to signal an actual redirect scenario.
 	 */
 	public void setRedirectModel(ModelMap redirectModel) {
 		this.redirectModel = redirectModel;
 	}
 
 	/**
-	 * Whether the controller has returned a redirect instruction, e.g. a
+	 * Whether the controller has returned a redirect instruction, for example, a
 	 * "redirect:" prefixed view name, a RedirectView instance, etc.
 	 */
 	public void setRedirectModelScenario(boolean redirectModelScenario) {
@@ -193,7 +196,7 @@ public class ModelAndViewContainer {
 	 * {@code ModelAndView} used for view rendering purposes.
 	 * @since 4.3
 	 */
-	public void setStatus(@Nullable HttpStatus status) {
+	public void setStatus(@Nullable HttpStatusCode status) {
 		this.status = status;
 	}
 
@@ -202,7 +205,7 @@ public class ModelAndViewContainer {
 	 * @since 4.3
 	 */
 	@Nullable
-	public HttpStatus getStatus() {
+	public HttpStatusCode getStatus() {
 		return this.status;
 	}
 
@@ -250,7 +253,7 @@ public class ModelAndViewContainer {
 	}
 
 	/**
-	 * Whether the request has been handled fully within the handler, e.g.
+	 * Whether the request has been handled fully within the handler, for example,
 	 * {@code @ResponseBody} method, and therefore view resolution is not
 	 * necessary. This flag can also be set when controller methods declare an
 	 * argument of type {@code ServletResponse} or {@code OutputStream}).
@@ -333,7 +336,7 @@ public class ModelAndViewContainer {
 		StringBuilder sb = new StringBuilder("ModelAndViewContainer: ");
 		if (!isRequestHandled()) {
 			if (isViewReference()) {
-				sb.append("reference to view with name '").append(this.view).append("'");
+				sb.append("reference to view with name '").append(this.view).append('\'');
 			}
 			else {
 				sb.append("View is [").append(this.view).append(']');

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,30 +19,34 @@ package org.springframework.instrument.classloading;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
- * Unit tests for the {@link ReflectiveLoadTimeWeaver} class.
+ * Tests for {@link ReflectiveLoadTimeWeaver}.
  *
  * @author Rick Evans
  * @author Chris Beams
  */
-public class ReflectiveLoadTimeWeaverTests {
+class ReflectiveLoadTimeWeaverTests {
 
-	@Test(expected = IllegalArgumentException.class)
-	public void testCtorWithNullClassLoader() {
-		new ReflectiveLoadTimeWeaver(null);
-	}
-
-	@Test(expected = IllegalStateException.class)
-	public void testCtorWithClassLoaderThatDoesNotExposeAnAddTransformerMethod() {
-		new ReflectiveLoadTimeWeaver(getClass().getClassLoader());
+	@Test
+	void testCtorWithNullClassLoader() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				new ReflectiveLoadTimeWeaver(null));
 	}
 
 	@Test
-	public void testCtorWithClassLoaderThatDoesNotExposeAGetThrowawayClassLoaderMethodIsOkay() {
+	void testCtorWithClassLoaderThatDoesNotExposeAnAddTransformerMethod() {
+		assertThatIllegalStateException().isThrownBy(() ->
+				new ReflectiveLoadTimeWeaver(getClass().getClassLoader()));
+	}
+
+	@Test
+	void testCtorWithClassLoaderThatDoesNotExposeAGetThrowawayClassLoaderMethodIsOkay() {
 		JustAddTransformerClassLoader classLoader = new JustAddTransformerClassLoader();
 		ReflectiveLoadTimeWeaver weaver = new ReflectiveLoadTimeWeaver(classLoader);
 		weaver.addTransformer(new ClassFileTransformer() {
@@ -51,28 +55,29 @@ public class ReflectiveLoadTimeWeaverTests {
 				return "CAFEDEAD".getBytes();
 			}
 		});
-		assertEquals(1, classLoader.getNumTimesGetThrowawayClassLoaderCalled());
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void testAddTransformerWithNullTransformer() {
-		new ReflectiveLoadTimeWeaver(new JustAddTransformerClassLoader()).addTransformer(null);
+		assertThat(classLoader.getNumTimesGetThrowawayClassLoaderCalled()).isEqualTo(1);
 	}
 
 	@Test
-	public void testGetThrowawayClassLoaderWithClassLoaderThatDoesNotExposeAGetThrowawayClassLoaderMethodYieldsFallbackClassLoader() {
+	void testAddTransformerWithNullTransformer() {
+		assertThatIllegalArgumentException().isThrownBy(() ->
+				new ReflectiveLoadTimeWeaver(new JustAddTransformerClassLoader()).addTransformer(null));
+	}
+
+	@Test
+	void testGetThrowawayClassLoaderWithClassLoaderThatDoesNotExposeAGetThrowawayClassLoaderMethodYieldsFallbackClassLoader() {
 		ReflectiveLoadTimeWeaver weaver = new ReflectiveLoadTimeWeaver(new JustAddTransformerClassLoader());
 		ClassLoader throwawayClassLoader = weaver.getThrowawayClassLoader();
-		assertNotNull(throwawayClassLoader);
+		assertThat(throwawayClassLoader).isNotNull();
 	}
 
 	@Test
-	public void testGetThrowawayClassLoaderWithTotallyCompliantClassLoader() {
+	void testGetThrowawayClassLoaderWithTotallyCompliantClassLoader() {
 		TotallyCompliantClassLoader classLoader = new TotallyCompliantClassLoader();
 		ReflectiveLoadTimeWeaver weaver = new ReflectiveLoadTimeWeaver(classLoader);
 		ClassLoader throwawayClassLoader = weaver.getThrowawayClassLoader();
-		assertNotNull(throwawayClassLoader);
-		assertEquals(1, classLoader.getNumTimesGetThrowawayClassLoaderCalled());
+		assertThat(throwawayClassLoader).isNotNull();
+		assertThat(classLoader.getNumTimesGetThrowawayClassLoaderCalled()).isEqualTo(1);
 	}
 
 
@@ -80,16 +85,13 @@ public class ReflectiveLoadTimeWeaverTests {
 
 		private int numTimesAddTransformerCalled = 0;
 
-
 		public int getNumTimesGetThrowawayClassLoaderCalled() {
 			return this.numTimesAddTransformerCalled;
 		}
 
-
 		public void addTransformer(ClassFileTransformer transformer) {
 			++this.numTimesAddTransformerCalled;
 		}
-
 	}
 
 
@@ -97,18 +99,15 @@ public class ReflectiveLoadTimeWeaverTests {
 
 		private int numTimesGetThrowawayClassLoaderCalled = 0;
 
-
 		@Override
 		public int getNumTimesGetThrowawayClassLoaderCalled() {
 			return this.numTimesGetThrowawayClassLoaderCalled;
 		}
 
-
 		public ClassLoader getThrowawayClassLoader() {
 			++this.numTimesGetThrowawayClassLoaderCalled;
 			return getClass().getClassLoader();
 		}
-
 	}
 
 }

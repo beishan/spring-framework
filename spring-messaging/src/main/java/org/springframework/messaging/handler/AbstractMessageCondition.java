@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,7 @@
 package org.springframework.messaging.handler;
 
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.StringJoiner;
 
 import org.springframework.lang.Nullable;
 
@@ -29,34 +29,19 @@ import org.springframework.lang.Nullable;
  *
  * @author Rossen Stoyanchev
  * @since 4.0
+ * @param <T> the kind of condition that this condition can be combined with or compared to
  */
-public abstract class AbstractMessageCondition<T extends AbstractMessageCondition<T>>
-		implements MessageCondition<T> {
-
-
-	/**
-	 * Return the collection of objects the message condition is composed of
-	 * (e.g. destination patterns), never {@code null}.
-	 */
-	protected abstract Collection<?> getContent();
-
-	/**
-	 * The notation to use when printing discrete items of content.
-	 * For example " || " for URL patterns or " && " for param expressions.
-	 */
-	protected abstract String getToStringInfix();
-
+public abstract class AbstractMessageCondition<T extends AbstractMessageCondition<T>> implements MessageCondition<T> {
 
 	@Override
-	public boolean equals(@Nullable Object obj) {
-		if (this == obj) {
+	public boolean equals(@Nullable Object other) {
+		if (this == other) {
 			return true;
 		}
-		if (obj != null && getClass() == obj.getClass()) {
-			AbstractMessageCondition<?> other = (AbstractMessageCondition<?>) obj;
-			return getContent().equals(other.getContent());
+		if (other == null || getClass() != other.getClass()) {
+			return false;
 		}
-		return false;
+		return getContent().equals(((AbstractMessageCondition<?>) other).getContent());
 	}
 
 	@Override
@@ -66,16 +51,24 @@ public abstract class AbstractMessageCondition<T extends AbstractMessageConditio
 
 	@Override
 	public String toString() {
-		StringBuilder builder = new StringBuilder("[");
-		for (Iterator<?> iterator = getContent().iterator(); iterator.hasNext();) {
-			Object expression = iterator.next();
-			builder.append(expression.toString());
-			if (iterator.hasNext()) {
-				builder.append(getToStringInfix());
-			}
+		StringJoiner joiner = new StringJoiner(getToStringInfix(), "[", "]");
+		for (Object expression : getContent()) {
+			joiner.add(expression.toString());
 		}
-		builder.append("]");
-		return builder.toString();
+		return joiner.toString();
 	}
+
+
+	/**
+	 * Return the collection of objects the message condition is composed of
+	 * (for example, destination patterns), never {@code null}.
+	 */
+	protected abstract Collection<?> getContent();
+
+	/**
+	 * The notation to use when printing discrete items of content.
+	 * For example " || " for URL patterns or " &amp;&amp; " for param expressions.
+	 */
+	protected abstract String getToStringInfix();
 
 }

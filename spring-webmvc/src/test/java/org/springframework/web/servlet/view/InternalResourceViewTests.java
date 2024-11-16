@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,41 +16,38 @@
 
 package org.springframework.web.servlet.view;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
 
-import org.junit.Test;
+import jakarta.servlet.http.HttpServletRequest;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
-import org.springframework.mock.web.test.MockRequestDispatcher;
-import org.springframework.mock.web.test.MockServletContext;
 import org.springframework.web.servlet.View;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
+import org.springframework.web.testfixture.servlet.MockRequestDispatcher;
+import org.springframework.web.testfixture.servlet.MockServletContext;
 import org.springframework.web.util.WebUtils;
 
-import static org.junit.Assert.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
- * Unit tests for {@link InternalResourceView}.
+ * Tests for {@link InternalResourceView}.
  *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Sam Brannen
  */
-public class InternalResourceViewTests {
+class InternalResourceViewTests {
 
-	@SuppressWarnings("serial")
-	private static final Map<String, Object> model = Collections.unmodifiableMap(new HashMap<String, Object>() {{
-		put("foo", "bar");
-		put("I", 1L);
-	}});
+	private static final Map<String, Object> model = Map.of("foo", "bar", "I", 1L);
 
 	private static final String url = "forward-to";
 
-	private final HttpServletRequest request = mock(HttpServletRequest.class);
+	private final HttpServletRequest request = mock();
 
 	private final MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -60,13 +57,14 @@ public class InternalResourceViewTests {
 	/**
 	 * If the url property isn't supplied, view initialization should fail.
 	 */
-	@Test(expected = IllegalArgumentException.class)
-	public void rejectsNullUrl() throws Exception {
-		view.afterPropertiesSet();
+	@Test
+	void rejectsNullUrl() {
+		assertThatIllegalArgumentException().isThrownBy(
+				view::afterPropertiesSet);
 	}
 
 	@Test
-	public void forward() throws Exception {
+	void forward() throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/myservlet/handler.do");
 		request.setContextPath("/mycontext");
 		request.setServletPath("/myservlet");
@@ -82,14 +80,14 @@ public class InternalResourceViewTests {
 		});
 
 		view.render(model, request, response);
-		assertEquals(url, response.getForwardedUrl());
+		assertThat(response.getForwardedUrl()).isEqualTo(url);
 
-		model.forEach((key, value) -> assertEquals("Values for model key '" + key
-				+ "' must match", value, request.getAttribute(key)));
+		model.forEach((key, value) -> assertThat(request.getAttribute(key)).as("Values for model key '" + key
+						+ "' must match").isEqualTo(value));
 	}
 
 	@Test
-	public void alwaysInclude() throws Exception {
+	void alwaysInclude() throws Exception {
 		given(request.getAttribute(View.PATH_VARIABLES)).willReturn(null);
 		given(request.getRequestDispatcher(url)).willReturn(new MockRequestDispatcher(url));
 
@@ -98,13 +96,13 @@ public class InternalResourceViewTests {
 
 		// Can now try multiple tests
 		view.render(model, request, response);
-		assertEquals(url, response.getIncludedUrl());
+		assertThat(response.getIncludedUrl()).isEqualTo(url);
 
 		model.forEach((key, value) -> verify(request).setAttribute(key, value));
 	}
 
 	@Test
-	public void includeOnAttribute() throws Exception {
+	void includeOnAttribute() throws Exception {
 		given(request.getAttribute(View.PATH_VARIABLES)).willReturn(null);
 		given(request.getAttribute(WebUtils.INCLUDE_REQUEST_URI_ATTRIBUTE)).willReturn("somepath");
 		given(request.getRequestDispatcher(url)).willReturn(new MockRequestDispatcher(url));
@@ -113,13 +111,13 @@ public class InternalResourceViewTests {
 
 		// Can now try multiple tests
 		view.render(model, request, response);
-		assertEquals(url, response.getIncludedUrl());
+		assertThat(response.getIncludedUrl()).isEqualTo(url);
 
 		model.forEach((key, value) -> verify(request).setAttribute(key, value));
 	}
 
 	@Test
-	public void includeOnCommitted() throws Exception {
+	void includeOnCommitted() throws Exception {
 		given(request.getAttribute(View.PATH_VARIABLES)).willReturn(null);
 		given(request.getAttribute(WebUtils.INCLUDE_REQUEST_URI_ATTRIBUTE)).willReturn(null);
 		given(request.getRequestDispatcher(url)).willReturn(new MockRequestDispatcher(url));
@@ -129,7 +127,7 @@ public class InternalResourceViewTests {
 
 		// Can now try multiple tests
 		view.render(model, request, response);
-		assertEquals(url, response.getIncludedUrl());
+		assertThat(response.getIncludedUrl()).isEqualTo(url);
 
 		model.forEach((k, v) -> verify(request).setAttribute(k, v));
 	}

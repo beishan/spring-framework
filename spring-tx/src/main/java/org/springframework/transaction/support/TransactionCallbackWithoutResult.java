@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,7 +41,7 @@ public abstract class TransactionCallbackWithoutResult implements TransactionCal
 	 * Gets called by {@code TransactionTemplate.execute} within a transactional
 	 * context. Does not need to care about transactions itself, although it can retrieve
 	 * and influence the status of the current transaction via the given status object,
-	 * e.g. setting rollback-only.
+	 * for example, setting rollback-only.
 	 * <p>A RuntimeException thrown by the callback is treated as application
 	 * exception that enforces a rollback. An exception gets propagated to the
 	 * caller of the template.

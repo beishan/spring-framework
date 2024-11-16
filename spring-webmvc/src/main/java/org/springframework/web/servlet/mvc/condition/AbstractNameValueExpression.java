@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,12 @@
 
 package org.springframework.web.servlet.mvc.condition;
 
-import javax.servlet.http.HttpServletRequest;
+import java.util.Locale;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.lang.Nullable;
+import org.springframework.util.ObjectUtils;
 
 /**
  * Supports "name=value" style expressions as described in:
@@ -28,6 +31,7 @@ import org.springframework.lang.Nullable;
  * @author Rossen Stoyanchev
  * @author Arjen Poutsma
  * @since 3.1
+ * @param <T> the value type
  */
 abstract class AbstractNameValueExpression<T> implements NameValueExpression<T> {
 
@@ -78,7 +82,7 @@ abstract class AbstractNameValueExpression<T> implements NameValueExpression<T> 
 		else {
 			isMatch = matchName(request);
 		}
-		return (this.isNegated ? !isMatch : isMatch);
+		return this.isNegated != isMatch;
 	}
 
 
@@ -92,24 +96,21 @@ abstract class AbstractNameValueExpression<T> implements NameValueExpression<T> 
 
 
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj) {
+	public boolean equals(@Nullable Object other) {
+		if (this == other) {
 			return true;
 		}
-		if (obj instanceof AbstractNameValueExpression) {
-			AbstractNameValueExpression<?> other = (AbstractNameValueExpression<?>) obj;
-			String thisName = (isCaseSensitiveName() ? this.name : this.name.toLowerCase());
-			String otherName = (isCaseSensitiveName() ? other.name : other.name.toLowerCase());
-			return (thisName.equalsIgnoreCase(otherName) &&
-					(this.value != null ? this.value.equals(other.value) : other.value == null) &&
-					this.isNegated == other.isNegated);
+		if (other == null || getClass() != other.getClass()) {
+			return false;
 		}
-		return false;
+		AbstractNameValueExpression<?> that = (AbstractNameValueExpression<?>) other;
+		return ((isCaseSensitiveName() ? this.name.equals(that.name) : this.name.equalsIgnoreCase(that.name)) &&
+				ObjectUtils.nullSafeEquals(this.value, that.value) && this.isNegated == that.isNegated);
 	}
 
 	@Override
 	public int hashCode() {
-		int result = (isCaseSensitiveName() ? this.name.hashCode() : this.name.toLowerCase().hashCode());
+		int result = (isCaseSensitiveName() ? this.name.hashCode() : this.name.toLowerCase(Locale.ROOT).hashCode());
 		result = 31 * result + (this.value != null ? this.value.hashCode() : 0);
 		result = 31 * result + (this.isNegated ? 1 : 0);
 		return result;

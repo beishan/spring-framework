@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,7 @@ import org.springframework.messaging.Message;
 /**
  * Contract for mapping conditions to messages.
  *
- * <p>Message conditions can be combined (e.g. type + method-level conditions),
+ * <p>Message conditions can be combined (for example, type + method-level conditions),
  * matched to a specific Message, as well as compared to each other in the
  * context of a Message to determine which one matches a request more closely.
  *

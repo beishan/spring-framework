@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,22 +19,22 @@ package org.springframework.web.servlet.view.document;
 import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import org.springframework.mock.web.test.MockHttpServletRequest;
-import org.springframework.mock.web.test.MockHttpServletResponse;
 import org.springframework.web.servlet.View;
+import org.springframework.web.testfixture.servlet.MockHttpServletRequest;
+import org.springframework.web.testfixture.servlet.MockHttpServletResponse;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for AbstractXlsView and its subclasses.
@@ -42,7 +42,7 @@ import static org.junit.Assert.*;
  * @author Juergen Hoeller
  * @since 4.2
  */
-public class XlsViewTests {
+class XlsViewTests {
 
 	private final MockHttpServletRequest request = new MockHttpServletRequest();
 
@@ -50,11 +50,11 @@ public class XlsViewTests {
 
 
 	@Test
-	public void testXls() throws Exception {
+	void testXls() throws Exception {
 		View excelView = new AbstractXlsView() {
 			@Override
 			protected void buildExcelDocument(Map<String, Object> model, Workbook workbook,
-					HttpServletRequest request, HttpServletResponse response) throws Exception {
+					HttpServletRequest request, HttpServletResponse response) {
 				Sheet sheet = workbook.createSheet("Test Sheet");
 				Row row = sheet.createRow(0);
 				Cell cell = row.createCell(0);
@@ -65,19 +65,19 @@ public class XlsViewTests {
 		excelView.render(new HashMap<>(), request, response);
 
 		Workbook wb = new HSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()));
-		assertEquals("Test Sheet", wb.getSheetName(0));
+		assertThat(wb.getSheetName(0)).isEqualTo("Test Sheet");
 		Sheet sheet = wb.getSheet("Test Sheet");
 		Row row = sheet.getRow(0);
 		Cell cell = row.getCell(0);
-		assertEquals("Test Value", cell.getStringCellValue());
+		assertThat(cell.getStringCellValue()).isEqualTo("Test Value");
 	}
 
 	@Test
-	public void testXlsxView() throws Exception {
+	void testXlsxView() throws Exception {
 		View excelView = new AbstractXlsxView() {
 			@Override
 			protected void buildExcelDocument(Map<String, Object> model, Workbook workbook,
-					HttpServletRequest request, HttpServletResponse response) throws Exception {
+					HttpServletRequest request, HttpServletResponse response) {
 				Sheet sheet = workbook.createSheet("Test Sheet");
 				Row row = sheet.createRow(0);
 				Cell cell = row.createCell(0);
@@ -88,19 +88,19 @@ public class XlsViewTests {
 		excelView.render(new HashMap<>(), request, response);
 
 		Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()));
-		assertEquals("Test Sheet", wb.getSheetName(0));
+		assertThat(wb.getSheetName(0)).isEqualTo("Test Sheet");
 		Sheet sheet = wb.getSheet("Test Sheet");
 		Row row = sheet.getRow(0);
 		Cell cell = row.getCell(0);
-		assertEquals("Test Value", cell.getStringCellValue());
+		assertThat(cell.getStringCellValue()).isEqualTo("Test Value");
 	}
 
 	@Test
-	public void testXlsxStreamingView() throws Exception {
+	void testXlsxStreamingView() throws Exception {
 		View excelView = new AbstractXlsxStreamingView() {
 			@Override
 			protected void buildExcelDocument(Map<String, Object> model, Workbook workbook,
-					HttpServletRequest request, HttpServletResponse response) throws Exception {
+					HttpServletRequest request, HttpServletResponse response) {
 				Sheet sheet = workbook.createSheet("Test Sheet");
 				Row row = sheet.createRow(0);
 				Cell cell = row.createCell(0);
@@ -111,11 +111,11 @@ public class XlsViewTests {
 		excelView.render(new HashMap<>(), request, response);
 
 		Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()));
-		assertEquals("Test Sheet", wb.getSheetName(0));
+		assertThat(wb.getSheetName(0)).isEqualTo("Test Sheet");
 		Sheet sheet = wb.getSheet("Test Sheet");
 		Row row = sheet.getRow(0);
 		Cell cell = row.getCell(0);
-		assertEquals("Test Value", cell.getStringCellValue());
+		assertThat(cell.getStringCellValue()).isEqualTo("Test Value");
 	}
 
 }

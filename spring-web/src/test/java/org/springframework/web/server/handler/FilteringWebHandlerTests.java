@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,35 +22,34 @@ import java.util.Collections;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
-import org.springframework.mock.http.server.reactive.test.MockServerHttpResponse;
-import org.springframework.mock.web.test.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import org.springframework.web.server.WebHandler;
 import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
+import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
+import org.springframework.web.testfixture.http.server.reactive.MockServerHttpResponse;
+import org.springframework.web.testfixture.server.MockServerWebExchange;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
+ * Tests for {@link FilteringWebHandler}.
+ *
  * @author Rossen Stoyanchev
  */
-public class FilteringWebHandlerTests {
+class FilteringWebHandlerTests {
 
-	private static Log logger = LogFactory.getLog(FilteringWebHandlerTests.class);
+	private static final Log logger = LogFactory.getLog(FilteringWebHandlerTests.class);
 
 
 	@Test
-	public void multipleFilters() throws Exception {
+	void multipleFilters() {
 
 		TestFilter filter1 = new TestFilter();
 		TestFilter filter2 = new TestFilter();
@@ -61,14 +60,14 @@ public class FilteringWebHandlerTests {
 				.handle(MockServerWebExchange.from(MockServerHttpRequest.get("/")))
 				.block(Duration.ZERO);
 
-		assertTrue(filter1.invoked());
-		assertTrue(filter2.invoked());
-		assertTrue(filter3.invoked());
-		assertTrue(targetHandler.invoked());
+		assertThat(filter1.invoked()).isTrue();
+		assertThat(filter2.invoked()).isTrue();
+		assertThat(filter3.invoked()).isTrue();
+		assertThat(targetHandler.invoked()).isTrue();
 	}
 
 	@Test
-	public void zeroFilters() throws Exception {
+	void zeroFilters() {
 
 		StubWebHandler targetHandler = new StubWebHandler();
 
@@ -76,11 +75,11 @@ public class FilteringWebHandlerTests {
 				.handle(MockServerWebExchange.from(MockServerHttpRequest.get("/")))
 				.block(Duration.ZERO);
 
-		assertTrue(targetHandler.invoked());
+		assertThat(targetHandler.invoked()).isTrue();
 	}
 
 	@Test
-	public void shortcircuitFilter() throws Exception {
+	void shortcircuitFilter() {
 
 		TestFilter filter1 = new TestFilter();
 		ShortcircuitingFilter filter2 = new ShortcircuitingFilter();
@@ -91,14 +90,14 @@ public class FilteringWebHandlerTests {
 				.handle(MockServerWebExchange.from(MockServerHttpRequest.get("/")))
 				.block(Duration.ZERO);
 
-		assertTrue(filter1.invoked());
-		assertTrue(filter2.invoked());
-		assertFalse(filter3.invoked());
-		assertFalse(targetHandler.invoked());
+		assertThat(filter1.invoked()).isTrue();
+		assertThat(filter2.invoked()).isTrue();
+		assertThat(filter3.invoked()).isFalse();
+		assertThat(targetHandler.invoked()).isFalse();
 	}
 
 	@Test
-	public void asyncFilter() throws Exception {
+	void asyncFilter() {
 
 		AsyncFilter filter = new AsyncFilter();
 		StubWebHandler targetHandler = new StubWebHandler();
@@ -107,12 +106,12 @@ public class FilteringWebHandlerTests {
 				.handle(MockServerWebExchange.from(MockServerHttpRequest.get("/")))
 				.block(Duration.ofSeconds(5));
 
-		assertTrue(filter.invoked());
-		assertTrue(targetHandler.invoked());
+		assertThat(filter.invoked()).isTrue();
+		assertThat(targetHandler.invoked()).isTrue();
 	}
 
 	@Test
-	public void handleErrorFromFilter() throws Exception {
+	void handleErrorFromFilter() {
 
 		MockServerHttpRequest request = MockServerHttpRequest.get("/").build();
 		MockServerHttpResponse response = new MockServerHttpResponse();
@@ -125,9 +124,9 @@ public class FilteringWebHandlerTests {
 				.handle(request, response)
 				.block();
 
-		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-		assertNotNull(exceptionHandler.ex);
-		assertEquals("boo", exceptionHandler.ex.getMessage());
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+		assertThat(exceptionHandler.ex).isNotNull();
+		assertThat(exceptionHandler.ex.getMessage()).isEqualTo("boo");
 	}
 
 

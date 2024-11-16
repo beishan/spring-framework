@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,29 +20,29 @@ import org.testng.annotations.Test;
 
 import org.springframework.test.context.ContextConfiguration;
 
-import static org.springframework.test.transaction.TransactionTestUtils.*;
+import static org.springframework.test.transaction.TransactionAssert.assertThatTransaction;
 
 /**
  * Timed integration tests for
  * {@link AbstractTransactionalTestNGSpringContextTests}; used to verify claim
- * raised in <a href="http://jira.springframework.org/browse/SPR-6124"
+ * raised in <a href="https://jira.springframework.org/browse/SPR-6124"
  * target="_blank">SPR-6124</a>.
  *
  * @author Sam Brannen
  * @since 3.0
  */
 @ContextConfiguration
-public class TimedTransactionalTestNGSpringContextTests extends AbstractTransactionalTestNGSpringContextTests {
+class TimedTransactionalTestNGSpringContextTests extends AbstractTransactionalTestNGSpringContextTests {
 
 	@Test
-	public void testWithoutTimeout() {
-		assertInTransaction(true);
+	void testWithoutTimeout() {
+		assertThatTransaction().isActive();
 	}
 
 	// TODO Enable TestNG test with timeout once we have a solution.
 	@Test(timeOut = 10000, enabled = false)
-	public void testWithTimeout() {
-		assertInTransaction(true);
+	void testWithTimeout() {
+		assertThatTransaction().isActive();
 	}
 
 }

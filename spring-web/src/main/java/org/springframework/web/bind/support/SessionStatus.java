@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,7 @@ package org.springframework.web.bind.support;
 /**
  * Simple interface that can be injected into handler methods, allowing them to
  * signal that their session processing is complete. The handler invoker may
- * then follow up with appropriate cleanup, e.g. of session attributes which
+ * then follow up with appropriate cleanup, for example, of session attributes which
  * have been implicitly created during this handler's processing (according to
  * the
  * {@link org.springframework.web.bind.annotation.SessionAttributes @SessionAttributes}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
 
 import example.profilescan.ProfileAnnotatedComponent;
 import example.scannable.AutowiredQualifierFooService;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -33,8 +33,7 @@ import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.filter.TypeFilter;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Mark Fisher
@@ -42,7 +41,7 @@ import static org.junit.Assert.*;
  * @author Chris Beams
  * @author Sam Brannen
  */
-public class ComponentScanParserTests {
+class ComponentScanParserTests {
 
 	private ClassPathXmlApplicationContext loadContext(String path) {
 		return new ClassPathXmlApplicationContext(path, getClass());
@@ -50,24 +49,24 @@ public class ComponentScanParserTests {
 
 
 	@Test
-	public void aspectjTypeFilter() {
+	void aspectjTypeFilter() {
 		ClassPathXmlApplicationContext context = loadContext("aspectjTypeFilterTests.xml");
-		assertTrue(context.containsBean("fooServiceImpl"));
-		assertTrue(context.containsBean("stubFooDao"));
-		assertFalse(context.containsBean("scopedProxyTestBean"));
+		assertThat(context.containsBean("fooServiceImpl")).isTrue();
+		assertThat(context.containsBean("stubFooDao")).isTrue();
+		assertThat(context.containsBean("scopedProxyTestBean")).isFalse();
 		context.close();
 	}
 
 	@Test
-	public void aspectjTypeFilterWithPlaceholders() {
+	void aspectjTypeFilterWithPlaceholders() {
 		System.setProperty("basePackage", "example.scannable, test");
 		System.setProperty("scanInclude", "example.scannable.FooService+");
 		System.setProperty("scanExclude", "example..Scoped*Test*");
 		try {
 			ClassPathXmlApplicationContext context = loadContext("aspectjTypeFilterTestsWithPlaceholders.xml");
-			assertTrue(context.containsBean("fooServiceImpl"));
-			assertTrue(context.containsBean("stubFooDao"));
-			assertFalse(context.containsBean("scopedProxyTestBean"));
+			assertThat(context.containsBean("fooServiceImpl")).isTrue();
+			assertThat(context.containsBean("stubFooDao")).isTrue();
+			assertThat(context.containsBean("scopedProxyTestBean")).isFalse();
 			context.close();
 		}
 		finally {
@@ -78,52 +77,52 @@ public class ComponentScanParserTests {
 	}
 
 	@Test
-	public void nonMatchingResourcePattern() {
+	void nonMatchingResourcePattern() {
 		ClassPathXmlApplicationContext context = loadContext("nonMatchingResourcePatternTests.xml");
-		assertFalse(context.containsBean("fooServiceImpl"));
+		assertThat(context.containsBean("fooServiceImpl")).isFalse();
 		context.close();
 	}
 
 	@Test
-	public void matchingResourcePattern() {
+	void matchingResourcePattern() {
 		ClassPathXmlApplicationContext context = loadContext("matchingResourcePatternTests.xml");
-		assertTrue(context.containsBean("fooServiceImpl"));
+		assertThat(context.containsBean("fooServiceImpl")).isTrue();
 		context.close();
 	}
 
 	@Test
-	public void componentScanWithAutowiredQualifier() {
+	void componentScanWithAutowiredQualifier() {
 		ClassPathXmlApplicationContext context = loadContext("componentScanWithAutowiredQualifierTests.xml");
 		AutowiredQualifierFooService fooService = (AutowiredQualifierFooService) context.getBean("fooService");
-		assertTrue(fooService.isInitCalled());
-		assertEquals("bar", fooService.foo(123));
+		assertThat(fooService.isInitCalled()).isTrue();
+		assertThat(fooService.foo(123)).isEqualTo("bar");
 		context.close();
 	}
 
 	@Test
-	public void customAnnotationUsedForBothComponentScanAndQualifier() {
+	void customAnnotationUsedForBothComponentScanAndQualifier() {
 		ClassPathXmlApplicationContext context = loadContext("customAnnotationUsedForBothComponentScanAndQualifierTests.xml");
 		KustomAnnotationAutowiredBean testBean = (KustomAnnotationAutowiredBean) context.getBean("testBean");
-		assertNotNull(testBean.getDependency());
+		assertThat(testBean.getDependency()).isNotNull();
 		context.close();
 	}
 
 	@Test
-	public void customTypeFilter() {
+	void customTypeFilter() {
 		ClassPathXmlApplicationContext context = loadContext("customTypeFilterTests.xml");
 		KustomAnnotationAutowiredBean testBean = (KustomAnnotationAutowiredBean) context.getBean("testBean");
-		assertNotNull(testBean.getDependency());
+		assertThat(testBean.getDependency()).isNotNull();
 		context.close();
 	}
 
 	@Test
-	public void componentScanRespectsProfileAnnotation() {
+	void componentScanRespectsProfileAnnotation() {
 		String xmlLocation = "org/springframework/context/annotation/componentScanRespectsProfileAnnotationTests.xml";
 		{ // should exclude the profile-annotated bean if active profiles remains unset
 			GenericXmlApplicationContext context = new GenericXmlApplicationContext();
 			context.load(xmlLocation);
 			context.refresh();
-			assertThat(context.containsBean(ProfileAnnotatedComponent.BEAN_NAME), is(false));
+			assertThat(context.containsBean(ProfileAnnotatedComponent.BEAN_NAME)).isFalse();
 			context.close();
 		}
 		{ // should include the profile-annotated bean with active profiles set
@@ -131,7 +130,7 @@ public class ComponentScanParserTests {
 			context.getEnvironment().setActiveProfiles(ProfileAnnotatedComponent.PROFILE_NAME);
 			context.load(xmlLocation);
 			context.refresh();
-			assertThat(context.containsBean(ProfileAnnotatedComponent.BEAN_NAME), is(true));
+			assertThat(context.containsBean(ProfileAnnotatedComponent.BEAN_NAME)).isTrue();
 			context.close();
 		}
 		{ // ensure the same works for AbstractRefreshableApplicationContext impls too
@@ -139,7 +138,7 @@ public class ComponentScanParserTests {
 				false);
 			context.getEnvironment().setActiveProfiles(ProfileAnnotatedComponent.PROFILE_NAME);
 			context.refresh();
-			assertThat(context.containsBean(ProfileAnnotatedComponent.BEAN_NAME), is(true));
+			assertThat(context.containsBean(ProfileAnnotatedComponent.BEAN_NAME)).isTrue();
 			context.close();
 		}
 	}

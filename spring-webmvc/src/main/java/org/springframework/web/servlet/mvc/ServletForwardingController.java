@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,11 @@
 
 package org.springframework.web.servlet.mvc;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.lang.Nullable;
@@ -59,7 +59,7 @@ import org.springframework.web.util.WebUtils;
  *
  * <b>Example:</b> myDispatcher-servlet.xml, in turn forwarding "/myservlet" to your
  * servlet (identified by servlet name). All such requests will go through the
- * configured HandlerInterceptor chain (e.g. an OpenSessionInViewInterceptor).
+ * configured HandlerInterceptor chain (for example, an OpenSessionInViewInterceptor).
  * From the servlet point of view, everything will work as usual.
  *
  * <pre class="code">
@@ -119,6 +119,7 @@ public class ServletForwardingController extends AbstractController implements B
 
 
 	@Override
+	@Nullable
 	protected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response)
 			throws Exception {
 
@@ -132,15 +133,15 @@ public class ServletForwardingController extends AbstractController implements B
 		// If already included, include again, else forward.
 		if (useInclude(request, response)) {
 			rd.include(request, response);
-			if (logger.isDebugEnabled()) {
-				logger.debug("Included servlet [" + this.servletName +
+			if (logger.isTraceEnabled()) {
+				logger.trace("Included servlet [" + this.servletName +
 						"] in ServletForwardingController '" + this.beanName + "'");
 			}
 		}
 		else {
 			rd.forward(request, response);
-			if (logger.isDebugEnabled()) {
-				logger.debug("Forwarded to servlet [" + this.servletName +
+			if (logger.isTraceEnabled()) {
+				logger.trace("Forwarded to servlet [" + this.servletName +
 						"] in ServletForwardingController '" + this.beanName + "'");
 			}
 		}
@@ -157,9 +158,9 @@ public class ServletForwardingController extends AbstractController implements B
 	 * @param request current HTTP request
 	 * @param response current HTTP response
 	 * @return {@code true} for include, {@code false} for forward
-	 * @see javax.servlet.RequestDispatcher#forward
-	 * @see javax.servlet.RequestDispatcher#include
-	 * @see javax.servlet.ServletResponse#isCommitted
+	 * @see jakarta.servlet.RequestDispatcher#forward
+	 * @see jakarta.servlet.RequestDispatcher#include
+	 * @see jakarta.servlet.ServletResponse#isCommitted
 	 * @see org.springframework.web.util.WebUtils#isIncludeRequest
 	 */
 	protected boolean useInclude(HttpServletRequest request, HttpServletResponse response) {

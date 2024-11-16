@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,28 +19,32 @@ package org.springframework.expression.spel.ast;
 import org.springframework.expression.EvaluationException;
 import org.springframework.expression.TypedValue;
 import org.springframework.expression.spel.ExpressionState;
+import org.springframework.expression.spel.SpelEvaluationException;
+import org.springframework.expression.spel.SpelMessage;
 
 /**
- * Represents assignment. An alternative to calling setValue() for an expression is to use
- * an assign.
+ * Represents assignment. An alternative to calling {@code setValue}
+ * for an expression which indicates an assign statement.
  *
  * <p>Example: 'someNumberProperty=42'
  *
  * @author Andy Clement
+ * @author Sam Brannen
  * @since 3.0
  */
 public class Assign extends SpelNodeImpl {
 
-	public Assign(int pos,SpelNodeImpl... operands) {
-		super(pos,operands);
+	public Assign(int startPos, int endPos, SpelNodeImpl... operands) {
+		super(startPos, endPos, operands);
 	}
 
 
 	@Override
 	public TypedValue getValueInternal(ExpressionState state) throws EvaluationException {
-		TypedValue newValue = this.children[1].getValueInternal(state);
-		getChild(0).setValue(state, newValue.getValue());
-		return newValue;
+		if (!state.getEvaluationContext().isAssignmentEnabled()) {
+			throw new SpelEvaluationException(getStartPosition(), SpelMessage.NOT_ASSIGNABLE, toStringAST());
+		}
+		return this.children[0].setValueInternal(state, () -> this.children[1].getValueInternal(state));
 	}
 
 	@Override

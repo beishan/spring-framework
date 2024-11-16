@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,6 @@
 
 package org.springframework.util;
 
-import java.lang.management.ManagementFactory;
-import java.lang.reflect.Field;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
 
@@ -25,21 +23,36 @@ import javax.management.MBeanServerFactory;
  * Utilities for MBean tests.
  *
  * @author Phillip Webb
+ * @author Sam Brannen
  */
 public class MBeanTestUtils {
 
 	/**
-	 * Resets MBeanServerFactory and ManagementFactory to a known consistent state.
-	 * This involves releasing all currently registered MBeanServers and resetting
-	 * the platformMBeanServer to null.
+	 * Reset the {@link MBeanServerFactory} to a known consistent state. This involves
+	 * {@linkplain #releaseMBeanServer(MBeanServer) releasing} all currently registered
+	 * MBeanServers.
 	 */
-	public static void resetMBeanServers() throws Exception {
+	public static synchronized void resetMBeanServers() {
 		for (MBeanServer server : MBeanServerFactory.findMBeanServer(null)) {
+			releaseMBeanServer(server);
+		}
+	}
+
+	/**
+	 * Attempt to release the supplied {@link MBeanServer}.
+	 * <p>Ignores any {@link IllegalArgumentException} thrown by
+	 * {@link MBeanServerFactory#releaseMBeanServer(MBeanServer)} whose error
+	 * message contains the text "not in list".
+	 */
+	public static void releaseMBeanServer(MBeanServer server) {
+		try {
 			MBeanServerFactory.releaseMBeanServer(server);
 		}
-		Field field = ManagementFactory.class.getDeclaredField("platformMBeanServer");
-		field.setAccessible(true);
-		field.set(null, null);
+		catch (IllegalArgumentException ex) {
+			if (!ex.getMessage().contains("not in list")) {
+				throw ex;
+			}
+		}
 	}
 
 }

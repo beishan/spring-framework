@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,37 +17,41 @@
 package org.springframework.web.client;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 
 /**
- * Implementation of {@link ResponseErrorHandler} that uses {@link HttpMessageConverter}s to
- * convert HTTP error responses to {@link RestClientException}.
+ * Implementation of {@link ResponseErrorHandler} that uses {@link HttpMessageConverter
+ * HttpMessageConverters} to convert HTTP error responses to {@link RestClientException
+ * RestClientExceptions}.
  *
  * <p>To use this error handler, you must specify a
  * {@linkplain #setStatusMapping(Map) status mapping} and/or a
  * {@linkplain #setSeriesMapping(Map) series mapping}. If either of these mappings has a match
  * for the {@linkplain ClientHttpResponse#getStatusCode() status code} of a given
  * {@code ClientHttpResponse}, {@link #hasError(ClientHttpResponse)} will return
- * {@code true} and {@link #handleError(ClientHttpResponse)} will attempt to use the
+ * {@code true}, and {@link #handleError(ClientHttpResponse)} will attempt to use the
  * {@linkplain #setMessageConverters(List) configured message converters} to convert the response
  * into the mapped subclass of {@link RestClientException}. Note that the
  * {@linkplain #setStatusMapping(Map) status mapping} takes precedence over
  * {@linkplain #setSeriesMapping(Map) series mapping}.
  *
  * <p>If there is no match, this error handler will default to the behavior of
- * {@link DefaultResponseErrorHandler}. Note that you can override this default behavior by
- * specifying a {@linkplain #setSeriesMapping(Map) series mapping} from
- * {@link HttpStatus.Series#CLIENT_ERROR} and/or {@link HttpStatus.Series#SERVER_ERROR} to
- * {@code null}.
+ * {@link DefaultResponseErrorHandler}. Note that you can override this default behavior
+ * by specifying a {@linkplain #setSeriesMapping(Map) series mapping} from
+ * {@code HttpStatus.Series#CLIENT_ERROR} and/or {@code HttpStatus.Series#SERVER_ERROR}
+ * to {@code null}.
  *
  * @author Simon Galperin
  * @author Arjen Poutsma
@@ -58,7 +62,7 @@ public class ExtractingResponseErrorHandler extends DefaultResponseErrorHandler 
 
 	private List<HttpMessageConverter<?>> messageConverters = Collections.emptyList();
 
-	private final Map<HttpStatus, Class<? extends RestClientException>> statusMapping = new LinkedHashMap<>();
+	private final Map<HttpStatusCode, Class<? extends RestClientException>> statusMapping = new LinkedHashMap<>();
 
 	private final Map<HttpStatus.Series, Class<? extends RestClientException>> seriesMapping = new LinkedHashMap<>();
 
@@ -83,6 +87,7 @@ public class ExtractingResponseErrorHandler extends DefaultResponseErrorHandler 
 	/**
 	 * Set the message converters to use by this extractor.
 	 */
+	@Override
 	public void setMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
 		this.messageConverters = messageConverters;
 	}
@@ -96,7 +101,7 @@ public class ExtractingResponseErrorHandler extends DefaultResponseErrorHandler 
 	 * {@linkplain #setMessageConverters(List) configured message converters} to convert the
 	 * response into the mapped subclass of {@link RestClientException}.
 	 */
-	public void setStatusMapping(Map<HttpStatus, Class<? extends RestClientException>> statusMapping) {
+	public void setStatusMapping(Map<HttpStatusCode, Class<? extends RestClientException>> statusMapping) {
 		if (!CollectionUtils.isEmpty(statusMapping)) {
 			this.statusMapping.putAll(statusMapping);
 		}
@@ -119,12 +124,13 @@ public class ExtractingResponseErrorHandler extends DefaultResponseErrorHandler 
 
 
 	@Override
-	protected boolean hasError(HttpStatus statusCode) {
+	protected boolean hasError(HttpStatusCode statusCode) {
 		if (this.statusMapping.containsKey(statusCode)) {
 			return this.statusMapping.get(statusCode) != null;
 		}
-		else if (this.seriesMapping.containsKey(statusCode.series())) {
-			return this.seriesMapping.get(statusCode.series()) != null;
+		HttpStatus.Series series = HttpStatus.Series.resolve(statusCode.value());
+		if (this.seriesMapping.containsKey(series)) {
+			return this.seriesMapping.get(series) != null;
 		}
 		else {
 			return super.hasError(statusCode);
@@ -132,15 +138,21 @@ public class ExtractingResponseErrorHandler extends DefaultResponseErrorHandler 
 	}
 
 	@Override
-	public void handleError(ClientHttpResponse response, HttpStatus statusCode) throws IOException {
+	public void handleError(URI url, HttpMethod method, ClientHttpResponse response) throws IOException {
+		handleError(response, response.getStatusCode(), url, method);
+	}
+
+	@Override
+	protected void handleError(ClientHttpResponse response, HttpStatusCode statusCode, @Nullable URI url, @Nullable HttpMethod method) throws IOException {
 		if (this.statusMapping.containsKey(statusCode)) {
 			extract(this.statusMapping.get(statusCode), response);
 		}
-		else if (this.seriesMapping.containsKey(statusCode.series())) {
-			extract(this.seriesMapping.get(statusCode.series()), response);
+		HttpStatus.Series series = HttpStatus.Series.resolve(statusCode.value());
+		if (this.seriesMapping.containsKey(series)) {
+			extract(this.seriesMapping.get(series), response);
 		}
 		else {
-			super.handleError(response, statusCode);
+			super.handleError(response, statusCode, url, method);
 		}
 	}
 

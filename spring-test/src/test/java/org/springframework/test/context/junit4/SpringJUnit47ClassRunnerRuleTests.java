@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,8 +22,9 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import org.springframework.test.context.TestExecutionListeners;
+import org.springframework.test.context.aot.DisabledInAotMode;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Verifies support for JUnit 4.7 {@link Rule Rules} in conjunction with the
@@ -35,7 +36,8 @@ import static org.junit.Assert.*;
  * @since 3.0
  */
 @RunWith(SpringRunner.class)
-@TestExecutionListeners( {})
+@TestExecutionListeners({})
+@DisabledInAotMode("Does not load an ApplicationContext and thus not supported for AOT processing")
 public class SpringJUnit47ClassRunnerRuleTests {
 
 	@Rule
@@ -44,11 +46,11 @@ public class SpringJUnit47ClassRunnerRuleTests {
 
 	@Test
 	public void testA() {
-		assertEquals("testA", name.getMethodName());
+		assertThat(name.getMethodName()).isEqualTo("testA");
 	}
 
 	@Test
 	public void testB() {
-		assertEquals("testB", name.getMethodName());
+		assertThat(name.getMethodName()).isEqualTo("testB");
 	}
 }

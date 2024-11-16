@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,7 @@ import org.springframework.util.Assert;
  * HTML 4.0 standard.
  *
  * <p>A complete description of the HTML 4.0 character set can be found
- * at http://www.w3.org/TR/html4/charset.html.
+ * at <a href="https://www.w3.org/TR/html4/charset.html">https://www.w3.org/TR/html4/charset.html</a>.
  *
  * @author Juergen Hoeller
  * @author Martin Kersten
@@ -55,7 +55,7 @@ class HtmlCharacterEntityReferences {
 
 	private final String[] characterToEntityReferenceMap = new String[3000];
 
-	private final Map<String, Character> entityReferenceToCharacterMap = new HashMap<>(252);
+	private final Map<String, Character> entityReferenceToCharacterMap = new HashMap<>(512);
 
 
 	/**
@@ -80,7 +80,7 @@ class HtmlCharacterEntityReferences {
 		}
 		catch (IOException ex) {
 			throw new IllegalStateException(
-					"Failed to parse reference definition file [HtmlCharacterEntityReferences.properties]: " +  ex.getMessage());
+					"Failed to parse reference definition file [HtmlCharacterEntityReferences.properties]: " + ex.getMessage());
 		}
 
 		// Parse reference definition properties
@@ -124,7 +124,7 @@ class HtmlCharacterEntityReferences {
 	 */
 	@Nullable
 	public String convertToReference(char character) {
-	   return convertToReference(character, WebUtils.DEFAULT_CHARACTER_ENCODING);
+		return convertToReference(character, WebUtils.DEFAULT_CHARACTER_ENCODING);
 	}
 
 	/**
@@ -134,18 +134,14 @@ class HtmlCharacterEntityReferences {
 	@Nullable
 	public String convertToReference(char character, String encoding) {
 		if (encoding.startsWith("UTF-")){
-			switch (character){
-				case '<':
-					return "&lt;";
-				case '>':
-					return "&gt;";
-				case '"':
-					return "&quot;";
-				case '&':
-					return "&amp;";
-				case '\'':
-					return "&#39;";
-			}
+			return switch (character){
+				case '<' -> "&lt;";
+				case '>' -> "&gt;";
+				case '"' -> "&quot;";
+				case '&' -> "&amp;";
+				case '\'' -> "&#39;";
+				default -> null;
+			};
 		}
 		else if (character < 1000 || (character >= 8000 && character < 10000)) {
 			int index = (character < 1000 ? character : character - 7000);

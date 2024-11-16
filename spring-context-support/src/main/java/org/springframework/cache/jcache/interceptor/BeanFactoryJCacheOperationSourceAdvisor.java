@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,27 +25,25 @@ import org.springframework.aop.support.AbstractBeanFactoryPointcutAdvisor;
  * cache advice bean for methods that are cacheable.
  *
  * @author Stephane Nicoll
+ * @author Juergen Hoeller
  * @since 4.1
+ * @see #setAdviceBeanName
+ * @see JCacheInterceptor
  */
 @SuppressWarnings("serial")
 public class BeanFactoryJCacheOperationSourceAdvisor extends AbstractBeanFactoryPointcutAdvisor {
 
-	private JCacheOperationSource cacheOperationSource;
+	private final JCacheOperationSourcePointcut pointcut = new JCacheOperationSourcePointcut();
 
-	private final JCacheOperationSourcePointcut pointcut = new JCacheOperationSourcePointcut() {
-		@Override
-		protected JCacheOperationSource getCacheOperationSource() {
-			return cacheOperationSource;
-		}
-	};
 
 	/**
 	 * Set the cache operation attribute source which is used to find cache
 	 * attributes. This should usually be identical to the source reference
 	 * set on the cache interceptor itself.
+	 * @see JCacheInterceptor#setCacheOperationSource
 	 */
 	public void setCacheOperationSource(JCacheOperationSource cacheOperationSource) {
-		this.cacheOperationSource = cacheOperationSource;
+		this.pointcut.setCacheOperationSource(cacheOperationSource);
 	}
 
 	/**

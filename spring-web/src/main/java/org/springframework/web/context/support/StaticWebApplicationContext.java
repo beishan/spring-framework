@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +16,8 @@
 
 package org.springframework.web.context.support;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
 
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.support.StaticApplicationContext;
@@ -42,7 +42,7 @@ import org.springframework.web.context.ServletContextAware;
  * despite not actually supporting external configuration files.
  *
  * <p>Interprets resource paths as servlet context resources, i.e. as paths beneath
- * the web application root. Absolute paths, e.g. for files outside the web app root,
+ * the web application root. Absolute paths, for example, for files outside the web app root,
  * can be accessed via "file:" URLs, as implemented by
  * {@link org.springframework.core.io.DefaultResourceLoader}.
  *
@@ -50,11 +50,13 @@ import org.springframework.web.context.ServletContextAware;
  * {@link org.springframework.context.support.AbstractApplicationContext},
  * this class detects a bean of type {@link org.springframework.ui.context.ThemeSource}
  * in the context, under the special bean name "themeSource".
+ * Theme support is deprecated as of 6.0 with no direct replacement.
  *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @see org.springframework.ui.context.ThemeSource
  */
+@SuppressWarnings("deprecation")
 public class StaticWebApplicationContext extends StaticApplicationContext
 		implements ConfigurableWebApplicationContext, ThemeSource {
 
@@ -137,6 +139,7 @@ public class StaticWebApplicationContext extends StaticApplicationContext
 	}
 
 	@Override
+	@Nullable
 	public String[] getConfigLocations() {
 		return null;
 	}
@@ -198,6 +201,7 @@ public class StaticWebApplicationContext extends StaticApplicationContext
 
 	@Override
 	@Nullable
+	@Deprecated
 	public Theme getTheme(String themeName) {
 		Assert.state(this.themeSource != null, "No ThemeSource available");
 		return this.themeSource.getTheme(themeName);

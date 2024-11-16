@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,14 @@
 
 package org.aopalliance.intercept;
 
+import javax.annotation.Nonnull;
+
 /**
  * Intercepts the construction of a new object.
  *
  * <p>The user should implement the {@link
  * #construct(ConstructorInvocation)} method to modify the original
- * behavior. E.g. the following class implements a singleton
+ * behavior. For example, the following class implements a singleton
  * interceptor (allows only one unique instance for the intercepted
  * class):
  *
@@ -41,7 +43,7 @@ package org.aopalliance.intercept;
  *
  * @author Rod Johnson
  */
-public interface ConstructorInterceptor extends Interceptor  {
+public interface ConstructorInterceptor extends Interceptor {
 
 	/**
 	 * Implement this method to perform extra treatments before and
@@ -54,6 +56,7 @@ public interface ConstructorInterceptor extends Interceptor  {
 	 * @throws Throwable if the interceptors or the target object
 	 * throws an exception
 	 */
+	@Nonnull
 	Object construct(ConstructorInvocation invocation) throws Throwable;
 
 }

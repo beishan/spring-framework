@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,14 @@
 
 package org.springframework.expression.spel.standard;
 
-import org.junit.Test;
+import java.util.function.Consumer;
+
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
+import org.assertj.core.api.ThrowableAssertAlternative;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.ExpressionException;
-import org.springframework.expression.ParseException;
 import org.springframework.expression.spel.SpelMessage;
 import org.springframework.expression.spel.SpelNode;
 import org.springframework.expression.spel.SpelParseException;
@@ -28,355 +31,320 @@ import org.springframework.expression.spel.ast.OpAnd;
 import org.springframework.expression.spel.ast.OpOr;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.springframework.expression.spel.SpelMessage.MISSING_CONSTRUCTOR_ARGS;
+import static org.springframework.expression.spel.SpelMessage.NON_TERMINATING_DOUBLE_QUOTED_STRING;
+import static org.springframework.expression.spel.SpelMessage.NON_TERMINATING_QUOTED_STRING;
+import static org.springframework.expression.spel.SpelMessage.NOT_AN_INTEGER;
+import static org.springframework.expression.spel.SpelMessage.NOT_A_LONG;
+import static org.springframework.expression.spel.SpelMessage.OOD;
+import static org.springframework.expression.spel.SpelMessage.REAL_CANNOT_BE_LONG;
+import static org.springframework.expression.spel.SpelMessage.RIGHT_OPERAND_PROBLEM;
+import static org.springframework.expression.spel.SpelMessage.RUN_OUT_OF_ARGUMENTS;
+import static org.springframework.expression.spel.SpelMessage.UNEXPECTED_DATA_AFTER_DOT;
+import static org.springframework.expression.spel.SpelMessage.UNEXPECTED_ESCAPE_CHAR;
 
 /**
  * @author Andy Clement
  * @author Juergen Hoeller
+ * @author Sam Brannen
  */
-public class SpelParserTests {
+class SpelParserTests {
+
+	private final SpelExpressionParser parser = new SpelExpressionParser();
+
 
 	@Test
-	public void theMostBasic() {
-		SpelExpressionParser parser = new SpelExpressionParser();
-		SpelExpression expr = parser.parseRaw("2");
-		assertNotNull(expr);
-		assertNotNull(expr.getAST());
-		assertEquals(2, expr.getValue());
-		assertEquals(Integer.class, expr.getValueType());
-		assertEquals(2, expr.getAST().getValue(null));
+	void nullExpressionIsRejected() {
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseExpression(null));
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseRaw(null));
 	}
 
 	@Test
-	public void valueType() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void emptyExpressionIsRejected() {
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseExpression(""));
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseRaw(""));
+	}
+
+	@Test
+	void blankExpressionIsRejected() {
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseExpression("     "));
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseExpression("\t\n"));
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseRaw("     "));
+		assertNullOrEmptyExpressionIsRejected(() -> parser.parseRaw("\t\n"));
+	}
+
+	private static void assertNullOrEmptyExpressionIsRejected(ThrowingCallable throwingCallable) {
+		assertThatIllegalArgumentException()
+				.isThrownBy(throwingCallable)
+				.withMessage("'expressionString' must not be null or blank");
+	}
+
+	@Test
+	void theMostBasic() {
+		SpelExpression expr = parser.parseRaw("2");
+		assertThat(expr).isNotNull();
+		assertThat(expr.getAST()).isNotNull();
+		assertThat(expr.getValue()).isEqualTo(2);
+		assertThat(expr.getValueType()).isEqualTo(Integer.class);
+		assertThat(expr.getAST().getValue(null)).isEqualTo(2);
+	}
+
+	@Test
+	void valueType() {
 		EvaluationContext ctx = new StandardEvaluationContext();
 		Class<?> c = parser.parseRaw("2").getValueType();
-		assertEquals(Integer.class, c);
+		assertThat(c).isEqualTo(Integer.class);
 		c = parser.parseRaw("12").getValueType(ctx);
-		assertEquals(Integer.class, c);
+		assertThat(c).isEqualTo(Integer.class);
 		c = parser.parseRaw("null").getValueType();
-		assertNull(c);
+		assertThat(c).isNull();
 		c = parser.parseRaw("null").getValueType(ctx);
-		assertNull(c);
+		assertThat(c).isNull();
 		Object o = parser.parseRaw("null").getValue(ctx, Integer.class);
-		assertNull(o);
+		assertThat(o).isNull();
 	}
 
 	@Test
-	public void whitespace() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void whitespace() {
 		SpelExpression expr = parser.parseRaw("2      +    3");
-		assertEquals(5, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(5);
 		expr = parser.parseRaw("2	+	3");
-		assertEquals(5, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(5);
 		expr = parser.parseRaw("2\n+\t3");
-		assertEquals(5, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(5);
 		expr = parser.parseRaw("2\r\n+\t3");
-		assertEquals(5, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(5);
 	}
 
 	@Test
-	public void arithmeticPlus1() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void arithmeticPlus1() {
 		SpelExpression expr = parser.parseRaw("2+2");
-		assertNotNull(expr);
-		assertNotNull(expr.getAST());
-		assertEquals(4, expr.getValue());
+		assertThat(expr).isNotNull();
+		assertThat(expr.getAST()).isNotNull();
+		assertThat(expr.getValue()).isEqualTo(4);
 	}
 
 	@Test
-	public void arithmeticPlus2() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void arithmeticPlus2() {
 		SpelExpression expr = parser.parseRaw("37+41");
-		assertEquals(78, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(78);
 	}
 
 	@Test
-	public void arithmeticMultiply1() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void arithmeticMultiply1() {
 		SpelExpression expr = parser.parseRaw("2*3");
-		assertNotNull(expr);
-		assertNotNull(expr.getAST());
-		// printAst(expr.getAST(),0);
-		assertEquals(6, expr.getValue());
+		assertThat(expr).isNotNull();
+		assertThat(expr.getAST()).isNotNull();
+		assertThat(expr.getValue()).isEqualTo(6);
 	}
 
 	@Test
-	public void arithmeticPrecedence1() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void arithmeticPrecedence1() {
 		SpelExpression expr = parser.parseRaw("2*3+5");
-		assertEquals(11, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(11);
 	}
 
 	@Test
-	public void generalExpressions() {
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw("new String");
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(SpelMessage.MISSING_CONSTRUCTOR_ARGS, spe.getMessageCode());
-			assertEquals(10, spe.getPosition());
-			assertTrue(ex.getMessage().contains(ex.getExpressionString()));
-		}
-
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw("new String(3,");
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(SpelMessage.RUN_OUT_OF_ARGUMENTS, spe.getMessageCode());
-			assertEquals(10, spe.getPosition());
-			assertTrue(ex.getMessage().contains(ex.getExpressionString()));
-		}
-
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw("new String(3");
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(SpelMessage.RUN_OUT_OF_ARGUMENTS, spe.getMessageCode());
-			assertEquals(10, spe.getPosition());
-			assertTrue(ex.getMessage().contains(ex.getExpressionString()));
-		}
-
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw("new String(");
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(SpelMessage.RUN_OUT_OF_ARGUMENTS, spe.getMessageCode());
-			assertEquals(10, spe.getPosition());
-			assertTrue(ex.getMessage().contains(ex.getExpressionString()));
-		}
-
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw("\"abc");
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(SpelMessage.NON_TERMINATING_DOUBLE_QUOTED_STRING, spe.getMessageCode());
-			assertEquals(0, spe.getPosition());
-			assertTrue(ex.getMessage().contains(ex.getExpressionString()));
-		}
-
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw("'abc");
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(SpelMessage.NON_TERMINATING_QUOTED_STRING, spe.getMessageCode());
-			assertEquals(0, spe.getPosition());
-			assertTrue(ex.getMessage().contains(ex.getExpressionString()));
-		}
-
+	void parseExceptions() {
+		assertParseException(() -> parser.parseRaw("new String"), MISSING_CONSTRUCTOR_ARGS, 10);
+		assertParseException(() -> parser.parseRaw("new String(3,"), RUN_OUT_OF_ARGUMENTS, 10);
+		assertParseException(() -> parser.parseRaw("new String(3"), RUN_OUT_OF_ARGUMENTS, 10);
+		assertParseException(() -> parser.parseRaw("new String("), RUN_OUT_OF_ARGUMENTS, 10);
+		assertParseException(() -> parser.parseRaw("\"abc"), NON_TERMINATING_DOUBLE_QUOTED_STRING, 0);
+		assertParseException(() -> parser.parseRaw("abc\""), NON_TERMINATING_DOUBLE_QUOTED_STRING, 3);
+		assertParseException(() -> parser.parseRaw("'abc"), NON_TERMINATING_QUOTED_STRING, 0);
+		assertParseException(() -> parser.parseRaw("abc'"), NON_TERMINATING_QUOTED_STRING, 3);
+		assertParseException(() -> parser.parseRaw("("), OOD, 0);
+		assertParseException(() -> parser.parseRaw(")"), OOD, 0);
+		assertParseException(() -> parser.parseRaw("+"), OOD, 0);
+		assertParseException(() -> parser.parseRaw("1+"), RIGHT_OPERAND_PROBLEM, 1);
 	}
 
 	@Test
-	public void arithmeticPrecedence2() {
-		SpelExpressionParser parser = new SpelExpressionParser();
+	void arithmeticPrecedence2() {
 		SpelExpression expr = parser.parseRaw("2+3*5");
-		assertEquals(17, expr.getValue());
+		assertThat(expr.getValue()).isEqualTo(17);
 	}
 
 	@Test
-	public void arithmeticPrecedence3() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("3+10/2");
-		assertEquals(8, expr.getValue());
+	void arithmeticPrecedence3() {
+		SpelExpression expr = parser.parseRaw("3+10/2");
+		assertThat(expr.getValue()).isEqualTo(8);
 	}
 
 	@Test
-	public void arithmeticPrecedence4() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("10/2+3");
-		assertEquals(8, expr.getValue());
+	void arithmeticPrecedence4() {
+		SpelExpression expr = parser.parseRaw("10/2+3");
+		assertThat(expr.getValue()).isEqualTo(8);
 	}
 
 	@Test
-	public void arithmeticPrecedence5() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("(4+10)/2");
-		assertEquals(7, expr.getValue());
+	void arithmeticPrecedence5() {
+		SpelExpression expr = parser.parseRaw("(4+10)/2");
+		assertThat(expr.getValue()).isEqualTo(7);
 	}
 
 	@Test
-	public void arithmeticPrecedence6() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("(3+2)*2");
-		assertEquals(10, expr.getValue());
+	void arithmeticPrecedence6() {
+		SpelExpression expr = parser.parseRaw("(3+2)*2");
+		assertThat(expr.getValue()).isEqualTo(10);
 	}
 
 	@Test
-	public void booleanOperators() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("true");
-		assertEquals(Boolean.TRUE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("false");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("false and false");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("true and (true or false)");
-		assertEquals(Boolean.TRUE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("true and true or false");
-		assertEquals(Boolean.TRUE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("!true");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("!(false or true)");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
+	void booleanOperators() {
+		SpelExpression expr = parser.parseRaw("true");
+		assertThat(expr.getValue(Boolean.class)).isTrue();
+		expr = parser.parseRaw("false");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
+		expr = parser.parseRaw("false and false");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
+		expr = parser.parseRaw("true and (true or false)");
+		assertThat(expr.getValue(Boolean.class)).isTrue();
+		expr = parser.parseRaw("true and true or false");
+		assertThat(expr.getValue(Boolean.class)).isTrue();
+		expr = parser.parseRaw("!true");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
+		expr = parser.parseRaw("!(false or true)");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
 	}
 
 	@Test
-	public void booleanOperators_symbolic_spr9614() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("true");
-		assertEquals(Boolean.TRUE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("false");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("false && false");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("true && (true || false)");
-		assertEquals(Boolean.TRUE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("true && true || false");
-		assertEquals(Boolean.TRUE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("!true");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
-		expr = new SpelExpressionParser().parseRaw("!(false || true)");
-		assertEquals(Boolean.FALSE, expr.getValue(Boolean.class));
+	void booleanOperators_symbolic_spr9614() {
+		SpelExpression expr = parser.parseRaw("true");
+		assertThat(expr.getValue(Boolean.class)).isTrue();
+		expr = parser.parseRaw("false");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
+		expr = parser.parseRaw("false && false");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
+		expr = parser.parseRaw("true && (true || false)");
+		assertThat(expr.getValue(Boolean.class)).isTrue();
+		expr = parser.parseRaw("true && true || false");
+		assertThat(expr.getValue(Boolean.class)).isTrue();
+		expr = parser.parseRaw("!true");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
+		expr = parser.parseRaw("!(false || true)");
+		assertThat(expr.getValue(Boolean.class)).isFalse();
 	}
 
 	@Test
-	public void stringLiterals() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("'howdy'");
-		assertEquals("howdy", expr.getValue());
-		expr = new SpelExpressionParser().parseRaw("'hello '' world'");
-		assertEquals("hello ' world", expr.getValue());
+	void stringLiterals() {
+		SpelExpression expr = parser.parseRaw("'howdy'");
+		assertThat(expr.getValue()).isEqualTo("howdy");
+		expr = parser.parseRaw("'hello '' world'");
+		assertThat(expr.getValue()).isEqualTo("hello ' world");
 	}
 
 	@Test
-	public void stringLiterals2() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("'howdy'.substring(0,2)");
-		assertEquals("ho", expr.getValue());
+	void stringLiterals2() {
+		SpelExpression expr = parser.parseRaw("'howdy'.substring(0,2)");
+		assertThat(expr.getValue()).isEqualTo("ho");
 	}
 
 	@Test
-	public void testStringLiterals_DoubleQuotes_spr9620() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("\"double quote: \"\".\"");
-		assertEquals("double quote: \".", expr.getValue());
-		expr = new SpelExpressionParser().parseRaw("\"hello \"\" world\"");
-		assertEquals("hello \" world", expr.getValue());
+	void testStringLiterals_DoubleQuotes_spr9620() {
+		SpelExpression expr = parser.parseRaw("\"double quote: \"\".\"");
+		assertThat(expr.getValue()).isEqualTo("double quote: \".");
+		expr = parser.parseRaw("\"hello \"\" world\"");
+		assertThat(expr.getValue()).isEqualTo("hello \" world");
 	}
 
 	@Test
-	public void testStringLiterals_DoubleQuotes_spr9620_2() {
-		try {
-			new SpelExpressionParser().parseRaw("\"double quote: \\\"\\\".\"");
-			fail("Should have failed");
-		}
-		catch (SpelParseException spe) {
-			assertEquals(17, spe.getPosition());
-			assertEquals(SpelMessage.UNEXPECTED_ESCAPE_CHAR, spe.getMessageCode());
-		}
+	void testStringLiterals_DoubleQuotes_spr9620_2() {
+		assertParseExceptionThrownBy(() -> parser.parseRaw("\"double quote: \\\"\\\".\""))
+			.satisfies(ex -> {
+				assertThat(ex.getPosition()).isEqualTo(17);
+				assertThat(ex.getMessageCode()).isEqualTo(UNEXPECTED_ESCAPE_CHAR);
+			});
 	}
 
 	@Test
-	public void positionalInformation() {
-		SpelExpression expr = new SpelExpressionParser().parseRaw("true and true or false");
+	void positionalInformation() {
+		SpelExpression expr = parser.parseRaw("true and true or false");
 		SpelNode rootAst = expr.getAST();
 		OpOr operatorOr = (OpOr) rootAst;
 		OpAnd operatorAnd = (OpAnd) operatorOr.getLeftOperand();
 		SpelNode rightOrOperand = operatorOr.getRightOperand();
 
 		// check position for final 'false'
-		assertEquals(17, rightOrOperand.getStartPosition());
-		assertEquals(22, rightOrOperand.getEndPosition());
+		assertThat(rightOrOperand.getStartPosition()).isEqualTo(17);
+		assertThat(rightOrOperand.getEndPosition()).isEqualTo(22);
 
 		// check position for first 'true'
-		assertEquals(0, operatorAnd.getLeftOperand().getStartPosition());
-		assertEquals(4, operatorAnd.getLeftOperand().getEndPosition());
+		assertThat(operatorAnd.getLeftOperand().getStartPosition()).isEqualTo(0);
+		assertThat(operatorAnd.getLeftOperand().getEndPosition()).isEqualTo(4);
 
 		// check position for second 'true'
-		assertEquals(9, operatorAnd.getRightOperand().getStartPosition());
-		assertEquals(13, operatorAnd.getRightOperand().getEndPosition());
+		assertThat(operatorAnd.getRightOperand().getStartPosition()).isEqualTo(9);
+		assertThat(operatorAnd.getRightOperand().getEndPosition()).isEqualTo(13);
 
 		// check position for OperatorAnd
-		assertEquals(5, operatorAnd.getStartPosition());
-		assertEquals(8, operatorAnd.getEndPosition());
+		assertThat(operatorAnd.getStartPosition()).isEqualTo(5);
+		assertThat(operatorAnd.getEndPosition()).isEqualTo(8);
 
 		// check position for OperatorOr
-		assertEquals(14, operatorOr.getStartPosition());
-		assertEquals(16, operatorOr.getEndPosition());
+		assertThat(operatorOr.getStartPosition()).isEqualTo(14);
+		assertThat(operatorOr.getEndPosition()).isEqualTo(16);
 	}
 
 	@Test
-	public void tokenKind() {
+	void tokenKind() {
 		TokenKind tk = TokenKind.NOT;
-		assertFalse(tk.hasPayload());
-		assertEquals("NOT(!)", tk.toString());
+		assertThat(tk.hasPayload()).isFalse();
+		assertThat(tk.toString()).isEqualTo("NOT(!)");
 
 		tk = TokenKind.MINUS;
-		assertFalse(tk.hasPayload());
-		assertEquals("MINUS(-)", tk.toString());
+		assertThat(tk.hasPayload()).isFalse();
+		assertThat(tk.toString()).isEqualTo("MINUS(-)");
 
 		tk = TokenKind.LITERAL_STRING;
-		assertEquals("LITERAL_STRING", tk.toString());
-		assertTrue(tk.hasPayload());
+		assertThat(tk.toString()).isEqualTo("LITERAL_STRING");
+		assertThat(tk.hasPayload()).isTrue();
 	}
 
 	@Test
-	public void token() {
+	void token() {
 		Token token = new Token(TokenKind.NOT, 0, 3);
-		assertEquals(TokenKind.NOT, token.kind);
-		assertEquals(0, token.startPos);
-		assertEquals(3, token.endPos);
-		assertEquals("[NOT(!)](0,3)", token.toString());
+		assertThat(token.kind).isEqualTo(TokenKind.NOT);
+		assertThat(token.startPos).isEqualTo(0);
+		assertThat(token.endPos).isEqualTo(3);
+		assertThat(token.toString()).isEqualTo("[NOT(!)](0,3)");
 
 		token = new Token(TokenKind.LITERAL_STRING, "abc".toCharArray(), 0, 3);
-		assertEquals(TokenKind.LITERAL_STRING, token.kind);
-		assertEquals(0, token.startPos);
-		assertEquals(3, token.endPos);
-		assertEquals("[LITERAL_STRING:abc](0,3)", token.toString());
+		assertThat(token.kind).isEqualTo(TokenKind.LITERAL_STRING);
+		assertThat(token.startPos).isEqualTo(0);
+		assertThat(token.endPos).isEqualTo(3);
+		assertThat(token.toString()).isEqualTo("[LITERAL_STRING:abc](0,3)");
 	}
 
 	@Test
-	public void exceptions() {
+	void exceptions() {
 		ExpressionException exprEx = new ExpressionException("test");
-		assertEquals("test", exprEx.getSimpleMessage());
-		assertEquals("test", exprEx.toDetailedString());
-		assertEquals("test", exprEx.getMessage());
+		assertThat(exprEx.getSimpleMessage()).isEqualTo("test");
+		assertThat(exprEx.toDetailedString()).isEqualTo("test");
+		assertThat(exprEx.getMessage()).isEqualTo("test");
 
 		exprEx = new ExpressionException("wibble", "test");
-		assertEquals("test", exprEx.getSimpleMessage());
-		assertEquals("Expression [wibble]: test", exprEx.toDetailedString());
-		assertEquals("Expression [wibble]: test", exprEx.getMessage());
+		assertThat(exprEx.getSimpleMessage()).isEqualTo("test");
+		assertThat(exprEx.toDetailedString()).isEqualTo("Expression [wibble]: test");
+		assertThat(exprEx.getMessage()).isEqualTo("Expression [wibble]: test");
 
 		exprEx = new ExpressionException("wibble", 3, "test");
-		assertEquals("test", exprEx.getSimpleMessage());
-		assertEquals("Expression [wibble] @3: test", exprEx.toDetailedString());
-		assertEquals("Expression [wibble] @3: test", exprEx.getMessage());
+		assertThat(exprEx.getSimpleMessage()).isEqualTo("test");
+		assertThat(exprEx.toDetailedString()).isEqualTo("Expression [wibble] @3: test");
+		assertThat(exprEx.getMessage()).isEqualTo("Expression [wibble] @3: test");
 	}
 
 	@Test
-	public void parseMethodsOnNumbers() {
+	void parseMethodsOnNumbers() {
 		checkNumber("3.14.toString()", "3.14", String.class);
 		checkNumber("3.toString()", "3", String.class);
 	}
 
 	@Test
-	public void numerics() {
+	void numerics() {
 		checkNumber("2", 2, Integer.class);
 		checkNumber("22", 22, Integer.class);
 		checkNumber("+22", 22, Integer.class);
@@ -389,10 +357,10 @@ public class SpelParserTests {
 		checkNumber("0xa", 10, Integer.class);
 		checkNumber("0xAL", 10L, Long.class);
 
-		checkNumberError("0x", SpelMessage.NOT_AN_INTEGER);
-		checkNumberError("0xL", SpelMessage.NOT_A_LONG);
-		checkNumberError(".324", SpelMessage.UNEXPECTED_DATA_AFTER_DOT);
-		checkNumberError("3.4L", SpelMessage.REAL_CANNOT_BE_LONG);
+		checkNumberError("0x", NOT_AN_INTEGER);
+		checkNumberError("0xL", NOT_A_LONG);
+		checkNumberError(".324", UNEXPECTED_DATA_AFTER_DOT);
+		checkNumberError("3.4L", REAL_CANNOT_BE_LONG);
 
 		checkNumber("3.5f", 3.5f, Float.class);
 		checkNumber("1.2e3", 1.2e3d, Double.class);
@@ -405,28 +373,40 @@ public class SpelParserTests {
 
 	private void checkNumber(String expression, Object value, Class<?> type) {
 		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
 			SpelExpression expr = parser.parseRaw(expression);
 			Object exprVal = expr.getValue();
-			assertEquals(value, exprVal);
-			assertEquals(type, exprVal.getClass());
+			assertThat(exprVal).isEqualTo(value);
+			assertThat(exprVal.getClass()).isEqualTo(type);
 		}
 		catch (Exception ex) {
-			fail(ex.getMessage());
+			throw new AssertionError(ex.getMessage(), ex);
 		}
 	}
 
 	private void checkNumberError(String expression, SpelMessage expectedMessage) {
-		try {
-			SpelExpressionParser parser = new SpelExpressionParser();
-			parser.parseRaw(expression);
-			fail();
-		}
-		catch (ParseException ex) {
-			assertTrue(ex instanceof SpelParseException);
-			SpelParseException spe = (SpelParseException) ex;
-			assertEquals(expectedMessage, spe.getMessageCode());
-		}
+		assertParseExceptionThrownBy(() -> parser.parseRaw(expression))
+				.satisfies(ex -> assertThat(ex.getMessageCode()).isEqualTo(expectedMessage));
+	}
+
+	private static ThrowableAssertAlternative<SpelParseException> assertParseExceptionThrownBy(ThrowingCallable throwingCallable) {
+		return assertThatExceptionOfType(SpelParseException.class).isThrownBy(throwingCallable);
+	}
+
+	private static void assertParseException(ThrowingCallable throwingCallable, SpelMessage expectedMessage, int expectedPosition) {
+		assertParseExceptionThrownBy(throwingCallable)
+				.satisfies(parseExceptionRequirements(expectedMessage, expectedPosition));
+	}
+
+	private static <E extends SpelParseException> Consumer<E> parseExceptionRequirements(
+			SpelMessage expectedMessage, int expectedPosition) {
+
+		return ex -> {
+			assertThat(ex.getMessageCode()).isEqualTo(expectedMessage);
+			assertThat(ex.getPosition()).isEqualTo(expectedPosition);
+			if (ex.getExpressionString() != null) {
+				assertThat(ex.getMessage()).contains(ex.getExpressionString());
+			}
+		};
 	}
 
 }

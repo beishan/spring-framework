@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,11 +21,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.aop.support.AopUtils;
-import org.springframework.beans.factory.BeanFactory;
 import org.springframework.cache.Cache;
 import org.springframework.context.expression.AnnotatedElementKey;
-import org.springframework.context.expression.BeanFactoryResolver;
 import org.springframework.context.expression.CachedExpressionEvaluator;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
@@ -68,17 +65,12 @@ class CacheOperationExpressionEvaluator extends CachedExpressionEvaluator {
 
 	private final Map<ExpressionKey, Expression> unlessCache = new ConcurrentHashMap<>(64);
 
-	private final Map<AnnotatedElementKey, Method> targetMethodCache = new ConcurrentHashMap<>(64);
+	private final CacheEvaluationContextFactory evaluationContextFactory;
 
-
-	/**
-	 * Create an {@link EvaluationContext} without a return value.
-	 * @see #createEvaluationContext(Collection, Method, Object[], Object, Class, Object, BeanFactory)
-	 */
-	public EvaluationContext createEvaluationContext(Collection<? extends Cache> caches,
-			Method method, Object[] args, Object target, Class<?> targetClass, BeanFactory beanFactory) {
-
-		return createEvaluationContext(caches, method, args, target, targetClass, NO_RESULT, beanFactory);
+	public CacheOperationExpressionEvaluator(CacheEvaluationContextFactory evaluationContextFactory) {
+		super();
+		this.evaluationContextFactory = evaluationContextFactory;
+		this.evaluationContextFactory.setParameterNameDiscoverer(this::getParameterNameDiscoverer);
 	}
 
 	/**
@@ -93,22 +85,18 @@ class CacheOperationExpressionEvaluator extends CachedExpressionEvaluator {
 	 * @return the evaluation context
 	 */
 	public EvaluationContext createEvaluationContext(Collection<? extends Cache> caches,
-			Method method, Object[] args, Object target, Class<?> targetClass, @Nullable Object result,
-			@Nullable BeanFactory beanFactory) {
+			Method method, Object[] args, Object target, Class<?> targetClass, Method targetMethod,
+			@Nullable Object result) {
 
 		CacheExpressionRootObject rootObject = new CacheExpressionRootObject(
 				caches, method, args, target, targetClass);
-		Method targetMethod = getTargetMethod(targetClass, method);
-		CacheEvaluationContext evaluationContext = new CacheEvaluationContext(
-				rootObject, targetMethod, args, getParameterNameDiscoverer());
+		CacheEvaluationContext evaluationContext = this.evaluationContextFactory
+				.forOperation(rootObject, targetMethod, args);
 		if (result == RESULT_UNAVAILABLE) {
 			evaluationContext.addUnavailableVariable(RESULT_VARIABLE);
 		}
 		else if (result != NO_RESULT) {
 			evaluationContext.setVariable(RESULT_VARIABLE, result);
-		}
-		if (beanFactory != null) {
-			evaluationContext.setBeanResolver(new BeanFactoryResolver(beanFactory));
 		}
 		return evaluationContext;
 	}
@@ -135,18 +123,6 @@ class CacheOperationExpressionEvaluator extends CachedExpressionEvaluator {
 		this.keyCache.clear();
 		this.conditionCache.clear();
 		this.unlessCache.clear();
-		this.targetMethodCache.clear();
 	}
-
-	private Method getTargetMethod(Class<?> targetClass, Method method) {
-		AnnotatedElementKey methodKey = new AnnotatedElementKey(method, targetClass);
-		Method targetMethod = this.targetMethodCache.get(methodKey);
-		if (targetMethod == null) {
-			targetMethod = AopUtils.getMostSpecificMethod(method, targetClass);
-			this.targetMethodCache.put(methodKey, targetMethod);
-		}
-		return targetMethod;
-	}
-
 
 }

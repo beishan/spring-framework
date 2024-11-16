@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,56 +17,81 @@
 package org.springframework.context.annotation;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.aop.framework.AopInfrastructureBean;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
+import org.springframework.cglib.proxy.Enhancer;
+import org.springframework.context.event.EventListenerFactory;
 import org.springframework.core.Conventions;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.type.AnnotationMetadata;
-import org.springframework.core.type.StandardAnnotationMetadata;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
- * Utilities for processing @{@link Configuration} classes.
+ * Utilities for identifying and configuring {@link Configuration} classes.
  *
  * @author Chris Beams
  * @author Juergen Hoeller
- * @since 3.1
+ * @author Sam Brannen
+ * @author Stephane Nicoll
+ * @since 6.0
  */
-abstract class ConfigurationClassUtils {
+public abstract class ConfigurationClassUtils {
 
-	private static final String CONFIGURATION_CLASS_FULL = "full";
+	static final String CONFIGURATION_CLASS_FULL = "full";
 
-	private static final String CONFIGURATION_CLASS_LITE = "lite";
+	static final String CONFIGURATION_CLASS_LITE = "lite";
 
-	private static final String CONFIGURATION_CLASS_ATTRIBUTE =
+	/**
+	 * When set to {@link Boolean#TRUE}, this attribute signals that the bean class
+	 * for the given {@link BeanDefinition} should be considered as a candidate
+	 * configuration class in 'lite' mode by default.
+	 * <p>For example, a class registered directly with an {@code ApplicationContext}
+	 * should always be considered a configuration class candidate.
+	 * @since 6.0.10
+	 */
+	static final String CANDIDATE_ATTRIBUTE =
+			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "candidate");
+
+	static final String CONFIGURATION_CLASS_ATTRIBUTE =
 			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "configurationClass");
 
-	private static final String ORDER_ATTRIBUTE =
+	static final String ORDER_ATTRIBUTE =
 			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "order");
 
 
 	private static final Log logger = LogFactory.getLog(ConfigurationClassUtils.class);
 
-	private static final Set<String> candidateIndicators = new HashSet<>(4);
+	private static final Set<String> candidateIndicators = Set.of(
+			Component.class.getName(),
+			ComponentScan.class.getName(),
+			Import.class.getName(),
+			ImportResource.class.getName());
 
-	static {
-		candidateIndicators.add(Component.class.getName());
-		candidateIndicators.add(ComponentScan.class.getName());
-		candidateIndicators.add(Import.class.getName());
-		candidateIndicators.add(ImportResource.class.getName());
+
+	/**
+	 * Initialize a configuration class proxy for the specified class.
+	 * @param userClass the configuration class to initialize
+	 */
+	@SuppressWarnings("unused") // Used by AOT-optimized generated code
+	public static Class<?> initializeConfigurationClass(Class<?> userClass) {
+		Class<?> configurationClass = new ConfigurationClassEnhancer().enhance(userClass, null);
+		Enhancer.registerStaticCallbacks(configurationClass, ConfigurationClassEnhancer.CALLBACKS);
+		return configurationClass;
 	}
 
 
@@ -78,23 +103,31 @@ abstract class ConfigurationClassUtils {
 	 * @param metadataReaderFactory the current factory in use by the caller
 	 * @return whether the candidate qualifies as (any kind of) configuration class
 	 */
-	public static boolean checkConfigurationClassCandidate(BeanDefinition beanDef, MetadataReaderFactory metadataReaderFactory) {
+	static boolean checkConfigurationClassCandidate(
+			BeanDefinition beanDef, MetadataReaderFactory metadataReaderFactory) {
+
 		String className = beanDef.getBeanClassName();
 		if (className == null || beanDef.getFactoryMethodName() != null) {
 			return false;
 		}
 
 		AnnotationMetadata metadata;
-		if (beanDef instanceof AnnotatedBeanDefinition &&
-				className.equals(((AnnotatedBeanDefinition) beanDef).getMetadata().getClassName())) {
+		if (beanDef instanceof AnnotatedBeanDefinition annotatedBd &&
+				className.equals(annotatedBd.getMetadata().getClassName())) {
 			// Can reuse the pre-parsed metadata from the given BeanDefinition...
-			metadata = ((AnnotatedBeanDefinition) beanDef).getMetadata();
+			metadata = annotatedBd.getMetadata();
 		}
-		else if (beanDef instanceof AbstractBeanDefinition && ((AbstractBeanDefinition) beanDef).hasBeanClass()) {
+		else if (beanDef instanceof AbstractBeanDefinition abstractBd && abstractBd.hasBeanClass()) {
 			// Check already loaded Class if present...
 			// since we possibly can't even load the class file for this Class.
-			Class<?> beanClass = ((AbstractBeanDefinition) beanDef).getBeanClass();
-			metadata = new StandardAnnotationMetadata(beanClass, true);
+			Class<?> beanClass = abstractBd.getBeanClass();
+			if (BeanFactoryPostProcessor.class.isAssignableFrom(beanClass) ||
+					BeanPostProcessor.class.isAssignableFrom(beanClass) ||
+					AopInfrastructureBean.class.isAssignableFrom(beanClass) ||
+					EventListenerFactory.class.isAssignableFrom(beanClass)) {
+				return false;
+			}
+			metadata = AnnotationMetadata.introspect(beanClass);
 		}
 		else {
 			try {
@@ -103,16 +136,19 @@ abstract class ConfigurationClassUtils {
 			}
 			catch (IOException ex) {
 				if (logger.isDebugEnabled()) {
-					logger.debug("Could not find class file for introspecting configuration annotations: " + className, ex);
+					logger.debug("Could not find class file for introspecting configuration annotations: " +
+							className, ex);
 				}
 				return false;
 			}
 		}
 
-		if (isFullConfigurationCandidate(metadata)) {
+		Map<String, Object> config = metadata.getAnnotationAttributes(Configuration.class.getName());
+		if (config != null && !Boolean.FALSE.equals(config.get("proxyBeanMethods"))) {
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_FULL);
 		}
-		else if (isLiteConfigurationCandidate(metadata)) {
+		else if (config != null || Boolean.TRUE.equals(beanDef.getAttribute(CANDIDATE_ATTRIBUTE)) ||
+				isConfigurationCandidate(metadata)) {
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_LITE);
 		}
 		else {
@@ -132,33 +168,10 @@ abstract class ConfigurationClassUtils {
 	 * Check the given metadata for a configuration class candidate
 	 * (or nested component class declared within a configuration/component class).
 	 * @param metadata the metadata of the annotated class
-	 * @return {@code true} if the given class is to be registered as a
-	 * reflection-detected bean definition; {@code false} otherwise
+	 * @return {@code true} if the given class is to be registered for
+	 * configuration class processing; {@code false} otherwise
 	 */
-	public static boolean isConfigurationCandidate(AnnotationMetadata metadata) {
-		return (isFullConfigurationCandidate(metadata) || isLiteConfigurationCandidate(metadata));
-	}
-
-	/**
-	 * Check the given metadata for a full configuration class candidate
-	 * (i.e. a class annotated with {@code @Configuration}).
-	 * @param metadata the metadata of the annotated class
-	 * @return {@code true} if the given class is to be processed as a full
-	 * configuration class, including cross-method call interception
-	 */
-	public static boolean isFullConfigurationCandidate(AnnotationMetadata metadata) {
-		return metadata.isAnnotated(Configuration.class.getName());
-	}
-
-	/**
-	 * Check the given metadata for a lite configuration class candidate
-	 * (e.g. a class annotated with {@code @Component} or just having
-	 * {@code @Import} declarations or {@code @Bean methods}).
-	 * @param metadata the metadata of the annotated class
-	 * @return {@code true} if the given class is to be processed as a lite
-	 * configuration class, just registering it and scanning it for {@code @Bean} methods
-	 */
-	public static boolean isLiteConfigurationCandidate(AnnotationMetadata metadata) {
+	static boolean isConfigurationCandidate(AnnotationMetadata metadata) {
 		// Do not consider an interface or an annotation...
 		if (metadata.isInterface()) {
 			return false;
@@ -172,6 +185,10 @@ abstract class ConfigurationClassUtils {
 		}
 
 		// Finally, let's look for @Bean methods...
+		return hasBeanMethods(metadata);
+	}
+
+	static boolean hasBeanMethods(AnnotationMetadata metadata) {
 		try {
 			return metadata.hasAnnotatedMethods(Bean.class.getName());
 		}
@@ -184,26 +201,10 @@ abstract class ConfigurationClassUtils {
 	}
 
 	/**
-	 * Determine whether the given bean definition indicates a full {@code @Configuration}
-	 * class, through checking {@link #checkConfigurationClassCandidate}'s metadata marker.
-	 */
-	public static boolean isFullConfigurationClass(BeanDefinition beanDef) {
-		return CONFIGURATION_CLASS_FULL.equals(beanDef.getAttribute(CONFIGURATION_CLASS_ATTRIBUTE));
-	}
-
-	/**
-	 * Determine whether the given bean definition indicates a lite {@code @Configuration}
-	 * class, through checking {@link #checkConfigurationClassCandidate}'s metadata marker.
-	 */
-	public static boolean isLiteConfigurationClass(BeanDefinition beanDef) {
-		return CONFIGURATION_CLASS_LITE.equals(beanDef.getAttribute(CONFIGURATION_CLASS_ATTRIBUTE));
-	}
-
-	/**
 	 * Determine the order for the given configuration class metadata.
 	 * @param metadata the metadata of the annotated class
-	 * @return the {@link @Order} annotation value on the configuration class,
-	 * or {@link Ordered#LOWEST_PRECEDENCE} if none declared
+	 * @return the {@code @Order} annotation value on the configuration class,
+	 * or {@code Ordered.LOWEST_PRECEDENCE} if none declared
 	 * @since 5.0
 	 */
 	@Nullable
@@ -216,7 +217,7 @@ abstract class ConfigurationClassUtils {
 	 * Determine the order for the given configuration class bean definition,
 	 * as set by {@link #checkConfigurationClassCandidate}.
 	 * @param beanDef the bean definition to check
-	 * @return the {@link @Order} annotation value on the configuration class,
+	 * @return the {@link Order @Order} annotation value on the configuration class,
 	 * or {@link Ordered#LOWEST_PRECEDENCE} if none declared
 	 * @since 4.2
 	 */

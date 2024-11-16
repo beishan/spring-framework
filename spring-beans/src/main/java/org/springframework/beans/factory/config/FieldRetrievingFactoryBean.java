@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,14 +35,15 @@ import org.springframework.util.StringUtils;
  *
  * <p>Typically used for retrieving public static final constants. Usage example:
  *
- * <pre class="code">// standard definition for exposing a static field, specifying the "staticField" property
+ * <pre class="code">
+ * // standard definition for exposing a static field, specifying the "staticField" property
  * &lt;bean id="myField" class="org.springframework.beans.factory.config.FieldRetrievingFactoryBean"&gt;
  *   &lt;property name="staticField" value="java.sql.Connection.TRANSACTION_SERIALIZABLE"/&gt;
  * &lt;/bean&gt;
  *
  * // convenience version that specifies a static field pattern as bean name
  * &lt;bean id="java.sql.Connection.TRANSACTION_SERIALIZABLE"
- *       class="org.springframework.beans.factory.config.FieldRetrievingFactoryBean"/&gt;</pre>
+ *       class="org.springframework.beans.factory.config.FieldRetrievingFactoryBean"/&gt;
  * </pre>
  *
  * <p>If you are using Spring 2.0, you can also use the following style of configuration for
@@ -96,7 +97,7 @@ public class FieldRetrievingFactoryBean
 	 */
 	@Nullable
 	public Class<?> getTargetClass() {
-		return targetClass;
+		return this.targetClass;
 	}
 
 	/**
@@ -139,7 +140,7 @@ public class FieldRetrievingFactoryBean
 
 	/**
 	 * Set a fully qualified static field name to retrieve,
-	 * e.g. "example.MyExampleClass.MY_EXAMPLE_FIELD".
+	 * for example, "example.MyExampleClass.MY_EXAMPLE_FIELD".
 	 * Convenient alternative to specifying targetClass and targetField.
 	 * @see #setTargetClass
 	 * @see #setTargetField
@@ -166,6 +167,7 @@ public class FieldRetrievingFactoryBean
 
 
 	@Override
+	@SuppressWarnings("NullAway")
 	public void afterPropertiesSet() throws ClassNotFoundException, NoSuchFieldException {
 		if (this.targetClass != null && this.targetObject != null) {
 			throw new IllegalArgumentException("Specify either targetClass or targetObject, not both");
@@ -188,7 +190,7 @@ public class FieldRetrievingFactoryBean
 			if (lastDotIndex == -1 || lastDotIndex == this.staticField.length()) {
 				throw new IllegalArgumentException(
 						"staticField must be a fully qualified class plus static field name: " +
-						"e.g. 'example.MyExampleClass.MY_EXAMPLE_FIELD'");
+						"for example, 'example.MyExampleClass.MY_EXAMPLE_FIELD'");
 			}
 			String className = this.staticField.substring(0, lastDotIndex);
 			String fieldName = this.staticField.substring(lastDotIndex + 1);
@@ -202,7 +204,7 @@ public class FieldRetrievingFactoryBean
 		}
 
 		// Try to get the exact method first.
-		Class<?> targetClass = (this.targetObject != null) ? this.targetObject.getClass() : this.targetClass;
+		Class<?> targetClass = (this.targetObject != null ? this.targetObject.getClass() : this.targetClass);
 		this.fieldObject = targetClass.getField(this.targetField);
 	}
 
@@ -225,6 +227,7 @@ public class FieldRetrievingFactoryBean
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getObjectType() {
 		return (this.fieldObject != null ? this.fieldObject.getType() : null);
 	}

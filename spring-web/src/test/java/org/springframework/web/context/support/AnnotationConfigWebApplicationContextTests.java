@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 package org.springframework.web.context.support;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
@@ -24,51 +24,46 @@ import org.springframework.context.annotation.AnnotationBeanNameGenerator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Chris Beams
  * @author Juergen Hoeller
  */
-public class AnnotationConfigWebApplicationContextTests {
+class AnnotationConfigWebApplicationContextTests {
 
 	@Test
-	@SuppressWarnings("resource")
-	public void registerSingleClass() {
+	void registerSingleClass() {
 		AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
 		ctx.register(Config.class);
 		ctx.refresh();
 
 		TestBean bean = ctx.getBean(TestBean.class);
-		assertNotNull(bean);
+		assertThat(bean).isNotNull();
 	}
 
 	@Test
-	@SuppressWarnings("resource")
-	public void configLocationWithSingleClass() {
+	void configLocationWithSingleClass() {
 		AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
 		ctx.setConfigLocation(Config.class.getName());
 		ctx.refresh();
 
 		TestBean bean = ctx.getBean(TestBean.class);
-		assertNotNull(bean);
+		assertThat(bean).isNotNull();
 	}
 
 	@Test
-	@SuppressWarnings("resource")
-	public void configLocationWithBasePackage() {
+	void configLocationWithBasePackage() {
 		AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
 		ctx.setConfigLocation("org.springframework.web.context.support");
 		ctx.refresh();
 
 		TestBean bean = ctx.getBean(TestBean.class);
-		assertNotNull(bean);
+		assertThat(bean).isNotNull();
 	}
 
 	@Test
-	@SuppressWarnings("resource")
-	public void withBeanNameGenerator() {
+	void withBeanNameGenerator() {
 		AnnotationConfigWebApplicationContext ctx = new AnnotationConfigWebApplicationContext();
 		ctx.setBeanNameGenerator(new AnnotationBeanNameGenerator() {
 			@Override
@@ -79,7 +74,7 @@ public class AnnotationConfigWebApplicationContextTests {
 		});
 		ctx.setConfigLocation(Config.class.getName());
 		ctx.refresh();
-		assertThat(ctx.containsBean("custom-myConfig"), is(true));
+		assertThat(ctx.containsBean("custom-myConfig")).isTrue();
 	}
 
 

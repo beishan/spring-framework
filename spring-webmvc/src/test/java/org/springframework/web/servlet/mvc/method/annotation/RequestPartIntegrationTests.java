@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,23 +18,24 @@ package org.springframework.web.servlet.mvc.method.annotation;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.servlet.MultipartConfigElement;
 
+import jakarta.servlet.MultipartConfigElement;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,6 +53,7 @@ import org.springframework.http.converter.ResourceHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.FileSystemUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.MultiValueMap;
@@ -61,13 +63,12 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartResolver;
-import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import static org.junit.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 /**
@@ -77,7 +78,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
  * @author Brian Clozel
  * @author Sam Brannen
  */
-public class RequestPartIntegrationTests {
+class RequestPartIntegrationTests {
 
 	private RestTemplate restTemplate;
 
@@ -85,26 +86,22 @@ public class RequestPartIntegrationTests {
 
 	private static String baseUrl;
 
+	private static Path tempDirectory;
 
-	@BeforeClass
-	public static void startServer() throws Exception {
+
+	@BeforeAll
+	static void startServer() throws Exception {
 		// Let server pick its own random, available port.
 		server = new Server(0);
 
+		tempDirectory = Files.createTempDirectory("RequestPartIntegrationTests");
+
 		ServletContextHandler handler = new ServletContextHandler();
 		handler.setContextPath("/");
-
-		Class<?> config = CommonsMultipartResolverTestConfig.class;
-		ServletHolder commonsResolverServlet = new ServletHolder(DispatcherServlet.class);
-		commonsResolverServlet.setInitParameter("contextConfigLocation", config.getName());
-		commonsResolverServlet.setInitParameter("contextClass", AnnotationConfigWebApplicationContext.class.getName());
-		handler.addServlet(commonsResolverServlet, "/commons-resolver/*");
-
-		config = StandardMultipartResolverTestConfig.class;
 		ServletHolder standardResolverServlet = new ServletHolder(DispatcherServlet.class);
-		standardResolverServlet.setInitParameter("contextConfigLocation", config.getName());
+		standardResolverServlet.setInitParameter("contextConfigLocation", StandardMultipartResolverTestConfig.class.getName());
 		standardResolverServlet.setInitParameter("contextClass", AnnotationConfigWebApplicationContext.class.getName());
-		standardResolverServlet.getRegistration().setMultipartConfig(new MultipartConfigElement(""));
+		standardResolverServlet.getRegistration().setMultipartConfig(new MultipartConfigElement(tempDirectory.toString()));
 		handler.addServlet(standardResolverServlet, "/standard-resolver/*");
 
 		server.setHandler(handler);
@@ -115,15 +112,20 @@ public class RequestPartIntegrationTests {
 		baseUrl = "http://localhost:" + connector.getLocalPort();
 	}
 
-	@AfterClass
-	public static void stopServer() throws Exception {
-		if (server != null) {
-			server.stop();
+	@AfterAll
+	static void stopServer() throws Exception {
+		try {
+			if (server != null) {
+				server.stop();
+			}
+		}
+		finally {
+			FileSystemUtils.deleteRecursively(tempDirectory);
 		}
 	}
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		ByteArrayHttpMessageConverter emptyBodyConverter = new ByteArrayHttpMessageConverter();
 		emptyBodyConverter.setSupportedMediaTypes(Collections.singletonList(MediaType.APPLICATION_JSON));
 
@@ -142,34 +144,27 @@ public class RequestPartIntegrationTests {
 
 
 	@Test
-	public void commonsMultipartResolver() throws Exception {
-		testCreate(baseUrl + "/commons-resolver/test", "Jason");
-		testCreate(baseUrl + "/commons-resolver/test", "Arjen");
-	}
-
-	@Test
-	public void standardMultipartResolver() throws Exception {
+	void standardMultipartResolver() {
 		testCreate(baseUrl + "/standard-resolver/test", "Jason");
 		testCreate(baseUrl + "/standard-resolver/test", "Arjen");
 	}
 
 	@Test  // SPR-13319
-	public void standardMultipartResolverWithEncodedFileName() throws Exception {
-		byte[] boundary = MimeTypeUtils.generateMultipartBoundary();
-		String boundaryText = new String(boundary, "US-ASCII");
+	void standardMultipartResolverWithEncodedFileName() {
+		String boundaryText = MimeTypeUtils.generateMultipartBoundaryString();
 		Map<String, String> params = Collections.singletonMap("boundary", boundaryText);
 
 		String content =
-				"--" + boundaryText + "\n" +
-				"Content-Disposition: form-data; name=\"file\"; filename*=\"utf-8''%C3%A9l%C3%A8ve.txt\"\n" +
-				"Content-Type: text/plain\n" +
-				"Content-Length: 7\n" +
-				"\n" +
-				"content\n" +
-				"--" + boundaryText + "--";
+				"--" + boundaryText + "\r\n" +
+				"Content-Disposition: form-data; name=\"file\"; filename*=\"utf-8''%C3%A9l%C3%A8ve.txt\"\r\n" +
+				"Content-Type: text/plain\r\n" +
+				"Content-Length: 7\r\n" +
+				"\r\n" +
+				"content\r\n" +
+				"--" + boundaryText + "--\r\n ";
 
 		RequestEntity<byte[]> requestEntity =
-				RequestEntity.post(new URI(baseUrl + "/standard-resolver/spr13319"))
+				RequestEntity.post(URI.create(baseUrl + "/standard-resolver/spr13319"))
 						.contentType(new MediaType(MediaType.MULTIPART_FORM_DATA, params))
 						.body(content.getBytes(StandardCharsets.US_ASCII));
 
@@ -178,7 +173,7 @@ public class RequestPartIntegrationTests {
 		this.restTemplate.setMessageConverters(Collections.singletonList(converter));
 
 		ResponseEntity<Void> responseEntity = restTemplate.exchange(requestEntity, Void.class);
-		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+		assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
 	}
 
 	private void testCreate(String url, String basename) {
@@ -192,7 +187,7 @@ public class RequestPartIntegrationTests {
 		parts.add("iso-8859-1-data", new HttpEntity<>(new byte[] {(byte) 0xC4}, headers)); // SPR-13096
 
 		URI location = restTemplate.postForLocation(url, parts);
-		assertEquals("http://localhost:8080/test/" + basename + "/logo.jpg", location.toString());
+		assertThat(location.toString()).isEqualTo(("http://localhost:8080/test/" + basename + "/logo.jpg"));
 	}
 
 
@@ -203,17 +198,6 @@ public class RequestPartIntegrationTests {
 		@Bean
 		public RequestPartTestController controller() {
 			return new RequestPartTestController();
-		}
-	}
-
-
-	@Configuration
-	@SuppressWarnings("unused")
-	static class CommonsMultipartResolverTestConfig extends RequestPartTestConfig {
-
-		@Bean
-		public MultipartResolver multipartResolver() {
-			return new CommonsMultipartResolver();
 		}
 	}
 
@@ -239,7 +223,7 @@ public class RequestPartIntegrationTests {
 				@RequestPart(name = "empty-data", required = false) TestData emptyData,
 				@RequestPart(name = "iso-8859-1-data") byte[] iso88591Data) {
 
-			Assert.assertArrayEquals(new byte[]{(byte) 0xC4}, iso88591Data);
+			assertThat(iso88591Data).isEqualTo(new byte[]{(byte) 0xC4});
 
 			String url = "http://localhost:8080/test/" + testData.getName() + "/" + file.get().getOriginalFilename();
 			HttpHeaders headers = new HttpHeaders();
@@ -249,7 +233,7 @@ public class RequestPartIntegrationTests {
 
 		@RequestMapping(value = "/spr13319", method = POST, consumes = "multipart/form-data")
 		public ResponseEntity<Void> create(@RequestPart("file") MultipartFile multipartFile) {
-			assertEquals("élève.txt", multipartFile.getOriginalFilename());
+			assertThat(multipartFile.getOriginalFilename()).isEqualTo("élève.txt");
 			return ResponseEntity.ok().build();
 		}
 	}
@@ -261,7 +245,6 @@ public class RequestPartIntegrationTests {
 		private String name;
 
 		public TestData() {
-			super();
 		}
 
 		public TestData(String name) {

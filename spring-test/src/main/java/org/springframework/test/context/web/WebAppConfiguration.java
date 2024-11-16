@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,9 +24,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * {@code @WebAppConfiguration} is a class-level annotation that is used to
- * declare that the {@code ApplicationContext} loaded for an integration test
- * should be a {@link org.springframework.web.context.WebApplicationContext
+ * {@code @WebAppConfiguration} is an annotation that can be applied to a test
+ * class to declare that the {@code ApplicationContext} loaded for an integration
+ * test should be a {@link org.springframework.web.context.WebApplicationContext
  * WebApplicationContext}.
  *
  * <p>The presence of {@code @WebAppConfiguration} on a test class indicates that
@@ -38,8 +38,13 @@ import java.lang.annotation.Target;
  * {@link org.springframework.test.context.ContextConfiguration @ContextConfiguration},
  * either within a single test class or within a test class hierarchy.
  *
- * <p>As of Spring Framework 4.0, this annotation may be used as a
- * <em>meta-annotation</em> to create custom <em>composed annotations</em>.
+ * <p>This annotation may be used as a <em>meta-annotation</em> to create custom
+ * <em>composed annotations</em>.
+ *
+ * <p>As of Spring Framework 5.3, this annotation will be inherited from an
+ * enclosing test class by default. See
+ * {@link org.springframework.test.context.NestedTestConfiguration @NestedTestConfiguration}
+ * for details.
  *
  * @author Sam Brannen
  * @since 3.2
@@ -55,7 +60,7 @@ public @interface WebAppConfiguration {
 
 	/**
 	 * The resource path to the root directory of the web application.
-	 * <p>A path that does not include a Spring resource prefix (e.g., {@code classpath:},
+	 * <p>A path that does not include a Spring resource prefix (for example, {@code classpath:},
 	 * {@code file:}, etc.) will be interpreted as a file system resource, and a
 	 * path should not end with a slash.
 	 * <p>Defaults to {@code "src/main/webapp"} as a file system resource. Note

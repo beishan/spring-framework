@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,8 +40,6 @@ import org.springframework.web.servlet.view.groovy.GroovyMarkupConfigurer;
 import org.springframework.web.servlet.view.groovy.GroovyMarkupViewResolver;
 import org.springframework.web.servlet.view.script.ScriptTemplateConfigurer;
 import org.springframework.web.servlet.view.script.ScriptTemplateViewResolver;
-import org.springframework.web.servlet.view.tiles3.TilesConfigurer;
-import org.springframework.web.servlet.view.tiles3.TilesViewResolver;
 
 /**
  * Assist with the configuration of a chain of
@@ -55,10 +53,10 @@ import org.springframework.web.servlet.view.tiles3.TilesViewResolver;
 public class ViewResolverRegistry {
 
 	@Nullable
-	private ContentNegotiationManager contentNegotiationManager;
+	private final ContentNegotiationManager contentNegotiationManager;
 
 	@Nullable
-	private ApplicationContext applicationContext;
+	private final ApplicationContext applicationContext;
 
 	@Nullable
 	private ContentNegotiatingViewResolver contentNegotiatingResolver;
@@ -91,7 +89,7 @@ public class ViewResolverRegistry {
 	/**
 	 * Enable use of a {@link ContentNegotiatingViewResolver} to front all other
 	 * configured view resolvers and select among all selected Views based on
-	 * media types requested by the client (e.g. in the Accept header).
+	 * media types requested by the client (for example, in the Accept header).
 	 * <p>If invoked multiple times the provided default views will be added to
 	 * any other default views that may have been configured already.
 	 * @see ContentNegotiatingViewResolver#setDefaultViews
@@ -103,7 +101,7 @@ public class ViewResolverRegistry {
 	/**
 	 * Enable use of a {@link ContentNegotiatingViewResolver} to front all other
 	 * configured view resolvers and select among all selected Views based on
-	 * media types requested by the client (e.g. in the Accept header).
+	 * media types requested by the client (for example, in the Accept header).
 	 * <p>If invoked multiple times the provided default views will be added to
 	 * any other default views that may have been configured already.
 	 * @see ContentNegotiatingViewResolver#setDefaultViews
@@ -163,22 +161,6 @@ public class ViewResolverRegistry {
 		resolver.setSuffix(suffix);
 		this.viewResolvers.add(resolver);
 		return new UrlBasedViewResolverRegistration(resolver);
-	}
-
-	/**
-	 * Register Tiles 3.x view resolver.
-	 * <p><strong>Note</strong> that you must also configure Tiles by adding a
-	 * {@link org.springframework.web.servlet.view.tiles3.TilesConfigurer} bean.
-	 */
-	public UrlBasedViewResolverRegistration tiles() {
-		if (!checkBeanOfType(TilesConfigurer.class)) {
-			throw new BeanInitializationException("In addition to a Tiles view resolver " +
-					"there must also be a single TilesConfigurer bean in this web application context " +
-					"(or its parent).");
-		}
-		TilesRegistration registration = new TilesRegistration();
-		this.viewResolvers.add(registration.getViewResolver());
-		return registration;
 	}
 
 	/**
@@ -284,20 +266,13 @@ public class ViewResolverRegistry {
 
 	protected List<ViewResolver> getViewResolvers() {
 		if (this.contentNegotiatingResolver != null) {
-			return Collections.<ViewResolver>singletonList(this.contentNegotiatingResolver);
+			return Collections.singletonList(this.contentNegotiatingResolver);
 		}
 		else {
 			return this.viewResolvers;
 		}
 	}
 
-
-	private static class TilesRegistration extends UrlBasedViewResolverRegistration {
-
-		public TilesRegistration() {
-			super(new TilesViewResolver());
-		}
-	}
 
 	private static class FreeMarkerRegistration extends UrlBasedViewResolverRegistration {
 

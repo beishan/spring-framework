@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +16,7 @@
 
 package org.springframework.jdbc.support;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 import java.sql.Blob;
@@ -28,6 +29,9 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -37,6 +41,7 @@ import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.lang.Nullable;
 import org.springframework.util.NumberUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * Generic utility methods for working with JDBC. Mainly for internal use
@@ -44,6 +49,7 @@ import org.springframework.util.NumberUtils;
  *
  * @author Thomas Risberg
  * @author Juergen Hoeller
+ * @author Ben Blinebury
  */
 public abstract class JdbcUtils {
 
@@ -54,6 +60,19 @@ public abstract class JdbcUtils {
 	public static final int TYPE_UNKNOWN = Integer.MIN_VALUE;
 
 	private static final Log logger = LogFactory.getLog(JdbcUtils.class);
+
+	private static final Map<Integer, String> typeNames = new HashMap<>();
+
+	static {
+		try {
+			for (Field field : Types.class.getFields()) {
+				typeNames.put((Integer) field.get(null), field.getName());
+			}
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException("Failed to resolve JDBC Types constants", ex);
+		}
+	}
 
 
 	/**
@@ -122,7 +141,7 @@ public abstract class JdbcUtils {
 	 * {@link #getResultSetValue(java.sql.ResultSet, int)} for unknown types.
 	 * <p>Note that the returned value may not be assignable to the specified
 	 * required type, in case of an unknown type. Calling code needs to deal
-	 * with this case appropriately, e.g. throwing a corresponding exception.
+	 * with this case appropriately, for example, throwing a corresponding exception.
 	 * @param rs is the ResultSet holding the data
 	 * @param index is the column index
 	 * @param requiredType the required value type (may be {@code null})
@@ -188,19 +207,19 @@ public abstract class JdbcUtils {
 		}
 		else if (requiredType.isEnum()) {
 			// Enums can either be represented through a String or an enum index value:
-			// leave enum type conversion up to the caller (e.g. a ConversionService)
+			// leave enum type conversion up to the caller (for example, a ConversionService)
 			// but make sure that we return nothing other than a String or an Integer.
 			Object obj = rs.getObject(index);
 			if (obj instanceof String) {
 				return obj;
 			}
-			else if (obj instanceof Number) {
+			else if (obj instanceof Number number) {
 				// Defensively convert any Number to an Integer (as needed by our
 				// ConversionService's IntegerToEnumConverterFactory) for use as index
-				return NumberUtils.convertNumberToTargetClass((Number) obj, Integer.class);
+				return NumberUtils.convertNumberToTargetClass(number, Integer.class);
 			}
 			else {
-				// e.g. on Postgres: getObject returns a PGObject but we need a String
+				// for example, on Postgres: getObject returns a PGObject, but we need a String
 				return rs.getString(index);
 			}
 		}
@@ -210,32 +229,27 @@ public abstract class JdbcUtils {
 			try {
 				return rs.getObject(index, requiredType);
 			}
-			catch (AbstractMethodError err) {
-				logger.debug("JDBC driver does not implement JDBC 4.1 'getObject(int, Class)' method", err);
-			}
-			catch (SQLFeatureNotSupportedException ex) {
+			catch (SQLFeatureNotSupportedException | AbstractMethodError ex) {
 				logger.debug("JDBC driver does not support JDBC 4.1 'getObject(int, Class)' method", ex);
 			}
 			catch (SQLException ex) {
-				logger.debug("JDBC driver has limited support for JDBC 4.1 'getObject(int, Class)' method", ex);
+				if (logger.isDebugEnabled()) {
+					logger.debug("JDBC driver has limited support for 'getObject(int, Class)' with column type: " +
+							requiredType.getName(), ex);
+				}
 			}
 
-			// Corresponding SQL types for JSR-310 / Joda-Time types, left up
-			// to the caller to convert them (e.g. through a ConversionService).
+			// Corresponding SQL types for JSR-310, left up to the caller to convert
+			// them (for example, through a ConversionService).
 			String typeName = requiredType.getSimpleName();
-			if ("LocalDate".equals(typeName)) {
-				return rs.getDate(index);
-			}
-			else if ("LocalTime".equals(typeName)) {
-				return rs.getTime(index);
-			}
-			else if ("LocalDateTime".equals(typeName)) {
-				return rs.getTimestamp(index);
-			}
-
-			// Fall back to getObject without type specification, again
-			// left up to the caller to convert the value if necessary.
-			return getResultSetValue(rs, index);
+			return switch (typeName) {
+				case "LocalDate" -> rs.getDate(index);
+				case "LocalTime" -> rs.getTime(index);
+				case "LocalDateTime" -> rs.getTimestamp(index);
+				// Fall back to getObject without type specification, again
+				// left up to the caller to convert the value if necessary.
+				default -> getResultSetValue(rs, index);
+			};
 		}
 
 		// Perform was-null check if necessary (for results that the JDBC driver returns as primitives).
@@ -267,12 +281,10 @@ public abstract class JdbcUtils {
 		if (obj != null) {
 			className = obj.getClass().getName();
 		}
-		if (obj instanceof Blob) {
-			Blob blob = (Blob) obj;
+		if (obj instanceof Blob blob) {
 			obj = blob.getBytes(1, (int) blob.length());
 		}
-		else if (obj instanceof Clob) {
-			Clob clob = (Clob) obj;
+		else if (obj instanceof Clob clob) {
 			obj = clob.getSubString(1, (int) clob.length());
 		}
 		else if ("oracle.sql.TIMESTAMP".equals(className) || "oracle.sql.TIMESTAMPTZ".equals(className)) {
@@ -297,26 +309,44 @@ public abstract class JdbcUtils {
 
 	/**
 	 * Extract database meta-data via the given DatabaseMetaDataCallback.
-	 * <p>This method will open a connection to the database and retrieve the database meta-data.
-	 * Since this method is called before the exception translation feature is configured for
-	 * a datasource, this method can not rely on the SQLException translation functionality.
-	 * <p>Any exceptions will be wrapped in a MetaDataAccessException. This is a checked exception
-	 * and any calling code should catch and handle this exception. You can just log the
-	 * error and hope for the best, but there is probably a more serious error that will
-	 * reappear when you try to access the database again.
+	 * <p>This method will open a connection to the database and retrieve its meta-data.
+	 * Since this method is called before the exception translation feature is configured
+	 * for a DataSource, this method can not rely on SQLException translation itself.
+	 * <p>Any exceptions will be wrapped in a MetaDataAccessException. This is a checked
+	 * exception and any calling code should catch and handle this exception. You can just
+	 * log the error and hope for the best, but there is probably a more serious error that
+	 * will reappear when you try to access the database again.
 	 * @param dataSource the DataSource to extract meta-data for
 	 * @param action callback that will do the actual work
 	 * @return object containing the extracted information, as returned by
 	 * the DatabaseMetaDataCallback's {@code processMetaData} method
 	 * @throws MetaDataAccessException if meta-data access failed
+	 * @see java.sql.DatabaseMetaData
 	 */
-	public static Object extractDatabaseMetaData(DataSource dataSource, DatabaseMetaDataCallback action)
+	public static <T> T extractDatabaseMetaData(DataSource dataSource, DatabaseMetaDataCallback<T> action)
 			throws MetaDataAccessException {
 
 		Connection con = null;
 		try {
 			con = DataSourceUtils.getConnection(dataSource);
-			DatabaseMetaData metaData = con.getMetaData();
+			DatabaseMetaData metaData;
+			try {
+				metaData = con.getMetaData();
+			}
+			catch (SQLException ex) {
+				if (DataSourceUtils.isConnectionTransactional(con, dataSource)) {
+					// Probably a closed thread-bound Connection - retry against fresh Connection
+					DataSourceUtils.releaseConnection(con, dataSource);
+					con = null;
+					logger.debug("Failed to obtain DatabaseMetaData from transactional Connection - " +
+							"retrying against fresh Connection", ex);
+					con = dataSource.getConnection();
+					metaData = con.getMetaData();
+				}
+				else {
+					throw ex;
+				}
+			}
 			if (metaData == null) {
 				// should only happen in test environments
 				throw new MetaDataAccessException("DatabaseMetaData returned by Connection [" + con + "] was null");
@@ -347,7 +377,11 @@ public abstract class JdbcUtils {
 	 * @throws MetaDataAccessException if we couldn't access the DatabaseMetaData
 	 * or failed to invoke the specified method
 	 * @see java.sql.DatabaseMetaData
+	 * @deprecated as of 5.2.9, in favor of
+	 * {@link #extractDatabaseMetaData(DataSource, DatabaseMetaDataCallback)}
+	 * with a lambda expression or method reference and a generically typed result
 	 */
+	@Deprecated
 	@SuppressWarnings("unchecked")
 	public static <T> T extractDatabaseMetaData(DataSource dataSource, final String metaDataMethodName)
 			throws MetaDataAccessException {
@@ -366,8 +400,8 @@ public abstract class JdbcUtils {
 								"Could not access DatabaseMetaData method '" + metaDataMethodName + "'", ex);
 					}
 					catch (InvocationTargetException ex) {
-						if (ex.getTargetException() instanceof SQLException) {
-							throw (SQLException) ex.getTargetException();
+						if (ex.getTargetException() instanceof SQLException sqlException) {
+							throw sqlException;
 						}
 						throw new MetaDataAccessException(
 								"Invocation of DatabaseMetaData method '" + metaDataMethodName + "' failed", ex);
@@ -376,14 +410,14 @@ public abstract class JdbcUtils {
 	}
 
 	/**
-	 * Return whether the given JDBC driver supports JDBC 2.0 batch updates.
+	 * Return whether the given JDBC driver supports JDBC batch updates.
 	 * <p>Typically invoked right before execution of a given set of statements:
 	 * to decide whether the set of SQL statements should be executed through
-	 * the JDBC 2.0 batch mechanism or simply in a traditional one-by-one fashion.
+	 * the JDBC batch mechanism or simply in a traditional one-by-one fashion.
 	 * <p>Logs a warning if the "supportsBatchUpdates" methods throws an exception
 	 * and simply returns {@code false} in that case.
 	 * @param con the Connection to check
-	 * @return whether JDBC 2.0 batch updates are supported
+	 * @return whether JDBC batch updates are supported
 	 * @see java.sql.DatabaseMetaData#supportsBatchUpdates()
 	 */
 	public static boolean supportsBatchUpdates(Connection con) {
@@ -409,7 +443,7 @@ public abstract class JdbcUtils {
 	 * Extract a common name for the target database in use even if
 	 * various drivers/platforms provide varying names at runtime.
 	 * @param source the name as provided in database meta-data
-	 * @return the common name to be used (e.g. "DB2" or "Sybase")
+	 * @return the common name to be used (for example, "DB2" or "Sybase")
 	 */
 	@Nullable
 	public static String commonDatabaseName(@Nullable String source) {
@@ -439,54 +473,96 @@ public abstract class JdbcUtils {
 	}
 
 	/**
+	 * Resolve the standard type name for the given SQL type, if possible.
+	 * @param sqlType the SQL type to resolve
+	 * @return the corresponding constant name in {@link java.sql.Types}
+	 * (for example, "VARCHAR"/"NUMERIC"), or {@code null} if not resolvable
+	 * @since 5.2
+	 */
+	@Nullable
+	public static String resolveTypeName(int sqlType) {
+		return typeNames.get(sqlType);
+	}
+
+	/**
 	 * Determine the column name to use. The column name is determined based on a
 	 * lookup using ResultSetMetaData.
-	 * <p>This method implementation takes into account recent clarifications
-	 * expressed in the JDBC 4.0 specification:
+	 * <p>This method's implementation takes into account clarifications expressed
+	 * in the JDBC 4.0 specification:
 	 * <p><i>columnLabel - the label for the column specified with the SQL AS clause.
 	 * If the SQL AS clause was not specified, then the label is the name of the column</i>.
-	 * @return the column name to use
 	 * @param resultSetMetaData the current meta-data to use
-	 * @param columnIndex the index of the column for the look up
+	 * @param columnIndex the index of the column for the lookup
+	 * @return the column name to use
 	 * @throws SQLException in case of lookup failure
 	 */
 	public static String lookupColumnName(ResultSetMetaData resultSetMetaData, int columnIndex) throws SQLException {
 		String name = resultSetMetaData.getColumnLabel(columnIndex);
-		if (name == null || name.length() < 1) {
+		if (!StringUtils.hasLength(name)) {
 			name = resultSetMetaData.getColumnName(columnIndex);
 		}
 		return name;
 	}
 
 	/**
-	 * Convert a column name with underscores to the corresponding property name using "camel case".
-	 * A name like "customer_number" would match a "customerNumber" property name.
-	 * @param name the column name to be converted
-	 * @return the name using "camel case"
+	 * Convert a property name using "camelCase" to a corresponding column name with underscores.
+	 * A name like "customerNumber" would match a "customer_number" column name.
+	 * @param name the property name to be converted
+	 * @return the column name using underscores
+	 * @since 6.1
+	 * @see #convertUnderscoreNameToPropertyName
 	 */
-	public static String convertUnderscoreNameToPropertyName(@Nullable String name) {
+	public static String convertPropertyNameToUnderscoreName(@Nullable String name) {
+		if (!StringUtils.hasLength(name)) {
+			return "";
+		}
+
 		StringBuilder result = new StringBuilder();
-		boolean nextIsUpper = false;
-		if (name != null && name.length() > 0) {
-			if (name.length() > 1 && name.charAt(1) == '_') {
-				result.append(Character.toUpperCase(name.charAt(0)));
+		result.append(Character.toLowerCase(name.charAt(0)));
+		for (int i = 1; i < name.length(); i++) {
+			char c = name.charAt(i);
+			if (Character.isUpperCase(c)) {
+				result.append('_').append(Character.toLowerCase(c));
 			}
 			else {
-				result.append(Character.toLowerCase(name.charAt(0)));
+				result.append(c);
 			}
-			for (int i = 1; i < name.length(); i++) {
-				char c = name.charAt(i);
-				if (c == '_') {
-					nextIsUpper = true;
+		}
+		return result.toString();
+	}
+
+	/**
+	 * Convert a column name with underscores to the corresponding property name using "camelCase".
+	 * A name like "customer_number" would match a "customerNumber" property name.
+	 * @param name the potentially underscores-based column name to be converted
+	 * @return the name using "camelCase"
+	 * @see #convertPropertyNameToUnderscoreName
+	 */
+	public static String convertUnderscoreNameToPropertyName(@Nullable String name) {
+		if (!StringUtils.hasLength(name)) {
+			return "";
+		}
+
+		StringBuilder result = new StringBuilder();
+		boolean nextIsUpper = false;
+		if (name.length() > 1 && name.charAt(1) == '_') {
+			result.append(Character.toUpperCase(name.charAt(0)));
+		}
+		else {
+			result.append(Character.toLowerCase(name.charAt(0)));
+		}
+		for (int i = 1; i < name.length(); i++) {
+			char c = name.charAt(i);
+			if (c == '_') {
+				nextIsUpper = true;
+			}
+			else {
+				if (nextIsUpper) {
+					result.append(Character.toUpperCase(c));
+					nextIsUpper = false;
 				}
 				else {
-					if (nextIsUpper) {
-						result.append(Character.toUpperCase(c));
-						nextIsUpper = false;
-					}
-					else {
-						result.append(Character.toLowerCase(c));
-					}
+					result.append(Character.toLowerCase(c));
 				}
 			}
 		}

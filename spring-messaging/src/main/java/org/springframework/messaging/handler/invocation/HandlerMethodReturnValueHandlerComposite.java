@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.messaging.handler.invocation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -26,8 +27,6 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.core.MethodParameter;
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
-import org.springframework.util.Assert;
-import org.springframework.util.concurrent.ListenableFuture;
 
 /**
  * A HandlerMethodReturnValueHandler that wraps and delegates to others.
@@ -37,10 +36,31 @@ import org.springframework.util.concurrent.ListenableFuture;
  */
 public class HandlerMethodReturnValueHandlerComposite implements AsyncHandlerMethodReturnValueHandler {
 
-	private static final Log logger = LogFactory.getLog(HandlerMethodReturnValueHandlerComposite.class);
+	/** Public for wrapping with fallback logger. */
+	public static final Log defaultLogger = LogFactory.getLog(HandlerMethodReturnValueHandlerComposite.class);
+
+
+	private Log logger = defaultLogger;
 
 	private final List<HandlerMethodReturnValueHandler> returnValueHandlers = new ArrayList<>();
 
+
+	/**
+	 * Set an alternative logger to use than the one based on the class name.
+	 * @param logger the logger to use
+	 * @since 5.1
+	 */
+	public void setLogger(Log logger) {
+		this.logger = logger;
+	}
+
+	/**
+	 * Return the currently configured Logger.
+	 * @since 5.1
+	 */
+	public Log getLogger() {
+		return logger;
+	}
 
 	/**
 	 * Return a read-only list with the configured handlers.
@@ -65,15 +85,13 @@ public class HandlerMethodReturnValueHandlerComposite implements AsyncHandlerMet
 	}
 
 	/**
-	 * Add the given {@link HandlerMethodReturnValueHandler}s.
+	 * Add the given {@link HandlerMethodReturnValueHandler HandlerMethodReturnValueHandlers}.
 	 */
 	public HandlerMethodReturnValueHandlerComposite addHandlers(
 			@Nullable List<? extends HandlerMethodReturnValueHandler> handlers) {
 
 		if (handlers != null) {
-			for (HandlerMethodReturnValueHandler handler : handlers) {
-				this.returnValueHandlers.add(handler);
-			}
+			this.returnValueHandlers.addAll(handlers);
 		}
 		return this;
 	}
@@ -83,6 +101,7 @@ public class HandlerMethodReturnValueHandlerComposite implements AsyncHandlerMet
 		return getReturnValueHandler(returnType) != null;
 	}
 
+	@SuppressWarnings("ForLoopReplaceableByForEach")
 	@Nullable
 	private HandlerMethodReturnValueHandler getReturnValueHandler(MethodParameter returnType) {
 		for (HandlerMethodReturnValueHandler handler : this.returnValueHandlers) {
@@ -110,17 +129,18 @@ public class HandlerMethodReturnValueHandlerComposite implements AsyncHandlerMet
 	@Override
 	public boolean isAsyncReturnValue(Object returnValue, MethodParameter returnType) {
 		HandlerMethodReturnValueHandler handler = getReturnValueHandler(returnType);
-		return (handler instanceof AsyncHandlerMethodReturnValueHandler &&
-				((AsyncHandlerMethodReturnValueHandler) handler).isAsyncReturnValue(returnValue, returnType));
+		return (handler instanceof AsyncHandlerMethodReturnValueHandler asyncHandler &&
+				asyncHandler.isAsyncReturnValue(returnValue, returnType));
 	}
 
 	@Override
 	@Nullable
-	public ListenableFuture<?> toListenableFuture(Object returnValue, MethodParameter returnType) {
+	public CompletableFuture<?> toCompletableFuture(Object returnValue, MethodParameter returnType) {
 		HandlerMethodReturnValueHandler handler = getReturnValueHandler(returnType);
-		Assert.state(handler instanceof AsyncHandlerMethodReturnValueHandler,
-				"AsyncHandlerMethodReturnValueHandler required");
-		return ((AsyncHandlerMethodReturnValueHandler) handler).toListenableFuture(returnValue, returnType);
+		if (handler instanceof AsyncHandlerMethodReturnValueHandler asyncHandler) {
+			return asyncHandler.toCompletableFuture(returnValue, returnType);
+		}
+		return null;
 	}
 
 }

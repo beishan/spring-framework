@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -65,8 +65,8 @@ public abstract class DomUtils {
 		List<Element> childEles = new ArrayList<>();
 		for (int i = 0; i < nl.getLength(); i++) {
 			Node node = nl.item(i);
-			if (node instanceof Element && nodeNameMatch(node, childEleNameList)) {
-				childEles.add((Element) node);
+			if (node instanceof Element element && nodeNameMatch(node, childEleNameList)) {
+				childEles.add(element);
 			}
 		}
 		return childEles;
@@ -99,8 +99,8 @@ public abstract class DomUtils {
 		NodeList nl = ele.getChildNodes();
 		for (int i = 0; i < nl.getLength(); i++) {
 			Node node = nl.item(i);
-			if (node instanceof Element && nodeNameMatch(node, childEleName)) {
-				return (Element) node;
+			if (node instanceof Element element && nodeNameMatch(node, childEleName)) {
+				return element;
 			}
 		}
 		return null;
@@ -119,7 +119,7 @@ public abstract class DomUtils {
 	}
 
 	/**
-	 * Retrieves all child elements of the given DOM element
+	 * Retrieves all child elements of the given DOM element.
 	 * @param ele the DOM element to analyze
 	 * @return a List of child {@code org.w3c.dom.Element} instances
 	 */
@@ -129,8 +129,8 @@ public abstract class DomUtils {
 		List<Element> childEles = new ArrayList<>();
 		for (int i = 0; i < nl.getLength(); i++) {
 			Node node = nl.item(i);
-			if (node instanceof Element) {
-				childEles.add((Element) node);
+			if (node instanceof Element element) {
+				childEles.add(element);
 			}
 		}
 		return childEles;

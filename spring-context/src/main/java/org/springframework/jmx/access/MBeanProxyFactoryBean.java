@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -83,18 +83,21 @@ public class MBeanProxyFactoryBean extends MBeanClientInterceptor
 	public void afterPropertiesSet() throws MBeanServerNotFoundException, MBeanInfoRetrievalException {
 		super.afterPropertiesSet();
 
+		Class<?> interfaceToUse;
 		if (this.proxyInterface == null) {
-			this.proxyInterface = getManagementInterface();
-			if (this.proxyInterface == null) {
+			interfaceToUse = getManagementInterface();
+			if (interfaceToUse == null) {
 				throw new IllegalArgumentException("Property 'proxyInterface' or 'managementInterface' is required");
 			}
+			this.proxyInterface = interfaceToUse;
 		}
 		else {
+			interfaceToUse = this.proxyInterface;
 			if (getManagementInterface() == null) {
-				setManagementInterface(this.proxyInterface);
+				setManagementInterface(interfaceToUse);
 			}
 		}
-		this.mbeanProxy = new ProxyFactory(this.proxyInterface, this).getProxy(this.beanClassLoader);
+		this.mbeanProxy = new ProxyFactory(interfaceToUse, this).getProxy(this.beanClassLoader);
 	}
 
 
@@ -105,6 +108,7 @@ public class MBeanProxyFactoryBean extends MBeanClientInterceptor
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getObjectType() {
 		return this.proxyInterface;
 	}

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,8 @@
 package org.springframework.web.servlet.resource;
 
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.webjars.WebJarAssetLocator;
 
 import org.springframework.core.io.Resource;
@@ -29,20 +29,27 @@ import org.springframework.lang.Nullable;
  * attempts to find a matching versioned resource contained in a WebJar JAR file.
  *
  * <p>This allows WebJars.org users to write version agnostic paths in their templates,
- * like {@code <script src="/jquery/jquery.min.js"/>}.
- * This path will be resolved to the unique version {@code <script src="/jquery/1.2.0/jquery.min.js"/>},
+ * like {@code <script src="/webjars/jquery/jquery.min.js"/>}.
+ * This path will be resolved to the unique version {@code <script src="/webjars/jquery/1.2.0/jquery.min.js"/>},
  * which is a better fit for HTTP caching and version management in applications.
  *
  * <p>This also resolves resources for version agnostic HTTP requests {@code "GET /jquery/jquery.min.js"}.
  *
- * <p>This resolver requires the "org.webjars:webjars-locator" library on classpath,
- * and is automatically registered if that library is present.
+ * <p>This resolver requires the {@code org.webjars:webjars-locator-core} library
+ * on the classpath and is automatically registered if that library is present.
+ *
+ * <p>Be aware that {@code WebJarAssetLocator} constructor performs a classpath scanning that
+ * could slow down application startup.
  *
  * @author Brian Clozel
+ * @author Sebastien Deleuze
  * @since 4.2
  * @see org.springframework.web.servlet.config.annotation.ResourceChainRegistration
- * @see <a href="http://www.webjars.org">webjars.org</a>
+ * @see <a href="https://www.webjars.org">webjars.org</a>
+ * @see LiteWebJarsResourceResolver
+ * @deprecated as of 6.2, in favor of {@link LiteWebJarsResourceResolver}
  */
+@Deprecated(since = "6.2", forRemoval = true)
 public class WebJarsResourceResolver extends AbstractResourceResolver {
 
 	private static final String WEBJARS_LOCATION = "META-INF/resources/webjars/";
@@ -62,7 +69,7 @@ public class WebJarsResourceResolver extends AbstractResourceResolver {
 
 	/**
 	 * Create a {@code WebJarsResourceResolver} with a custom {@code WebJarAssetLocator} instance,
-	 * e.g. with a custom index.
+	 * for example, with a custom index.
 	 * @since 4.3
 	 */
 	public WebJarsResourceResolver(WebJarAssetLocator webJarAssetLocator) {
@@ -71,6 +78,7 @@ public class WebJarsResourceResolver extends AbstractResourceResolver {
 
 
 	@Override
+	@Nullable
 	protected Resource resolveResourceInternal(@Nullable HttpServletRequest request, String requestPath,
 			List<? extends Resource> locations, ResourceResolverChain chain) {
 
@@ -85,6 +93,7 @@ public class WebJarsResourceResolver extends AbstractResourceResolver {
 	}
 
 	@Override
+	@Nullable
 	protected String resolveUrlPathInternal(String resourceUrlPath,
 			List<? extends Resource> locations, ResourceResolverChain chain) {
 
@@ -105,7 +114,7 @@ public class WebJarsResourceResolver extends AbstractResourceResolver {
 		if (endOffset != -1) {
 			String webjar = path.substring(startOffset, endOffset);
 			String partialPath = path.substring(endOffset + 1);
-			String webJarPath = webJarAssetLocator.getFullPathExact(webjar, partialPath);
+			String webJarPath = this.webJarAssetLocator.getFullPathExact(webjar, partialPath);
 			if (webJarPath != null) {
 				return webJarPath.substring(WEBJARS_LOCATION_LENGTH);
 			}

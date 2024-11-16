@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -45,7 +45,9 @@ import org.springframework.util.MultiValueMap;
  *
  * @author Stephane Nicoll
  * @since 5.0
+ * @deprecated as of 6.1, in favor of the AOT engine.
  */
+@Deprecated(since = "6.1", forRemoval = true)
 public class CandidateComponentsIndex {
 
 	private static final AntPathMatcher pathMatcher = new AntPathMatcher(".");
@@ -55,6 +57,19 @@ public class CandidateComponentsIndex {
 
 	CandidateComponentsIndex(List<Properties> content) {
 		this.index = parseIndex(content);
+	}
+
+	private static MultiValueMap<String, Entry> parseIndex(List<Properties> content) {
+		MultiValueMap<String, Entry> index = new LinkedMultiValueMap<>();
+		for (Properties entry : content) {
+			entry.forEach((type, values) -> {
+				String[] stereotypes = ((String) values).split(",");
+				for (String stereotype : stereotypes) {
+					index.add(stereotype, new Entry((String) type));
+				}
+			});
+		}
+		return index;
 	}
 
 
@@ -76,21 +91,11 @@ public class CandidateComponentsIndex {
 		return Collections.emptySet();
 	}
 
-	private static MultiValueMap<String, Entry> parseIndex(List<Properties> content) {
-		MultiValueMap<String, Entry> index = new LinkedMultiValueMap<>();
-		for (Properties entry : content) {
-			entry.forEach((type, values) -> {
-				String[] stereotypes = ((String) values).split(",");
-				for (String stereotype : stereotypes) {
-					index.add(stereotype, new Entry((String) type));
-				}
-			});
-		}
-		return index;
-	}
 
 	private static class Entry {
+
 		private final String type;
+
 		private final String packageName;
 
 		Entry(String type) {
@@ -106,7 +111,6 @@ public class CandidateComponentsIndex {
 				return this.type.startsWith(basePackage);
 			}
 		}
-
 	}
 
 }

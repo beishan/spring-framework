@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,14 +17,18 @@
 package org.springframework.web;
 
 import java.util.Collection;
-import java.util.EnumSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
-import javax.servlet.ServletException;
 
+import jakarta.servlet.ServletException;
+
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
 import org.springframework.lang.Nullable;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -32,19 +36,22 @@ import org.springframework.util.StringUtils;
  * specific request method.
  *
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 2.0
  */
 @SuppressWarnings("serial")
-public class HttpRequestMethodNotSupportedException extends ServletException {
+public class HttpRequestMethodNotSupportedException extends ServletException implements ErrorResponse {
 
-	private String method;
+	private final String method;
 
 	@Nullable
-	private String[] supportedMethods;
+	private final String[] supportedMethods;
+
+	private final ProblemDetail body;
 
 
 	/**
-	 * Create a new HttpRequestMethodNotSupportedException.
+	 * Create a new {@code HttpRequestMethodNotSupportedException}.
 	 * @param method the unsupported HTTP request method
 	 */
 	public HttpRequestMethodNotSupportedException(String method) {
@@ -52,42 +59,26 @@ public class HttpRequestMethodNotSupportedException extends ServletException {
 	}
 
 	/**
-	 * Create a new HttpRequestMethodNotSupportedException.
+	 * Create a new {@code HttpRequestMethodNotSupportedException}.
 	 * @param method the unsupported HTTP request method
-	 * @param msg the detail message
-	 */
-	public HttpRequestMethodNotSupportedException(String method, String msg) {
-		this(method, null, msg);
-	}
-
-	/**
-	 * Create a new HttpRequestMethodNotSupportedException.
-	 * @param method the unsupported HTTP request method
-	 * @param supportedMethods the actually supported HTTP methods (may be {@code null})
+	 * @param supportedMethods the actually supported HTTP methods (possibly {@code null})
 	 */
 	public HttpRequestMethodNotSupportedException(String method, @Nullable Collection<String> supportedMethods) {
 		this(method, (supportedMethods != null ? StringUtils.toStringArray(supportedMethods) : null));
 	}
 
 	/**
-	 * Create a new HttpRequestMethodNotSupportedException.
+	 * Create a new {@code HttpRequestMethodNotSupportedException}.
 	 * @param method the unsupported HTTP request method
-	 * @param supportedMethods the actually supported HTTP methods (may be {@code null})
+	 * @param supportedMethods the actually supported HTTP methods (possibly {@code null})
 	 */
-	public HttpRequestMethodNotSupportedException(String method, @Nullable String[] supportedMethods) {
-		this(method, supportedMethods, "Request method '" + method + "' not supported");
-	}
-
-	/**
-	 * Create a new HttpRequestMethodNotSupportedException.
-	 * @param method the unsupported HTTP request method
-	 * @param supportedMethods the actually supported HTTP methods
-	 * @param msg the detail message
-	 */
-	public HttpRequestMethodNotSupportedException(String method, @Nullable String[] supportedMethods, String msg) {
-		super(msg);
+	private HttpRequestMethodNotSupportedException(String method, @Nullable String[] supportedMethods) {
+		super("Request method '" + method + "' is not supported");
 		this.method = method;
 		this.supportedMethods = supportedMethods;
+
+		String detail = "Method '" + method + "' is not supported.";
+		this.body = ProblemDetail.forStatusAndDetail(getStatusCode(), detail);
 	}
 
 
@@ -116,14 +107,37 @@ public class HttpRequestMethodNotSupportedException extends ServletException {
 		if (this.supportedMethods == null) {
 			return null;
 		}
-		List<HttpMethod> supportedMethods = new LinkedList<>();
+		Set<HttpMethod> supportedMethods = CollectionUtils.newLinkedHashSet(this.supportedMethods.length);
 		for (String value : this.supportedMethods) {
-			HttpMethod resolved = HttpMethod.resolve(value);
-			if (resolved != null) {
-				supportedMethods.add(resolved);
-			}
+			HttpMethod method = HttpMethod.valueOf(value);
+			supportedMethods.add(method);
 		}
-		return EnumSet.copyOf(supportedMethods);
+		return supportedMethods;
+	}
+
+	@Override
+	public HttpStatusCode getStatusCode() {
+		return HttpStatus.METHOD_NOT_ALLOWED;
+	}
+
+	@Override
+	public HttpHeaders getHeaders() {
+		if (ObjectUtils.isEmpty(this.supportedMethods)) {
+			return HttpHeaders.EMPTY;
+		}
+		HttpHeaders headers = new HttpHeaders();
+		headers.add(HttpHeaders.ALLOW, StringUtils.arrayToDelimitedString(this.supportedMethods, ", "));
+		return headers;
+	}
+
+	@Override
+	public ProblemDetail getBody() {
+		return this.body;
+	}
+
+	@Override
+	public Object[] getDetailMessageArguments() {
+		return new Object[] {getMethod(), getSupportedHttpMethods()};
 	}
 
 }

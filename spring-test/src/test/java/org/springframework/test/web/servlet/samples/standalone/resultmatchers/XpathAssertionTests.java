@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,14 +20,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlElementWrapper;
-import javax.xml.bind.annotation.XmlRootElement;
 
-import org.junit.Before;
-import org.junit.Test;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElementWrapper;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -36,11 +36,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import static org.hamcrest.Matchers.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.*;
-import static org.springframework.web.bind.annotation.RequestMethod.*;
+import static org.hamcrest.Matchers.closeTo;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.xpath;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
+import static org.springframework.web.bind.annotation.RequestMethod.GET;
+import static org.springframework.web.bind.annotation.RequestMethod.HEAD;
 
 /**
  * Examples of expectations on XML response content with XPath expressions.
@@ -53,11 +60,11 @@ import static org.springframework.web.bind.annotation.RequestMethod.*;
 public class XpathAssertionTests {
 
 	private static final Map<String, String> musicNamespace =
-		Collections.singletonMap("ns", "http://example.org/music/people");
+		Collections.singletonMap("ns", "https://example.org/music/people");
 
 	private MockMvc mockMvc;
 
-	@Before
+	@BeforeEach
 	public void setup() throws Exception {
 		this.mockMvc = standaloneSetup(new MusicController())
 				.defaultRequest(get("/").accept(MediaType.APPLICATION_XML, MediaType.parseMediaType("application/xml;charset=UTF-8")))
@@ -148,19 +155,15 @@ public class XpathAssertionTests {
 			.andExpect(xpath("/ns:people/performers/performer", musicNamespace).nodeCount(equalTo(2)));
 	}
 
-	// SPR-10704
 
-	@Test
+	@Test  // SPR-10704
 	public void testFeedWithLinefeedChars() throws Exception {
-
-//		Map<String, String> namespace = Collections.singletonMap("ns", "");
-
 		standaloneSetup(new BlogFeedController()).build()
 			.perform(get("/blog.atom").accept(MediaType.APPLICATION_ATOM_XML))
 				.andExpect(status().isOk())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_ATOM_XML))
 				.andExpect(xpath("//feed/title").string("Test Feed"))
-				.andExpect(xpath("//feed/icon").string("http://www.example.com/favicon.ico"));
+				.andExpect(xpath("//feed/icon").string("https://www.example.com/favicon.ico"));
 	}
 
 
@@ -168,7 +171,8 @@ public class XpathAssertionTests {
 	private static class MusicController {
 
 		@RequestMapping(value="/music/people")
-		public @ResponseBody PeopleWrapper getPeople() {
+		@ResponseBody
+		public PeopleWrapper getPeople() {
 
 			List<Person> composers = Arrays.asList(
 					new Person("Johann Sebastian Bach").setSomeDouble(21),
@@ -185,7 +189,7 @@ public class XpathAssertionTests {
 	}
 
 	@SuppressWarnings("unused")
-	@XmlRootElement(name="people", namespace="http://example.org/music/people")
+	@XmlRootElement(name="people", namespace="https://example.org/music/people")
 	@XmlAccessorType(XmlAccessType.FIELD)
 	private static class PeopleWrapper {
 
@@ -216,16 +220,17 @@ public class XpathAssertionTests {
 
 
 	@Controller
-	public class BlogFeedController {
+	public static class BlogFeedController {
 
 		@RequestMapping(value="/blog.atom", method = { GET, HEAD })
 		@ResponseBody
 		public String listPublishedPosts() {
-			return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
-					+ "<feed xmlns=\"http://www.w3.org/2005/Atom\">\r\n"
-					+ "  <title>Test Feed</title>\r\n"
-					+ "  <icon>http://www.example.com/favicon.ico</icon>\r\n"
-					+ "</feed>\r\n\r\n";
+			return """
+					<?xml version="1.0" encoding="UTF-8"?>
+					<feed xmlns="http://www.w3.org/2005/Atom">
+						<title>Test Feed</title>
+						<icon>https://www.example.com/favicon.ico</icon>
+					</feed>""".replaceAll("\n", "\r\n");
 		}
 	}
 

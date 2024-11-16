@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,91 +16,93 @@
 
 package org.springframework.beans.factory.xml;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.BeanDefinitionStoreException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.testfixture.beans.DummyBean;
+import org.springframework.beans.testfixture.beans.TestBean;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.tests.sample.beans.DummyBean;
-import org.springframework.tests.sample.beans.TestBean;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * @author Costin Leau
  */
-public class SimpleConstructorNamespaceHandlerTests {
+class SimpleConstructorNamespaceHandlerTests {
 
 	@Test
-	public void simpleValue() throws Exception {
+	void simpleValue() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		String name = "simple";
 		//		beanFactory.getBean("simple1", DummyBean.class);
 		DummyBean nameValue = beanFactory.getBean(name, DummyBean.class);
-		assertEquals("simple", nameValue.getValue());
+		assertThat(nameValue.getValue()).isEqualTo("simple");
 	}
 
 	@Test
-	public void simpleRef() throws Exception {
+	void simpleRef() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		String name = "simple-ref";
 		//		beanFactory.getBean("name-value1", TestBean.class);
 		DummyBean nameValue = beanFactory.getBean(name, DummyBean.class);
-		assertEquals(beanFactory.getBean("name"), nameValue.getValue());
+		assertThat(nameValue.getValue()).isEqualTo(beanFactory.getBean("name"));
 	}
 
 	@Test
-	public void nameValue() throws Exception {
+	void nameValue() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		String name = "name-value";
 		//		beanFactory.getBean("name-value1", TestBean.class);
 		TestBean nameValue = beanFactory.getBean(name, TestBean.class);
-		assertEquals(name, nameValue.getName());
-		assertEquals(10, nameValue.getAge());
+		assertThat(nameValue.getName()).isEqualTo(name);
+		assertThat(nameValue.getAge()).isEqualTo(10);
 	}
 
 	@Test
-	public void nameRef() throws Exception {
+	void nameRef() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		TestBean nameValue = beanFactory.getBean("name-value", TestBean.class);
 		DummyBean nameRef = beanFactory.getBean("name-ref", DummyBean.class);
 
-		assertEquals("some-name", nameRef.getName());
-		assertEquals(nameValue, nameRef.getSpouse());
+		assertThat(nameRef.getName()).isEqualTo("some-name");
+		assertThat(nameRef.getSpouse()).isEqualTo(nameValue);
 	}
 
 	@Test
-	public void typeIndexedValue() throws Exception {
+	void typeIndexedValue() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		DummyBean typeRef = beanFactory.getBean("indexed-value", DummyBean.class);
 
-		assertEquals("at", typeRef.getName());
-		assertEquals("austria", typeRef.getValue());
-		assertEquals(10, typeRef.getAge());
+		assertThat(typeRef.getName()).isEqualTo("at");
+		assertThat(typeRef.getValue()).isEqualTo("austria");
+		assertThat(typeRef.getAge()).isEqualTo(10);
 	}
 
 	@Test
-	public void typeIndexedRef() throws Exception {
+	void typeIndexedRef() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		DummyBean typeRef = beanFactory.getBean("indexed-ref", DummyBean.class);
 
-		assertEquals("some-name", typeRef.getName());
-		assertEquals(beanFactory.getBean("name-value"), typeRef.getSpouse());
-	}
-
-	@Test(expected = BeanDefinitionStoreException.class)
-	public void ambiguousConstructor() throws Exception {
-		DefaultListableBeanFactory bf = new DefaultListableBeanFactory();
-		new XmlBeanDefinitionReader(bf).loadBeanDefinitions(
-				new ClassPathResource("simpleConstructorNamespaceHandlerTestsWithErrors.xml", getClass()));
+		assertThat(typeRef.getName()).isEqualTo("some-name");
+		assertThat(typeRef.getSpouse()).isEqualTo(beanFactory.getBean("name-value"));
 	}
 
 	@Test
-	public void constructorWithNameEndingInRef() throws Exception {
+	void ambiguousConstructor() {
+		DefaultListableBeanFactory bf = new DefaultListableBeanFactory();
+		assertThatExceptionOfType(BeanDefinitionStoreException.class).isThrownBy(() ->
+				new XmlBeanDefinitionReader(bf).loadBeanDefinitions(
+							new ClassPathResource("simpleConstructorNamespaceHandlerTestsWithErrors.xml", getClass())));
+	}
+
+	@Test
+	void constructorWithNameEndingInRef() {
 		DefaultListableBeanFactory beanFactory = createFactory("simpleConstructorNamespaceHandlerTests.xml");
 		DummyBean derivedBean = beanFactory.getBean("beanWithRefConstructorArg", DummyBean.class);
-		assertEquals(10, derivedBean.getAge());
-		assertEquals("silly name", derivedBean.getName());
+		assertThat(derivedBean.getAge()).isEqualTo(10);
+		assertThat(derivedBean.getName()).isEqualTo("silly name");
 	}
 
 	private DefaultListableBeanFactory createFactory(String resourceName) {

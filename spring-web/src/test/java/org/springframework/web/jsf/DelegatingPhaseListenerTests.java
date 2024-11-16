@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,23 +16,22 @@
 
 package org.springframework.web.jsf;
 
-import javax.faces.context.FacesContext;
-import javax.faces.event.PhaseEvent;
-import javax.faces.event.PhaseId;
-import javax.faces.event.PhaseListener;
-
-import org.junit.Test;
+import jakarta.faces.context.FacesContext;
+import jakarta.faces.event.PhaseEvent;
+import jakarta.faces.event.PhaseId;
+import jakarta.faces.event.PhaseListener;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Colin Sampaleanu
  * @author Juergen Hoeller
  */
-public class DelegatingPhaseListenerTests {
+class DelegatingPhaseListenerTests {
 
 	private final MockFacesContext facesContext = new MockFacesContext();
 
@@ -46,38 +45,40 @@ public class DelegatingPhaseListenerTests {
 		}
 	};
 
+	@SuppressWarnings("unchecked")
 	@Test
-	public void beforeAndAfterPhaseWithSingleTarget() {
+	void beforeAndAfterPhaseWithSingleTarget() {
 		TestListener target = new TestListener();
 		beanFactory.addBean("testListener", target);
 
-		assertEquals(PhaseId.ANY_PHASE, delPhaseListener.getPhaseId());
+		assertThat(delPhaseListener.getPhaseId()).isEqualTo(PhaseId.ANY_PHASE);
 		PhaseEvent event = new PhaseEvent(facesContext, PhaseId.INVOKE_APPLICATION, new MockLifecycle());
 
 		delPhaseListener.beforePhase(event);
-		assertTrue(target.beforeCalled);
+		assertThat(target.beforeCalled).isTrue();
 
 		delPhaseListener.afterPhase(event);
-		assertTrue(target.afterCalled);
+		assertThat(target.afterCalled).isTrue();
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
-	public void beforeAndAfterPhaseWithMultipleTargets() {
+	void beforeAndAfterPhaseWithMultipleTargets() {
 		TestListener target1 = new TestListener();
 		TestListener target2 = new TestListener();
 		beanFactory.addBean("testListener1", target1);
 		beanFactory.addBean("testListener2", target2);
 
-		assertEquals(PhaseId.ANY_PHASE, delPhaseListener.getPhaseId());
+		assertThat(delPhaseListener.getPhaseId()).isEqualTo(PhaseId.ANY_PHASE);
 		PhaseEvent event = new PhaseEvent(facesContext, PhaseId.INVOKE_APPLICATION, new MockLifecycle());
 
 		delPhaseListener.beforePhase(event);
-		assertTrue(target1.beforeCalled);
-		assertTrue(target2.beforeCalled);
+		assertThat(target1.beforeCalled).isTrue();
+		assertThat(target2.beforeCalled).isTrue();
 
 		delPhaseListener.afterPhase(event);
-		assertTrue(target1.afterCalled);
-		assertTrue(target2.afterCalled);
+		assertThat(target1.afterCalled).isTrue();
+		assertThat(target2.afterCalled).isTrue();
 	}
 
 

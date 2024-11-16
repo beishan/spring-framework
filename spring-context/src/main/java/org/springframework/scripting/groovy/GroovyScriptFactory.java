@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -151,14 +151,20 @@ public class GroovyScriptFactory implements ScriptFactory, BeanFactoryAware, Bea
 
 	@Override
 	public void setBeanFactory(BeanFactory beanFactory) {
-		if (beanFactory instanceof ConfigurableListableBeanFactory) {
-			((ConfigurableListableBeanFactory) beanFactory).ignoreDependencyType(MetaClass.class);
+		if (beanFactory instanceof ConfigurableListableBeanFactory clbf) {
+			clbf.ignoreDependencyType(MetaClass.class);
 		}
 	}
 
 	@Override
 	public void setBeanClassLoader(ClassLoader classLoader) {
-		this.groovyClassLoader = buildGroovyClassLoader(classLoader);
+		if (classLoader instanceof GroovyClassLoader gcl && (this.compilerConfiguration == null ||
+				gcl.hasCompatibleConfiguration(this.compilerConfiguration))) {
+			this.groovyClassLoader = gcl;
+		}
+		else {
+			this.groovyClassLoader = buildGroovyClassLoader(classLoader);
+		}
 	}
 
 	/**
@@ -247,7 +253,7 @@ public class GroovyScriptFactory implements ScriptFactory, BeanFactoryAware, Bea
 				}
 				scriptClassToExecute = this.scriptClass;
 
-				// Process re-execution outside of the synchronized block.
+				// Process re-execution outside the synchronized block.
 				return executeScript(scriptSource, scriptClassToExecute);
 			}
 			catch (CompilationFailedException ex) {
@@ -311,20 +317,20 @@ public class GroovyScriptFactory implements ScriptFactory, BeanFactoryAware, Bea
 	@Nullable
 	protected Object executeScript(ScriptSource scriptSource, Class<?> scriptClass) throws ScriptCompilationException {
 		try {
-			GroovyObject goo = (GroovyObject) ReflectionUtils.accessibleConstructor(scriptClass).newInstance();
+			GroovyObject groovyObj = (GroovyObject) ReflectionUtils.accessibleConstructor(scriptClass).newInstance();
 
 			if (this.groovyObjectCustomizer != null) {
 				// Allow metaclass and other customization.
-				this.groovyObjectCustomizer.customize(goo);
+				this.groovyObjectCustomizer.customize(groovyObj);
 			}
 
-			if (goo instanceof Script) {
+			if (groovyObj instanceof Script script) {
 				// A Groovy script, probably creating an instance: let's execute it.
-				return ((Script) goo).run();
+				return script.run();
 			}
 			else {
 				// An instance of the scripted class: let's return it as-is.
-				return goo;
+				return groovyObj;
 			}
 		}
 		catch (NoSuchMethodException ex) {

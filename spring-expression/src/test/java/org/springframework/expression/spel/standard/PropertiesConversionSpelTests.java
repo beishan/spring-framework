@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,22 +21,22 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @author Mark Fisher
  */
-public class PropertiesConversionSpelTests {
+class PropertiesConversionSpelTests {
 
 	private static final SpelExpressionParser parser = new SpelExpressionParser();
 
 	@Test
-	public void props() {
+	void props() {
 		Properties props = new Properties();
 		props.setProperty("x", "1");
 		props.setProperty("y", "2");
@@ -45,11 +45,11 @@ public class PropertiesConversionSpelTests {
 		StandardEvaluationContext context = new StandardEvaluationContext();
 		context.setVariable("props", props);
 		String result = expression.getValue(context, new TestBean(), String.class);
-		assertEquals("123", result);
+		assertThat(result).isEqualTo("123");
 	}
 
 	@Test
-	public void mapWithAllStringValues() {
+	void mapWithAllStringValues() {
 		Map<String, Object> map = new HashMap<>();
 		map.put("x", "1");
 		map.put("y", "2");
@@ -58,11 +58,11 @@ public class PropertiesConversionSpelTests {
 		StandardEvaluationContext context = new StandardEvaluationContext();
 		context.setVariable("props", map);
 		String result = expression.getValue(context, new TestBean(), String.class);
-		assertEquals("123", result);
+		assertThat(result).isEqualTo("123");
 	}
 
 	@Test
-	public void mapWithNonStringValue() {
+	void mapWithNonStringValue() {
 		Map<String, Object> map = new HashMap<>();
 		map.put("x", "1");
 		map.put("y", 2);
@@ -72,11 +72,11 @@ public class PropertiesConversionSpelTests {
 		StandardEvaluationContext context = new StandardEvaluationContext();
 		context.setVariable("props", map);
 		String result = expression.getValue(context, new TestBean(), String.class);
-		assertEquals("1null3", result);
+		assertThat(result).isEqualTo("1null3");
 	}
 
 	@Test
-	public void customMapWithNonStringValue() {
+	void customMapWithNonStringValue() {
 		CustomMap map = new CustomMap();
 		map.put("x", "1");
 		map.put("y", 2);
@@ -85,7 +85,7 @@ public class PropertiesConversionSpelTests {
 		StandardEvaluationContext context = new StandardEvaluationContext();
 		context.setVariable("props", map);
 		String result = expression.getValue(context, new TestBean(), String.class);
-		assertEquals("1null3", result);
+		assertThat(result).isEqualTo("1null3");
 	}
 
 

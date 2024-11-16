@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,17 +23,17 @@ import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.security.cert.X509Certificate;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.Map;
-import javax.servlet.AsyncContext;
-import javax.servlet.AsyncEvent;
-import javax.servlet.AsyncListener;
-import javax.servlet.ReadListener;
-import javax.servlet.ServletInputStream;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
 
+import jakarta.servlet.AsyncContext;
+import jakarta.servlet.AsyncEvent;
+import jakarta.servlet.AsyncListener;
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import reactor.core.publisher.Flux;
 
 import org.springframework.core.io.buffer.DataBuffer;
@@ -41,33 +41,33 @@ import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * Adapt {@link ServerHttpRequest} to the Servlet {@link HttpServletRequest}.
  *
  * @author Rossen Stoyanchev
+ * @author Juergen Hoeller
  * @since 5.0
  */
 class ServletServerHttpRequest extends AbstractServerHttpRequest {
 
-	private static final String X509_CERTIFICATE_ATTRIBUTE = "javax.servlet.request.X509Certificate";
-
-	private static final String SSL_SESSION_ID_ATTRIBUTE = "javax.servlet.request.ssl_session_id";
-
-	static final DataBuffer EOF_BUFFER = new DefaultDataBufferFactory().allocateBuffer(0);
-
-
-	protected final Log logger = LogFactory.getLog(getClass());
+	static final DataBuffer EOF_BUFFER = DefaultDataBufferFactory.sharedInstance.allocateBuffer(0);
 
 
 	private final HttpServletRequest request;
+
+	private final ServletInputStream inputStream;
 
 	private final RequestBodyPublisher bodyPublisher;
 
@@ -77,85 +77,120 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 
 	private final byte[] buffer;
 
+	private final AsyncListener asyncListener;
+
 
 	public ServletServerHttpRequest(HttpServletRequest request, AsyncContext asyncContext,
-			String servletPath, DataBufferFactory bufferFactory, int bufferSize) throws IOException {
+			String servletPath, DataBufferFactory bufferFactory, int bufferSize)
+			throws IOException, URISyntaxException {
 
-		super(initUri(request), request.getContextPath() + servletPath, initHeaders(request));
+		this(createDefaultHttpHeaders(request), request, asyncContext, servletPath, bufferFactory, bufferSize);
+	}
+
+	public ServletServerHttpRequest(MultiValueMap<String, String> headers, HttpServletRequest request,
+			AsyncContext asyncContext, String servletPath, DataBufferFactory bufferFactory, int bufferSize)
+			throws IOException, URISyntaxException {
+
+		super(HttpMethod.valueOf(request.getMethod()), initUri(request),
+				request.getContextPath() + servletPath, initHeaders(headers, request));
 
 		Assert.notNull(bufferFactory, "'bufferFactory' must not be null");
-		Assert.isTrue(bufferSize > 0, "'bufferSize' must be higher than 0");
+		Assert.isTrue(bufferSize > 0, "'bufferSize' must be greater than 0");
 
 		this.request = request;
 		this.bufferFactory = bufferFactory;
 		this.buffer = new byte[bufferSize];
 
-		asyncContext.addListener(new RequestAsyncListener());
+		this.asyncListener = new RequestAsyncListener();
 
 		// Tomcat expects ReadListener registration on initial thread
-		ServletInputStream inputStream = request.getInputStream();
-		this.bodyPublisher = new RequestBodyPublisher(inputStream);
+		this.inputStream = request.getInputStream();
+		this.bodyPublisher = new RequestBodyPublisher(this.inputStream);
 		this.bodyPublisher.registerReadListener();
 	}
 
-	private static URI initUri(HttpServletRequest request) {
-		Assert.notNull(request, "'request' must not be null");
-		try {
-			StringBuffer url = request.getRequestURL();
-			String query = request.getQueryString();
-			if (StringUtils.hasText(query)) {
-				url.append('?').append(query);
-			}
-			return new URI(url.toString());
-		}
-		catch (URISyntaxException ex) {
-			throw new IllegalStateException("Could not get URI: " + ex.getMessage(), ex);
-		}
-	}
 
-	private static HttpHeaders initHeaders(HttpServletRequest request) {
-		HttpHeaders headers = new HttpHeaders();
-		for (Enumeration<?> names = request.getHeaderNames();
-			 names.hasMoreElements(); ) {
+	private static MultiValueMap<String, String> createDefaultHttpHeaders(HttpServletRequest request) {
+		MultiValueMap<String, String> headers =
+				CollectionUtils.toMultiValueMap(new LinkedCaseInsensitiveMap<>(8, Locale.ROOT));
+		for (Enumeration<?> names = request.getHeaderNames(); names.hasMoreElements(); ) {
 			String name = (String) names.nextElement();
-			for (Enumeration<?> values = request.getHeaders(name);
-				 values.hasMoreElements(); ) {
+			for (Enumeration<?> values = request.getHeaders(name); values.hasMoreElements(); ) {
 				headers.add(name, (String) values.nextElement());
 			}
 		}
-		MediaType contentType = headers.getContentType();
-		if (contentType == null) {
+		return headers;
+	}
+
+	@SuppressWarnings("JavaExistingMethodCanBeUsed")
+	private static URI initUri(HttpServletRequest servletRequest) {
+		Assert.notNull(servletRequest, "'request' must not be null");
+		String urlString = null;
+		String query = null;
+		boolean hasQuery = false;
+		try {
+			StringBuffer requestURL = servletRequest.getRequestURL();
+			query = servletRequest.getQueryString();
+			hasQuery = StringUtils.hasText(query);
+			if (hasQuery) {
+				requestURL.append('?').append(query);
+			}
+			urlString = requestURL.toString();
+			return new URI(urlString);
+		}
+		catch (URISyntaxException ex) {
+			if (hasQuery) {
+				try {
+					// Maybe malformed query, try to parse and encode it
+					query = UriComponentsBuilder.fromUriString("?" + query).build().toUri().getRawQuery();
+					return new URI(servletRequest.getRequestURL().toString() + "?" + query);
+				}
+				catch (URISyntaxException ex2) {
+					try {
+						// Try leaving it out
+						return new URI(servletRequest.getRequestURL().toString());
+					}
+					catch (URISyntaxException ex3) {
+						// ignore
+					}
+				}
+			}
+			throw new IllegalStateException(
+					"Could not resolve HttpServletRequest as URI: " + urlString, ex);
+		}
+	}
+
+	@SuppressWarnings("NullAway")
+	private static MultiValueMap<String, String> initHeaders(
+			MultiValueMap<String, String> headerValues, HttpServletRequest request) {
+
+		HttpHeaders headers = null;
+		MediaType contentType = null;
+		if (!StringUtils.hasLength(headerValues.getFirst(HttpHeaders.CONTENT_TYPE))) {
 			String requestContentType = request.getContentType();
 			if (StringUtils.hasLength(requestContentType)) {
 				contentType = MediaType.parseMediaType(requestContentType);
+				headers = new HttpHeaders(headerValues);
 				headers.setContentType(contentType);
 			}
 		}
 		if (contentType != null && contentType.getCharset() == null) {
 			String encoding = request.getCharacterEncoding();
 			if (StringUtils.hasLength(encoding)) {
-				Charset charset = Charset.forName(encoding);
 				Map<String, String> params = new LinkedCaseInsensitiveMap<>();
 				params.putAll(contentType.getParameters());
-				params.put("charset", charset.toString());
-				headers.setContentType(
-						new MediaType(contentType.getType(), contentType.getSubtype(),
-								params));
+				params.put("charset", Charset.forName(encoding).toString());
+				headers.setContentType(new MediaType(contentType, params));
 			}
 		}
-		if (headers.getContentLength() == -1) {
+		if (headerValues.getFirst(HttpHeaders.CONTENT_TYPE) == null) {
 			int contentLength = request.getContentLength();
 			if (contentLength != -1) {
+				headers = (headers != null ? headers : new HttpHeaders(headerValues));
 				headers.setContentLength(contentLength);
 			}
 		}
-		return headers;
-	}
-
-
-	@Override
-	public String getMethodValue() {
-		return this.request.getMethod();
+		return (headers != null ? headers : headerValues);
 	}
 
 	@Override
@@ -176,46 +211,37 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 	}
 
 	@Override
+	@NonNull
+	public InetSocketAddress getLocalAddress() {
+		return new InetSocketAddress(this.request.getLocalAddr(), this.request.getLocalPort());
+	}
+
+	@Override
+	@NonNull
 	public InetSocketAddress getRemoteAddress() {
 		return new InetSocketAddress(this.request.getRemoteHost(), this.request.getRemotePort());
 	}
 
+	@Override
 	@Nullable
 	protected SslInfo initSslInfo() {
-		if (!this.request.isSecure()) {
-			return null;
-		}
-		return new DefaultSslInfo(
-				(String) request.getAttribute(SSL_SESSION_ID_ATTRIBUTE),
-				(X509Certificate[]) request.getAttribute(X509_CERTIFICATE_ATTRIBUTE));
+		X509Certificate[] certificates = getX509Certificates();
+		return (certificates != null ? new DefaultSslInfo(getSslSessionId(), certificates) : null);
+	}
+
+	@Nullable
+	private String getSslSessionId() {
+		return (String) this.request.getAttribute("jakarta.servlet.request.ssl_session_id");
+	}
+
+	@Nullable
+	private X509Certificate[] getX509Certificates() {
+		return (X509Certificate[]) this.request.getAttribute("jakarta.servlet.request.X509Certificate");
 	}
 
 	@Override
 	public Flux<DataBuffer> getBody() {
 		return Flux.from(this.bodyPublisher);
-	}
-
-	/**
-	 * Read from the request body InputStream and return a DataBuffer.
-	 * Invoked only when {@link ServletInputStream#isReady()} returns "true".
-	 */
-	@Nullable
-	DataBuffer readFromInputStream() throws IOException {
-		int read = this.request.getInputStream().read(this.buffer);
-		if (logger.isTraceEnabled()) {
-			logger.trace("InputStream read returned " + read + (read != -1 ? " bytes" : ""));
-		}
-
-		if (read > 0) {
-			DataBuffer dataBuffer = this.bufferFactory.allocateBuffer(read);
-			dataBuffer.write(this.buffer, 0, read);
-			return dataBuffer;
-		}
-		else if (read == -1) {
-			return EOF_BUFFER;
-		}
-
-		return null;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -224,11 +250,60 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 		return (T) this.request;
 	}
 
+	/**
+	 * Return an {@link RequestAsyncListener} that completes the request body
+	 * Publisher when the Servlet container notifies that request input has ended.
+	 * The listener is not actually registered but is rather exposed for
+	 * {@link ServletHttpHandlerAdapter} to ensure events are delegated.
+	 */
+	AsyncListener getAsyncListener() {
+		return this.asyncListener;
+	}
+
+	/**
+	 * Return the {@link ServletInputStream} for the current response.
+	 */
+	protected final ServletInputStream getInputStream() {
+		return this.inputStream;
+	}
+
+	/**
+	 * Read from the request body InputStream and return a DataBuffer.
+	 * Invoked only when {@link ServletInputStream#isReady()} returns "true".
+	 * @return a DataBuffer with data read, or
+	 * {@link AbstractListenerReadPublisher#EMPTY_BUFFER} if 0 bytes were read,
+	 * or {@link #EOF_BUFFER} if the input stream returned -1.
+	 */
+	DataBuffer readFromInputStream() throws IOException {
+		int read = this.inputStream.read(this.buffer);
+		logBytesRead(read);
+
+		if (read > 0) {
+			DataBuffer dataBuffer = this.bufferFactory.allocateBuffer(read);
+			dataBuffer.write(this.buffer, 0, read);
+			return dataBuffer;
+		}
+
+		if (read == -1) {
+			return EOF_BUFFER;
+		}
+
+		return AbstractListenerReadPublisher.EMPTY_BUFFER;
+	}
+
+	protected final void logBytesRead(int read) {
+		Log rsReadLogger = AbstractListenerReadPublisher.rsReadLogger;
+		if (rsReadLogger.isTraceEnabled()) {
+			rsReadLogger.trace(getLogPrefix() + "Read " + read + (read != -1 ? " bytes" : ""));
+		}
+	}
+
 
 	private final class RequestAsyncListener implements AsyncListener {
 
 		@Override
-		public void onStartAsync(AsyncEvent event) {}
+		public void onStartAsync(AsyncEvent event) {
+		}
 
 		@Override
 		public void onTimeout(AsyncEvent event) {
@@ -254,6 +329,7 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 		private final ServletInputStream inputStream;
 
 		public RequestBodyPublisher(ServletInputStream inputStream) {
+			super(ServletServerHttpRequest.this.getLogPrefix());
 			this.inputStream = inputStream;
 		}
 
@@ -273,13 +349,12 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 		protected DataBuffer read() throws IOException {
 			if (this.inputStream.isReady()) {
 				DataBuffer dataBuffer = readFromInputStream();
-				if (dataBuffer != EOF_BUFFER) {
-					return dataBuffer;
-				}
-				else {
+				if (dataBuffer == EOF_BUFFER) {
 					// No need to wait for container callback...
 					onAllDataRead();
+					dataBuffer = null;
 				}
+				return dataBuffer;
 			}
 			return null;
 		}
@@ -287,6 +362,11 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 		@Override
 		protected void readingPaused() {
 			// no-op
+		}
+
+		@Override
+		protected void discardData() {
+			// Nothing to discard since we pass data buffers on immediately..
 		}
 
 

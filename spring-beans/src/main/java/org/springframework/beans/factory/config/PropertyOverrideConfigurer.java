@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,6 @@
 
 package org.springframework.beans.factory.config;
 
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Properties;
 import java.util.Set;
@@ -64,6 +63,9 @@ import org.springframework.beans.factory.BeanInitializationException;
  */
 public class PropertyOverrideConfigurer extends PropertyResourceConfigurer {
 
+	/**
+	 * The default bean name separator.
+	 */
 	public static final String DEFAULT_BEAN_NAME_SEPARATOR = ".";
 
 
@@ -72,9 +74,9 @@ public class PropertyOverrideConfigurer extends PropertyResourceConfigurer {
 	private boolean ignoreInvalidKeys = false;
 
 	/**
-	 * Contains names of beans that have overrides
+	 * Contains names of beans that have overrides.
 	 */
-	private final Set<String> beanNames = Collections.newSetFromMap(new ConcurrentHashMap<>(16));
+	private final Set<String> beanNames = ConcurrentHashMap.newKeySet(16);
 
 
 	/**
@@ -129,7 +131,7 @@ public class PropertyOverrideConfigurer extends PropertyResourceConfigurer {
 					"': expected 'beanName" + this.beanNameSeparator + "property'");
 		}
 		String beanName = key.substring(0, separatorIndex);
-		String beanProperty = key.substring(separatorIndex+1);
+		String beanProperty = key.substring(separatorIndex + 1);
 		this.beanNames.add(beanName);
 		applyPropertyValue(factory, beanName, beanProperty, value);
 		if (logger.isDebugEnabled()) {

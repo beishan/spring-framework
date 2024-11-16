@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,11 @@
 
 package org.springframework.http.client;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.util.FastByteArrayOutputStream;
 
 /**
  * Base implementation of {@link ClientHttpRequest} that buffers output
@@ -31,7 +31,7 @@ import org.springframework.http.HttpHeaders;
  */
 abstract class AbstractBufferingClientHttpRequest extends AbstractClientHttpRequest {
 
-	private ByteArrayOutputStream bufferedOutput = new ByteArrayOutputStream(1024);
+	private final FastByteArrayOutputStream bufferedOutput = new FastByteArrayOutputStream(1024);
 
 
 	@Override
@@ -41,12 +41,12 @@ abstract class AbstractBufferingClientHttpRequest extends AbstractClientHttpRequ
 
 	@Override
 	protected ClientHttpResponse executeInternal(HttpHeaders headers) throws IOException {
-		byte[] bytes = this.bufferedOutput.toByteArray();
+		byte[] bytes = this.bufferedOutput.toByteArrayUnsafe();
 		if (headers.getContentLength() < 0) {
 			headers.setContentLength(bytes.length);
 		}
 		ClientHttpResponse result = executeInternal(headers, bytes);
-		this.bufferedOutput = new ByteArrayOutputStream(0);
+		this.bufferedOutput.reset();
 		return result;
 	}
 

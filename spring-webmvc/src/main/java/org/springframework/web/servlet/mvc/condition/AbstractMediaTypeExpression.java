@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,11 +16,11 @@
 
 package org.springframework.web.servlet.mvc.condition;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import java.util.Map;
 
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -32,8 +32,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * @since 3.1
  */
 abstract class AbstractMediaTypeExpression implements MediaTypeExpression, Comparable<AbstractMediaTypeExpression> {
-
-	protected final Log logger = LogFactory.getLog(getClass());
 
 	private final MediaType mediaType;
 
@@ -70,19 +68,41 @@ abstract class AbstractMediaTypeExpression implements MediaTypeExpression, Compa
 
 	@Override
 	public int compareTo(AbstractMediaTypeExpression other) {
-		return MediaType.SPECIFICITY_COMPARATOR.compare(this.getMediaType(), other.getMediaType());
+		MediaType mediaType1 = getMediaType();
+		MediaType mediaType2 = other.getMediaType();
+		if (mediaType1.isMoreSpecific(mediaType2)) {
+			return -1;
+		}
+		else if (mediaType1.isLessSpecific(mediaType2)) {
+			return 1;
+		}
+		else {
+			return 0;
+		}
+	}
+
+	protected boolean matchParameters(MediaType contentType) {
+		for (Map.Entry<String, String> entry : getMediaType().getParameters().entrySet()) {
+			if (StringUtils.hasText(entry.getValue())) {
+				String value = contentType.getParameter(entry.getKey());
+				if (StringUtils.hasText(value) && !entry.getValue().equalsIgnoreCase(value)) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	@Override
-	public boolean equals(@Nullable Object obj) {
-		if (this == obj) {
+	public boolean equals(@Nullable Object other) {
+		if (this == other) {
 			return true;
 		}
-		if (obj != null && getClass() == obj.getClass()) {
-			AbstractMediaTypeExpression other = (AbstractMediaTypeExpression) obj;
-			return (this.mediaType.equals(other.mediaType) && this.isNegated == other.isNegated);
+		if (other == null || getClass() != other.getClass()) {
+			return false;
 		}
-		return false;
+		AbstractMediaTypeExpression otherExpr = (AbstractMediaTypeExpression) other;
+		return (this.mediaType.equals(otherExpr.mediaType) && this.isNegated == otherExpr.isNegated);
 	}
 
 	@Override
@@ -92,12 +112,10 @@ abstract class AbstractMediaTypeExpression implements MediaTypeExpression, Compa
 
 	@Override
 	public String toString() {
-		StringBuilder builder = new StringBuilder();
 		if (this.isNegated) {
-			builder.append('!');
+			return '!' + this.mediaType.toString();
 		}
-		builder.append(this.mediaType.toString());
-		return builder.toString();
+		return this.mediaType.toString();
 	}
 
 }

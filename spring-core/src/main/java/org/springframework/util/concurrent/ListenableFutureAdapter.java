@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,7 +31,11 @@ import org.springframework.lang.Nullable;
  * @since 4.0
  * @param <T> the type of this {@code Future}
  * @param <S> the type of the adaptee's {@code Future}
+ * @deprecated as of 6.0, in favor of
+ * {@link java.util.concurrent.CompletableFuture}
  */
+@Deprecated(since = "6.0", forRemoval = true)
+@SuppressWarnings("removal")
 public abstract class ListenableFutureAdapter<T, S> extends FutureAdapter<T, S> implements ListenableFuture<T> {
 
 	/**
@@ -51,7 +55,7 @@ public abstract class ListenableFutureAdapter<T, S> extends FutureAdapter<T, S> 
 	@Override
 	public void addCallback(final SuccessCallback<? super T> successCallback, final FailureCallback failureCallback) {
 		ListenableFuture<S> listenableAdaptee = (ListenableFuture<S>) getAdaptee();
-		listenableAdaptee.addCallback(new ListenableFutureCallback<S>() {
+		listenableAdaptee.addCallback(new ListenableFutureCallback<>() {
 			@Override
 			public void onSuccess(@Nullable S result) {
 				T adapted = null;
@@ -71,6 +75,7 @@ public abstract class ListenableFutureAdapter<T, S> extends FutureAdapter<T, S> 
 				}
 				successCallback.onSuccess(adapted);
 			}
+
 			@Override
 			public void onFailure(Throwable ex) {
 				failureCallback.onFailure(ex);

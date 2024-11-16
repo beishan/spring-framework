@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,11 +32,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.util.xml.DomUtils;
 
 /**
+ * Internal utility methods used with JDBC configuration.
+ *
  * @author Juergen Hoeller
  * @author Stephane Nicoll
  * @since 3.1
  */
-class DatabasePopulatorConfigUtils {
+abstract class DatabasePopulatorConfigUtils {
 
 	public static void setDatabasePopulator(Element element, BeanDefinitionBuilder builder) {
 		List<Element> scripts = DomUtils.getChildElementsByTagName(element, "script");
@@ -46,6 +48,7 @@ class DatabasePopulatorConfigUtils {
 		}
 	}
 
+	@Nullable
 	private static BeanDefinition createDatabasePopulator(Element element, List<Element> scripts, String execution) {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(CompositeDatabasePopulator.class);
 
@@ -78,8 +81,12 @@ class DatabasePopulatorConfigUtils {
 			}
 			delegates.add(delegate.getBeanDefinition());
 		}
-		builder.addPropertyValue("populators", delegates);
 
+		if (delegates.isEmpty()) {
+			return null;
+		}
+
+		builder.addPropertyValue("populators", delegates);
 		return builder.getBeanDefinition();
 	}
 

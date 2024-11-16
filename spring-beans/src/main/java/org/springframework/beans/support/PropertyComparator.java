@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,6 +19,7 @@ package org.springframework.beans.support;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -35,6 +36,7 @@ import org.springframework.util.StringUtils;
  * @author Juergen Hoeller
  * @author Jean-Pierre Pawlak
  * @since 19.05.2003
+ * @param <T> the type of objects that may be compared by this comparator
  * @see org.springframework.beans.BeanWrapper
  */
 public class PropertyComparator<T> implements Comparator<T> {
@@ -42,8 +44,6 @@ public class PropertyComparator<T> implements Comparator<T> {
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	private final SortDefinition sortDefinition;
-
-	private final BeanWrapperImpl beanWrapper = new BeanWrapperImpl(false);
 
 
 	/**
@@ -77,9 +77,9 @@ public class PropertyComparator<T> implements Comparator<T> {
 	public int compare(T o1, T o2) {
 		Object v1 = getPropertyValue(o1);
 		Object v2 = getPropertyValue(o2);
-		if (this.sortDefinition.isIgnoreCase() && (v1 instanceof String) && (v2 instanceof String)) {
-			v1 = ((String) v1).toLowerCase();
-			v2 = ((String) v2).toLowerCase();
+		if (this.sortDefinition.isIgnoreCase() && (v1 instanceof String text1) && (v2 instanceof String text2)) {
+			v1 = text1.toLowerCase(Locale.ROOT);
+			v2 = text2.toLowerCase(Locale.ROOT);
 		}
 
 		int result;
@@ -94,8 +94,8 @@ public class PropertyComparator<T> implements Comparator<T> {
 			}
 		}
 		catch (RuntimeException ex) {
-			if (logger.isWarnEnabled()) {
-				logger.warn("Could not sort objects [" + o1 + "] and [" + o2 + "]", ex);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Could not sort objects [" + o1 + "] and [" + o2 + "]", ex);
 			}
 			return 0;
 		}
@@ -114,11 +114,12 @@ public class PropertyComparator<T> implements Comparator<T> {
 		// (similar to JSTL EL). If the property doesn't exist in the
 		// first place, let the exception through.
 		try {
-			this.beanWrapper.setWrappedInstance(obj);
-			return this.beanWrapper.getPropertyValue(this.sortDefinition.getProperty());
+			BeanWrapperImpl beanWrapper = new BeanWrapperImpl(false);
+			beanWrapper.setWrappedInstance(obj);
+			return beanWrapper.getPropertyValue(this.sortDefinition.getProperty());
 		}
 		catch (BeansException ex) {
-			logger.info("PropertyComparator could not access property - treating as null for sorting", ex);
+			logger.debug("PropertyComparator could not access property - treating as null for sorting", ex);
 			return null;
 		}
 	}

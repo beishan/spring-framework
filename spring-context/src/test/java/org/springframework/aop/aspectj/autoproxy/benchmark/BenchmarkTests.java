@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,7 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.springframework.aop.Advisor;
 import org.springframework.aop.AfterReturningAdvice;
@@ -32,11 +32,11 @@ import org.springframework.aop.framework.Advised;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.aop.support.StaticMethodMatcherPointcut;
+import org.springframework.beans.testfixture.beans.ITestBean;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.tests.sample.beans.ITestBean;
 import org.springframework.util.StopWatch;
 
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for AspectJ auto proxying. Includes mixing with Spring AOP
@@ -45,7 +45,7 @@ import static org.junit.Assert.*;
  * @author Rod Johnson
  * @author Chris Beams
  */
-public class BenchmarkTests {
+class BenchmarkTests {
 
 	private static final Class<?> CLASS = BenchmarkTests.class;
 
@@ -54,42 +54,42 @@ public class BenchmarkTests {
 	private static final String SPRING_AOP_CONTEXT = CLASS.getSimpleName() + "-springAop.xml";
 
 	@Test
-	public void testRepeatedAroundAdviceInvocationsWithAspectJ() {
+	void repeatedAroundAdviceInvocationsWithAspectJ() {
 		testRepeatedAroundAdviceInvocations(ASPECTJ_CONTEXT, getCount(), "AspectJ");
 	}
 
 	@Test
-	public void testRepeatedAroundAdviceInvocationsWithSpringAop() {
+	void repeatedAroundAdviceInvocationsWithSpringAop() {
 		testRepeatedAroundAdviceInvocations(SPRING_AOP_CONTEXT, getCount(), "Spring AOP");
 	}
 
 	@Test
-	public void testRepeatedBeforeAdviceInvocationsWithAspectJ() {
+	void repeatedBeforeAdviceInvocationsWithAspectJ() {
 		testBeforeAdviceWithoutJoinPoint(ASPECTJ_CONTEXT, getCount(), "AspectJ");
 	}
 
 	@Test
-	public void testRepeatedBeforeAdviceInvocationsWithSpringAop() {
+	void repeatedBeforeAdviceInvocationsWithSpringAop() {
 		testBeforeAdviceWithoutJoinPoint(SPRING_AOP_CONTEXT, getCount(), "Spring AOP");
 	}
 
 	@Test
-	public void testRepeatedAfterReturningAdviceInvocationsWithAspectJ() {
+	void repeatedAfterReturningAdviceInvocationsWithAspectJ() {
 		testAfterReturningAdviceWithoutJoinPoint(ASPECTJ_CONTEXT, getCount(), "AspectJ");
 	}
 
 	@Test
-	public void testRepeatedAfterReturningAdviceInvocationsWithSpringAop() {
+	void repeatedAfterReturningAdviceInvocationsWithSpringAop() {
 		testAfterReturningAdviceWithoutJoinPoint(SPRING_AOP_CONTEXT, getCount(), "Spring AOP");
 	}
 
 	@Test
-	public void testRepeatedMixWithAspectJ() {
+	void repeatedMixWithAspectJ() {
 		testMix(ASPECTJ_CONTEXT, getCount(), "AspectJ");
 	}
 
 	@Test
-	public void testRepeatedMixWithSpringAop() {
+	void repeatedMixWithSpringAop() {
 		testMix(SPRING_AOP_CONTEXT, getCount(), "Spring AOP");
 	}
 
@@ -101,55 +101,57 @@ public class BenchmarkTests {
 	}
 
 	private long testRepeatedAroundAdviceInvocations(String file, int howmany, String technology) {
-		ClassPathXmlApplicationContext bf = new ClassPathXmlApplicationContext(file, CLASS);
+		ClassPathXmlApplicationContext ac = new ClassPathXmlApplicationContext(file, CLASS);
 
 		StopWatch sw = new StopWatch();
 		sw.start(howmany + " repeated around advice invocations with " + technology);
-		ITestBean adrian = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian = (ITestBean) ac.getBean("adrian");
 
-		assertTrue(AopUtils.isAopProxy(adrian));
-		assertEquals(68, adrian.getAge());
+		assertThat(AopUtils.isAopProxy(adrian)).isTrue();
+		assertThat(adrian.getAge()).isEqualTo(68);
 
 		for (int i = 0; i < howmany; i++) {
 			adrian.getAge();
 		}
 
 		sw.stop();
-		System.out.println(sw.prettyPrint());
-		return sw.getLastTaskTimeMillis();
+		// System.out.println(sw.prettyPrint());
+		ac.close();
+		return sw.getTotalTimeMillis();
 	}
 
 	private long testBeforeAdviceWithoutJoinPoint(String file, int howmany, String technology) {
-		ClassPathXmlApplicationContext bf = new ClassPathXmlApplicationContext(file, CLASS);
+		ClassPathXmlApplicationContext ac = new ClassPathXmlApplicationContext(file, CLASS);
 
 		StopWatch sw = new StopWatch();
 		sw.start(howmany + " repeated before advice invocations with " + technology);
-		ITestBean adrian = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian = (ITestBean) ac.getBean("adrian");
 
-		assertTrue(AopUtils.isAopProxy(adrian));
+		assertThat(AopUtils.isAopProxy(adrian)).isTrue();
 		Advised a = (Advised) adrian;
-		assertTrue(a.getAdvisors().length >= 3);
-		assertEquals("adrian", adrian.getName());
+		assertThat(a.getAdvisors()).hasSizeGreaterThanOrEqualTo(3);
+		assertThat(adrian.getName()).isEqualTo("adrian");
 
 		for (int i = 0; i < howmany; i++) {
 			adrian.getName();
 		}
 
 		sw.stop();
-		System.out.println(sw.prettyPrint());
-		return sw.getLastTaskTimeMillis();
+		// System.out.println(sw.prettyPrint());
+		ac.close();
+		return sw.getTotalTimeMillis();
 	}
 
 	private long testAfterReturningAdviceWithoutJoinPoint(String file, int howmany, String technology) {
-		ClassPathXmlApplicationContext bf = new ClassPathXmlApplicationContext(file, CLASS);
+		ClassPathXmlApplicationContext ac = new ClassPathXmlApplicationContext(file, CLASS);
 
 		StopWatch sw = new StopWatch();
 		sw.start(howmany + " repeated after returning advice invocations with " + technology);
-		ITestBean adrian = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian = (ITestBean) ac.getBean("adrian");
 
-		assertTrue(AopUtils.isAopProxy(adrian));
+		assertThat(AopUtils.isAopProxy(adrian)).isTrue();
 		Advised a = (Advised) adrian;
-		assertTrue(a.getAdvisors().length >= 3);
+		assertThat(a.getAdvisors()).hasSizeGreaterThanOrEqualTo(3);
 		// Hits joinpoint
 		adrian.setAge(25);
 
@@ -158,20 +160,21 @@ public class BenchmarkTests {
 		}
 
 		sw.stop();
-		System.out.println(sw.prettyPrint());
-		return sw.getLastTaskTimeMillis();
+		// System.out.println(sw.prettyPrint());
+		ac.close();
+		return sw.getTotalTimeMillis();
 	}
 
 	private long testMix(String file, int howmany, String technology) {
-		ClassPathXmlApplicationContext bf = new ClassPathXmlApplicationContext(file, CLASS);
+		ClassPathXmlApplicationContext ac = new ClassPathXmlApplicationContext(file, CLASS);
 
 		StopWatch sw = new StopWatch();
 		sw.start(howmany + " repeated mixed invocations with " + technology);
-		ITestBean adrian = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian = (ITestBean) ac.getBean("adrian");
 
-		assertTrue(AopUtils.isAopProxy(adrian));
+		assertThat(AopUtils.isAopProxy(adrian)).isTrue();
 		Advised a = (Advised) adrian;
-		assertTrue(a.getAdvisors().length >= 3);
+		assertThat(a.getAdvisors()).hasSizeGreaterThanOrEqualTo(3);
 
 		for (int i = 0; i < howmany; i++) {
 			// Hit all 3 joinpoints
@@ -186,8 +189,9 @@ public class BenchmarkTests {
 		}
 
 		sw.stop();
-		System.out.println(sw.prettyPrint());
-		return sw.getLastTaskTimeMillis();
+		// System.out.println(sw.prettyPrint());
+		ac.close();
+		return sw.getTotalTimeMillis();
 	}
 
 }
@@ -222,7 +226,7 @@ class TraceAfterReturningAdvice implements AfterReturningAdvice {
 	public int afterTakesInt;
 
 	@Override
-	public void afterReturning(Object returnValue, Method method, Object[] args, Object target) throws Throwable {
+	public void afterReturning(Object returnValue, Method method, Object[] args, Object target) {
 		++afterTakesInt;
 	}
 
@@ -266,7 +270,7 @@ class TraceBeforeAdvice implements MethodBeforeAdvice {
 	public int beforeStringReturn;
 
 	@Override
-	public void before(Method method, Object[] args, Object target) throws Throwable {
+	public void before(Method method, Object[] args, Object target) {
 		++beforeStringReturn;
 	}
 

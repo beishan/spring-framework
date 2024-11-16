@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,26 +18,26 @@ package org.springframework.web.server.handler;
 
 import java.util.Arrays;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.mock.http.server.reactive.test.MockServerHttpRequest;
-import org.springframework.mock.web.test.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 import org.springframework.web.server.WebHandler;
 import org.springframework.web.server.adapter.HttpWebHandlerAdapter;
+import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
+import org.springframework.web.testfixture.server.MockServerWebExchange;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link ExceptionHandlingWebHandler}.
+ * Tests for {@link ExceptionHandlingWebHandler}.
+ *
  * @author Rossen Stoyanchev
  */
-public class ExceptionHandlingWebHandlerTests {
+class ExceptionHandlingWebHandlerTests {
 
 	private final WebHandler targetHandler = new StubWebHandler(new IllegalStateException("boo"));
 
@@ -46,44 +46,48 @@ public class ExceptionHandlingWebHandlerTests {
 
 
 	@Test
-	public void handleErrorSignal() throws Exception {
+	void handleErrorSignal() {
 		createWebHandler(new BadRequestExceptionHandler()).handle(this.exchange).block();
-		assertEquals(HttpStatus.BAD_REQUEST, this.exchange.getResponse().getStatusCode());
+		assertThat(this.exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
 	@Test
-	public void handleErrorSignalWithMultipleHttpErrorHandlers() throws Exception {
+	void handleErrorSignalWithMultipleHttpErrorHandlers() {
 		createWebHandler(
 				new UnresolvedExceptionHandler(),
 				new UnresolvedExceptionHandler(),
 				new BadRequestExceptionHandler(),
 				new UnresolvedExceptionHandler()).handle(this.exchange).block();
 
-		assertEquals(HttpStatus.BAD_REQUEST, this.exchange.getResponse().getStatusCode());
+		assertThat(this.exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
 	@Test
-	public void unresolvedException() throws Exception {
+	void unresolvedException() {
 		Mono<Void> mono = createWebHandler(new UnresolvedExceptionHandler()).handle(this.exchange);
 		StepVerifier.create(mono).expectErrorMessage("boo").verify();
-		assertNull(this.exchange.getResponse().getStatusCode());
+		assertThat(this.exchange.getResponse().getStatusCode()).isNull();
 	}
 
 	@Test
-	public void unresolvedExceptionWithWebHttpHandlerAdapter() throws Exception {
-
-		// HttpWebHandlerAdapter handles unresolved errors
-
+	void unresolvedExceptionWithWebHttpHandlerAdapter() {
 		new HttpWebHandlerAdapter(createWebHandler(new UnresolvedExceptionHandler()))
 				.handle(this.exchange.getRequest(), this.exchange.getResponse()).block();
 
-		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, this.exchange.getResponse().getStatusCode());
+		assertThat(this.exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
 	@Test
-	public void thrownExceptionBecomesErrorSignal() throws Exception {
+	void thrownExceptionBecomesErrorSignal() {
 		createWebHandler(new BadRequestExceptionHandler()).handle(this.exchange).block();
-		assertEquals(HttpStatus.BAD_REQUEST, this.exchange.getResponse().getStatusCode());
+		assertThat(this.exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void thrownExceptionIsStoredAsExchangeAttribute() {
+		createWebHandler(new BadRequestExceptionHandler()).handle(this.exchange).block();
+		Exception exceptionAttribute = this.exchange.getAttribute(ExceptionHandlingWebHandler.HANDLED_WEB_EXCEPTION);
+		assertThat(exceptionAttribute).isInstanceOf(IllegalStateException.class);
 	}
 
 	private WebHandler createWebHandler(WebExceptionHandler... handlers) {

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,15 +19,17 @@ package org.springframework.web.reactive.socket.adapter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import javax.websocket.CloseReason;
-import javax.websocket.CloseReason.CloseCodes;
-import javax.websocket.SendHandler;
-import javax.websocket.SendResult;
-import javax.websocket.Session;
 
+import jakarta.websocket.CloseReason;
+import jakarta.websocket.CloseReason.CloseCodes;
+import jakarta.websocket.RemoteEndpoint;
+import jakarta.websocket.SendHandler;
+import jakarta.websocket.SendResult;
+import jakarta.websocket.Session;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
+import reactor.core.publisher.Sinks;
 
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.web.reactive.socket.CloseStatus;
@@ -37,8 +39,8 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 
 /**
  * Spring {@link WebSocketSession} adapter for a standard Java (JSR 356)
- * {@link javax.websocket.Session}.
- * 
+ * {@link jakarta.websocket.Session}.
+ *
  * @author Violeta Georgieva
  * @author Rossen Stoyanchev
  * @since 5.0
@@ -50,9 +52,9 @@ public class StandardWebSocketSession extends AbstractListenerWebSocketSession<S
 	}
 
 	public StandardWebSocketSession(Session session, HandshakeInfo info, DataBufferFactory factory,
-			@Nullable MonoProcessor<Void> completionMono) {
+			@Nullable Sinks.Empty<Void> completionSink) {
 
-		super(session, session.getId(), info, factory, completionMono);
+		super(session, session.getId(), info, factory, completionSink);
 	}
 
 
@@ -73,26 +75,35 @@ public class StandardWebSocketSession extends AbstractListenerWebSocketSession<S
 
 	@Override
 	protected boolean sendMessage(WebSocketMessage message) throws IOException {
-		ByteBuffer buffer = message.getPayload().asByteBuffer();
+		DataBuffer dataBuffer = message.getPayload();
+		RemoteEndpoint.Async remote = getDelegate().getAsyncRemote();
 		if (WebSocketMessage.Type.TEXT.equals(message.getType())) {
 			getSendProcessor().setReadyToSend(false);
-			String text = new String(buffer.array(), StandardCharsets.UTF_8);
-			getDelegate().getAsyncRemote().sendText(text, new SendProcessorCallback());
-		}
-		else if (WebSocketMessage.Type.BINARY.equals(message.getType())) {
-			getSendProcessor().setReadyToSend(false);
-			getDelegate().getAsyncRemote().sendBinary(buffer, new SendProcessorCallback());
-		}
-		else if (WebSocketMessage.Type.PING.equals(message.getType())) {
-			getDelegate().getAsyncRemote().sendPing(buffer);
-		}
-		else if (WebSocketMessage.Type.PONG.equals(message.getType())) {
-			getDelegate().getAsyncRemote().sendPong(buffer);
+			String text = dataBuffer.toString(StandardCharsets.UTF_8);
+			remote.sendText(text, new SendProcessorCallback());
 		}
 		else {
-			throw new IllegalArgumentException("Unexpected message type: " + message.getType());
+			if (WebSocketMessage.Type.BINARY.equals(message.getType())) {
+				getSendProcessor().setReadyToSend(false);
+			}
+			try (DataBuffer.ByteBufferIterator iterator = dataBuffer.readableByteBuffers()) {
+				while (iterator.hasNext()) {
+					ByteBuffer byteBuffer = iterator.next();
+					switch (message.getType()) {
+						case BINARY -> remote.sendBinary(byteBuffer, new SendProcessorCallback());
+						case PING -> remote.sendPing(byteBuffer);
+						case PONG -> remote.sendPong(byteBuffer);
+						default -> throw new IllegalArgumentException("Unexpected message type: " + message.getType());
+					}
+				}
+			}
 		}
 		return true;
+	}
+
+	@Override
+	public boolean isOpen() {
+		return getDelegate().isOpen();
 	}
 
 	@Override
@@ -101,8 +112,8 @@ public class StandardWebSocketSession extends AbstractListenerWebSocketSession<S
 			CloseReason.CloseCode code = CloseCodes.getCloseCode(status.getCode());
 			getDelegate().close(new CloseReason(code, status.getReason()));
 		}
-		catch (IOException e) {
-			return Mono.error(e);
+		catch (IOException ex) {
+			return Mono.error(ex);
 		}
 		return Mono.empty();
 	}

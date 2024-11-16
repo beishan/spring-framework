@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,8 +20,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
- * A factory for {@link DataBuffer}s, allowing for allocation and wrapping of
- * data buffers.
+ * A factory for {@link DataBuffer DataBuffers}, allowing for allocation and
+ * wrapping of data buffers.
  *
  * @author Arjen Poutsma
  * @since 5.0
@@ -34,7 +34,9 @@ public interface DataBufferFactory {
 	 * underlying implementation and its configuration, this will be heap-based
 	 * or direct buffer.
 	 * @return the allocated buffer
+	 * @deprecated as of 6.0, in favor of {@link #allocateBuffer(int)}
 	 */
+	@Deprecated(since = "6.0")
 	DataBuffer allocateBuffer();
 
 	/**
@@ -70,8 +72,19 @@ public interface DataBufferFactory {
 	 * <p>Note that the given data buffers do <strong>not</strong> have to be released, as they are
 	 * released as part of the returned composite.
 	 * @param dataBuffers the data buffers to be composed
-	 * @return a buffer that is composed from the {@code dataBuffers} argument
+	 * @return a buffer that is composed of the {@code dataBuffers} argument
 	 * @since 5.0.3
 	 */
 	DataBuffer join(List<? extends DataBuffer> dataBuffers);
+
+	/**
+	 * Indicates whether this factory allocates direct buffers (i.e. non-heap,
+	 * native memory).
+	 * @return {@code true} if this factory allocates direct buffers;
+	 * {@code false} otherwise
+	 * @since 6.0
+	 */
+	boolean isDirect();
+
+
 }

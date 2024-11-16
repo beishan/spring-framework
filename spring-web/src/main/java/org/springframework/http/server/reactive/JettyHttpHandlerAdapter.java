@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,12 +17,12 @@
 package org.springframework.http.server.reactive;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import javax.servlet.AsyncContext;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletResponse;
 
-import org.eclipse.jetty.server.HttpOutput;
+import jakarta.servlet.AsyncContext;
+import jakarta.servlet.http.HttpServletResponse;
+import org.eclipse.jetty.ee10.servlet.HttpOutput;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
@@ -32,6 +32,8 @@ import org.springframework.core.io.buffer.DataBufferFactory;
  * to the response with {@link ByteBuffer}.
  *
  * @author Violeta Georgieva
+ * @author Brian Clozel
+ * @author Juergen Hoeller
  * @since 5.0
  * @see org.springframework.web.server.adapter.AbstractReactiveWebInitializer
  */
@@ -43,28 +45,38 @@ public class JettyHttpHandlerAdapter extends ServletHttpHandlerAdapter {
 
 
 	@Override
-	protected ServerHttpResponse createResponse(HttpServletResponse response,
-			AsyncContext context) throws IOException {
+	protected ServletServerHttpResponse createResponse(HttpServletResponse response,
+			AsyncContext context, ServletServerHttpRequest request) throws IOException {
 
-		return new JettyServerHttpResponse(response, context, getDataBufferFactory(), getBufferSize());
+		return new Jetty12ServerHttpResponse(
+				response, context, getDataBufferFactory(), getBufferSize(), request);
 	}
 
 
-	private static final class JettyServerHttpResponse extends ServletServerHttpResponse {
+	private static final class Jetty12ServerHttpResponse extends ServletServerHttpResponse {
 
-		public JettyServerHttpResponse(HttpServletResponse response, AsyncContext context,
-				DataBufferFactory factory, int bufferSize) throws IOException {
+		Jetty12ServerHttpResponse(HttpServletResponse response, AsyncContext asyncContext,
+				DataBufferFactory bufferFactory, int bufferSize, ServletServerHttpRequest request)
+				throws IOException {
 
-			super(response, context, factory, bufferSize);
+			super(response, asyncContext, bufferFactory, bufferSize, request);
 		}
 
 		@Override
 		protected int writeToOutputStream(DataBuffer dataBuffer) throws IOException {
-			ByteBuffer input = dataBuffer.asByteBuffer();
-			int len = input.remaining();
-			ServletResponse response = getNativeResponse();
-			((HttpOutput) response.getOutputStream()).write(input);
-			return len;
+			OutputStream output = getOutputStream();
+			if (output instanceof HttpOutput httpOutput) {
+				int len = 0;
+				try (DataBuffer.ByteBufferIterator iterator = dataBuffer.readableByteBuffers()) {
+					while (iterator.hasNext() && httpOutput.isReady()) {
+						ByteBuffer byteBuffer = iterator.next();
+						len += byteBuffer.remaining();
+						httpOutput.write(byteBuffer);
+					}
+				}
+				return len;
+			}
+			return super.writeToOutputStream(dataBuffer);
 		}
 	}
 

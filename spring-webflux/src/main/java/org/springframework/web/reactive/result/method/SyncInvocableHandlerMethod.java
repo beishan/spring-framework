@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,9 +17,9 @@
 package org.springframework.web.reactive.result.method;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
@@ -27,6 +27,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.reactive.HandlerResult;
+import org.springframework.web.server.ServerErrorException;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
@@ -54,11 +55,11 @@ public class SyncInvocableHandlerMethod extends HandlerMethod {
 
 
 	/**
-	 * Configure the argument resolvers to use to use for resolving method
+	 * Configure the argument resolvers to use for resolving method
 	 * argument values against a {@code ServerWebExchange}.
 	 */
 	public void setArgumentResolvers(List<SyncHandlerMethodArgumentResolver> resolvers) {
-		this.delegate.setArgumentResolvers(new ArrayList<>(resolvers));
+		this.delegate.setArgumentResolvers(resolvers);
 	}
 
 	/**
@@ -67,12 +68,12 @@ public class SyncInvocableHandlerMethod extends HandlerMethod {
 	public List<SyncHandlerMethodArgumentResolver> getResolvers() {
 		return this.delegate.getResolvers().stream()
 				.map(resolver -> (SyncHandlerMethodArgumentResolver) resolver)
-				.collect(Collectors.toList());
+				.toList();
 	}
 
 	/**
 	 * Set the ParameterNameDiscoverer for resolving parameter names when needed
-	 * (e.g. default request attribute name).
+	 * (for example, default request attribute name).
 	 * <p>Default is a {@link DefaultParameterNameDiscoverer}.
 	 */
 	public void setParameterNameDiscoverer(ParameterNameDiscoverer nameDiscoverer) {
@@ -92,14 +93,33 @@ public class SyncInvocableHandlerMethod extends HandlerMethod {
 	 * @param exchange the current exchange
 	 * @param bindingContext the binding context to use
 	 * @param providedArgs optional list of argument values to match by type
-	 * @return Mono with a {@link HandlerResult}.
+	 * @return a Mono with a {@link HandlerResult}.
+	 * @throws ServerErrorException if method argument resolution or method invocation fails
 	 */
 	@Nullable
 	public HandlerResult invokeForHandlerResult(ServerWebExchange exchange,
 			BindingContext bindingContext, Object... providedArgs) {
 
-		// This will not block with only sync resolvers allowed
-		return this.delegate.invoke(exchange, bindingContext, providedArgs).block();
+		CompletableFuture<HandlerResult> future =
+				this.delegate.invoke(exchange, bindingContext, providedArgs).toFuture();
+
+		if (!future.isDone()) {
+			throw new IllegalStateException(
+					"SyncInvocableHandlerMethod should have completed synchronously.");
+		}
+
+		Throwable failure;
+		try {
+			return future.get();
+		}
+		catch (ExecutionException ex) {
+			failure = ex.getCause();
+		}
+		catch (InterruptedException ex) {
+			failure = ex;
+		}
+		throw (new ServerErrorException(
+				"Failed to invoke: " + getShortLogMessage(), getMethod(), failure));
 	}
 
 }

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.UUID;
 import java.util.logging.Logger;
+
 import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
@@ -44,9 +45,11 @@ import org.springframework.util.Assert;
  * for the database.
  * <li>Call {@link #setDatabaseName} to set an explicit name for the database.
  * <li>Call {@link #setDatabaseType} to set the database type if you wish to
- * use one of the supported types.
+ * use one of the pre-supported types with its default settings.
  * <li>Call {@link #setDatabaseConfigurer} to configure support for a custom
- * embedded database type.
+ * embedded database type, or
+ * {@linkplain EmbeddedDatabaseConfigurers#customizeConfigurer customize} the
+ * defaults for one of the pre-supported types.
  * <li>Call {@link #setDatabasePopulator} to change the algorithm used to
  * populate the database.
  * <li>Call {@link #setDataSourceFactory} to change the type of
@@ -59,12 +62,13 @@ import org.springframework.util.Assert;
  * @author Keith Donald
  * @author Juergen Hoeller
  * @author Sam Brannen
+ * @author Stephane Nicoll
  * @since 3.0
  */
 public class EmbeddedDatabaseFactory {
 
 	/**
-	 * Default name for an embedded database: {@value}
+	 * Default name for an embedded database: {@value}.
 	 */
 	public static final String DEFAULT_DATABASE_NAME = "testdb";
 
@@ -91,8 +95,8 @@ public class EmbeddedDatabaseFactory {
 	 * generation of a pseudo-random unique ID to be used as the database name.
 	 * <p>Setting this flag to {@code true} overrides any explicit name set
 	 * via {@link #setDatabaseName}.
-	 * @see #setDatabaseName
 	 * @since 4.2
+	 * @see #setDatabaseName
 	 */
 	public void setGenerateUniqueDatabaseName(boolean generateUniqueDatabaseName) {
 		this.generateUniqueDatabaseName = generateUniqueDatabaseName;
@@ -123,17 +127,23 @@ public class EmbeddedDatabaseFactory {
 
 	/**
 	 * Set the type of embedded database to use.
-	 * <p>Call this when you wish to configure one of the pre-supported types.
+	 * <p>Call this when you wish to configure one of the pre-supported types
+	 * with its default settings.
 	 * <p>Defaults to HSQL.
 	 * @param type the database type
 	 */
 	public void setDatabaseType(EmbeddedDatabaseType type) {
-		this.databaseConfigurer = EmbeddedDatabaseConfigurerFactory.getConfigurer(type);
+		this.databaseConfigurer = EmbeddedDatabaseConfigurers.getConfigurer(type);
 	}
 
 	/**
 	 * Set the strategy that will be used to configure the embedded database instance.
-	 * <p>Call this when you wish to use an embedded database type not already supported.
+	 * <p>Call this with
+	 * {@linkplain EmbeddedDatabaseConfigurers#customizeConfigurer customizeConfigurer}
+	 * when you wish to customize the settings of one of the pre-supported types.
+	 * Alternatively, use this when you wish to use an embedded database type not
+	 * already supported.
+	 * @since 6.2
 	 */
 	public void setDatabaseConfigurer(EmbeddedDatabaseConfigurer configurer) {
 		this.databaseConfigurer = configurer;
@@ -152,6 +162,7 @@ public class EmbeddedDatabaseFactory {
 	 * Factory method that returns the {@linkplain EmbeddedDatabase embedded database}
 	 * instance, which is also a {@link DataSource}.
 	 */
+	@SuppressWarnings("NullAway")
 	public EmbeddedDatabase getDatabase() {
 		if (this.dataSource == null) {
 			initDatabase();
@@ -177,17 +188,16 @@ public class EmbeddedDatabaseFactory {
 
 		// Create the embedded database first
 		if (this.databaseConfigurer == null) {
-			this.databaseConfigurer = EmbeddedDatabaseConfigurerFactory.getConfigurer(EmbeddedDatabaseType.HSQL);
+			this.databaseConfigurer = EmbeddedDatabaseConfigurers.getConfigurer(EmbeddedDatabaseType.HSQL);
 		}
 		this.databaseConfigurer.configureConnectionProperties(
 				this.dataSourceFactory.getConnectionProperties(), this.databaseName);
 		this.dataSource = this.dataSourceFactory.getDataSource();
 
 		if (logger.isInfoEnabled()) {
-			if (this.dataSource instanceof SimpleDriverDataSource) {
-				SimpleDriverDataSource simpleDriverDataSource = (SimpleDriverDataSource) this.dataSource;
+			if (this.dataSource instanceof SimpleDriverDataSource simpleDriverDataSource) {
 				logger.info(String.format("Starting embedded database: url='%s', username='%s'",
-					simpleDriverDataSource.getUrl(), simpleDriverDataSource.getUsername()));
+						simpleDriverDataSource.getUrl(), simpleDriverDataSource.getUsername()));
 			}
 			else {
 				logger.info(String.format("Starting embedded database '%s'", this.databaseName));
@@ -208,7 +218,7 @@ public class EmbeddedDatabaseFactory {
 	}
 
 	/**
-	 * Hook to shutdown the embedded database. Subclasses may call this method
+	 * Hook to shut down the embedded database. Subclasses may call this method
 	 * to force shutdown.
 	 * <p>After calling, {@link #getDataSource()} returns {@code null}.
 	 * <p>Does nothing if no embedded database has been initialized.
@@ -216,9 +226,9 @@ public class EmbeddedDatabaseFactory {
 	protected void shutdownDatabase() {
 		if (this.dataSource != null) {
 			if (logger.isInfoEnabled()) {
-				if (this.dataSource instanceof SimpleDriverDataSource) {
+				if (this.dataSource instanceof SimpleDriverDataSource simpleDriverDataSource) {
 					logger.info(String.format("Shutting down embedded database: url='%s'",
-						((SimpleDriverDataSource) this.dataSource).getUrl()));
+							simpleDriverDataSource.getUrl()));
 				}
 				else {
 					logger.info(String.format("Shutting down embedded database '%s'", this.databaseName));

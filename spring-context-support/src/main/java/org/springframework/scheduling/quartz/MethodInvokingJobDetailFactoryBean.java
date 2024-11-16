@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,6 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.quartz.DisallowConcurrentExecution;
+import org.quartz.Job;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -118,12 +119,12 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 	}
 
 	/**
-	 * Specify whether or not multiple jobs should be run in a concurrent fashion.
+	 * Specify whether multiple jobs should be run in a concurrent fashion.
 	 * The behavior when one does not want concurrent jobs to be executed is
 	 * realized through adding the {@code @PersistJobDataAfterExecution} and
 	 * {@code @DisallowConcurrentExecution} markers.
 	 * More information on stateful versus stateless jobs can be found
-	 * <a href="http://www.quartz-scheduler.org/documentation/quartz-2.1.x/tutorials/tutorial-lesson-03">here</a>.
+	 * <a href="https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/tutorial-lesson-03.html">here</a>.
 	 * <p>The default setting is to run jobs concurrently.
 	 */
 	public void setConcurrent(boolean concurrent) {
@@ -164,7 +165,6 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public void afterPropertiesSet() throws ClassNotFoundException, NoSuchMethodException {
 		prepare();
 
@@ -172,13 +172,13 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 		String name = (this.name != null ? this.name : this.beanName);
 
 		// Consider the concurrent flag to choose between stateful and stateless job.
-		Class<?> jobClass = (this.concurrent ? MethodInvokingJob.class : StatefulMethodInvokingJob.class);
+		Class<? extends Job> jobClass = (this.concurrent ? MethodInvokingJob.class : StatefulMethodInvokingJob.class);
 
 		// Build JobDetail instance.
 		JobDetailImpl jdi = new JobDetailImpl();
 		jdi.setName(name != null ? name : toString());
 		jdi.setGroup(this.group);
-		jdi.setJobClass((Class) jobClass);
+		jdi.setJobClass(jobClass);
 		jdi.setDurability(true);
 		jdi.getJobDataMap().put("methodInvoker", this);
 		this.jobDetail = jdi;
@@ -199,6 +199,7 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 	 * Overridden to support the {@link #setTargetBeanName "targetBeanName"} feature.
 	 */
 	@Override
+	@Nullable
 	public Class<?> getTargetClass() {
 		Class<?> targetClass = super.getTargetClass();
 		if (targetClass == null && this.targetBeanName != null) {
@@ -212,6 +213,7 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 	 * Overridden to support the {@link #setTargetBeanName "targetBeanName"} feature.
 	 */
 	@Override
+	@Nullable
 	public Object getTargetObject() {
 		Object targetObject = super.getTargetObject();
 		if (targetObject == null && this.targetBeanName != null) {
@@ -267,9 +269,9 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 				context.setResult(this.methodInvoker.invoke());
 			}
 			catch (InvocationTargetException ex) {
-				if (ex.getTargetException() instanceof JobExecutionException) {
+				if (ex.getTargetException() instanceof JobExecutionException jobExecutionException) {
 					// -> JobExecutionException, to be logged at info level by Quartz
-					throw (JobExecutionException) ex.getTargetException();
+					throw jobExecutionException;
 				}
 				else {
 					// -> "unhandled exception", to be logged at error level by Quartz
@@ -286,7 +288,7 @@ public class MethodInvokingJobDetailFactoryBean extends ArgumentConvertingMethod
 
 	/**
 	 * Extension of the MethodInvokingJob, implementing the StatefulJob interface.
-	 * Quartz checks whether or not jobs are stateful and if so,
+	 * Quartz checks whether jobs are stateful and if so,
 	 * won't let jobs interfere with each other.
 	 */
 	@PersistJobDataAfterExecution

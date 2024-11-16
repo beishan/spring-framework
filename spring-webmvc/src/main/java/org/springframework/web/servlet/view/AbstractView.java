@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,17 +18,16 @@ package org.springframework.web.servlet.view;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.http.MediaType;
@@ -65,7 +64,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	/** Default content type. Overridable as bean property. */
 	public static final String DEFAULT_CONTENT_TYPE = "text/html;charset=ISO-8859-1";
 
-	/** Initial size for the temporary output byte array (if any) */
+	/** Initial size for the temporary output byte array (if any). */
 	private static final int OUTPUT_BYTE_ARRAY_INITIAL_SIZE = 4096;
 
 
@@ -83,7 +82,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 
 	@Nullable
 	private Set<String> exposedContextBeanNames;
-	
+
 	@Nullable
 	private String beanName;
 
@@ -93,7 +92,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * Set the content type for this view.
 	 * Default is "text/html;charset=ISO-8859-1".
 	 * <p>May be ignored by subclasses if the view itself is assumed
-	 * to set the content type, e.g. in case of JSPs.
+	 * to set the content type, for example, in case of JSPs.
 	 */
 	public void setContentType(@Nullable String contentType) {
 		this.contentType = contentType;
@@ -138,18 +137,18 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 				String tok = st.nextToken();
 				int eqIdx = tok.indexOf('=');
 				if (eqIdx == -1) {
-					throw new IllegalArgumentException("Expected = in attributes CSV string '" + propString + "'");
+					throw new IllegalArgumentException(
+							"Expected '=' in attributes CSV string '" + propString + "'");
 				}
 				if (eqIdx >= tok.length() - 2) {
 					throw new IllegalArgumentException(
 							"At least 2 characters ([]) required in attributes CSV string '" + propString + "'");
 				}
 				String name = tok.substring(0, eqIdx);
-				String value = tok.substring(eqIdx + 1);
-
 				// Delete first and last characters of value: { and }
-				value = value.substring(1);
-				value = value.substring(0, value.length() - 1);
+				int beginIndex = eqIdx + 2;
+				int endIndex = tok.length() - 1;
+				String value = tok.substring(beginIndex, endIndex);
 
 				addStaticAttribute(name, value);
 			}
@@ -180,7 +179,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * the View instance configuration. "Dynamic" attributes, on the other hand,
 	 * are values passed in as part of the model.
 	 * <p>Can be populated with a "map" or "props" element in XML bean definitions.
-	 * @param attributes Map with name Strings as keys and attribute objects as values
+	 * @param attributes a Map with name Strings as keys and attribute objects as values
 	 */
 	public void setAttributesMap(@Nullable Map<String, ?> attributes) {
 		if (attributes != null) {
@@ -189,10 +188,10 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	}
 
 	/**
-	 * Allow Map access to the static attributes of this view,
+	 * Allow {@code Map} access to the static attributes of this view,
 	 * with the option to add or override specific entries.
 	 * <p>Useful for specifying entries directly, for example via
-	 * "attributesMap[myKey]". This is particularly useful for
+	 * {@code attributesMap[myKey]}. This is particularly useful for
 	 * adding or overriding entries in child view definitions.
 	 */
 	public Map<String, Object> getAttributesMap() {
@@ -226,7 +225,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	/**
 	 * Specify whether to add path variables to the model or not.
 	 * <p>Path variables are commonly bound to URI template variables through the {@code @PathVariable}
-	 * annotation. They're are effectively URI template variables with type conversion applied to
+	 * annotation. They are effectively URI template variables with type conversion applied to
 	 * them to derive typed Object values. Such values are frequently needed in views for
 	 * constructing links to the same and other URLs.
 	 * <p>Path variables added to the model override static attributes (see {@link #setAttributes(Properties)})
@@ -272,7 +271,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * flag on but do not list specific bean names for this property.
 	 */
 	public void setExposedContextBeanNames(String... exposedContextBeanNames) {
-		this.exposedContextBeanNames = new HashSet<>(Arrays.asList(exposedContextBeanNames));
+		this.exposedContextBeanNames = Set.of(exposedContextBeanNames);
 	}
 
 	/**
@@ -304,9 +303,10 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	public void render(@Nullable Map<String, ?> model, HttpServletRequest request,
 			HttpServletResponse response) throws Exception {
 
-		if (logger.isTraceEnabled()) {
-			logger.trace("Rendering view with name '" + this.beanName + "' with model " + model +
-				" and static attributes " + this.staticAttributes);
+		if (logger.isDebugEnabled()) {
+			logger.debug("View " + formatViewName() +
+					", model " + (model != null ? model : Collections.emptyMap()) +
+					(this.staticAttributes.isEmpty() ? "" : ", static attributes " + this.staticAttributes));
 		}
 
 		Map<String, Object> mergedModel = createMergedOutputModel(model, request, response);
@@ -330,7 +330,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 		size += (model != null ? model.size() : 0);
 		size += (pathVars != null ? pathVars.size() : 0);
 
-		Map<String, Object> mergedModel = new LinkedHashMap<>(size);
+		Map<String, Object> mergedModel = CollectionUtils.newLinkedHashMap(size);
 		mergedModel.putAll(this.staticAttributes);
 		if (pathVars != null) {
 			mergedModel.putAll(pathVars);
@@ -386,7 +386,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * generating download content that requires temporary caching on the
 	 * client side, typically via the response OutputStream.
 	 * @see #prepareResponse
-	 * @see javax.servlet.http.HttpServletResponse#getOutputStream()
+	 * @see jakarta.servlet.http.HttpServletResponse#getOutputStream()
 	 */
 	protected boolean generatesDownloadContent() {
 		return false;
@@ -430,27 +430,19 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	/**
 	 * Expose the model objects in the given map as request attributes.
 	 * Names will be taken from the model Map.
-	 * This method is suitable for all resources reachable by {@link javax.servlet.RequestDispatcher}.
-	 * @param model Map of model objects to expose
+	 * This method is suitable for all resources reachable by {@link jakarta.servlet.RequestDispatcher}.
+	 * @param model a Map of model objects to expose
 	 * @param request current HTTP request
 	 */
 	protected void exposeModelAsRequestAttributes(Map<String, Object> model,
 			HttpServletRequest request) throws Exception {
 
-		model.forEach((modelName, modelValue) -> {
-			if (modelValue != null) {
-				request.setAttribute(modelName, modelValue);
-				if (logger.isDebugEnabled()) {
-					logger.debug("Added model object '" + modelName + "' of type [" + modelValue.getClass().getName() +
-							"] to request in view with name '" + getBeanName() + "'");
-				}
+		model.forEach((name, value) -> {
+			if (value != null) {
+				request.setAttribute(name, value);
 			}
 			else {
-				request.removeAttribute(modelName);
-				if (logger.isDebugEnabled()) {
-					logger.debug("Removed model object '" + modelName +
-							"' from request in view with name '" + getBeanName() + "'");
-				}
+				request.removeAttribute(name);
 			}
 		});
 	}
@@ -499,14 +491,11 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder(getClass().getName());
-		if (getBeanName() != null) {
-			sb.append(": name '").append(getBeanName()).append("'");
-		}
-		else {
-			sb.append(": unnamed");
-		}
-		return sb.toString();
+		return getClass().getName() + ": " + formatViewName();
+	}
+
+	protected String formatViewName() {
+		return (getBeanName() != null ? "name [" + getBeanName() + "]" : "[" + getClass().getSimpleName() + "]");
 	}
 
 }
